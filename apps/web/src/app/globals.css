@@ -10,7 +10,17 @@
 :root {
   --sidebar-width: 256px;
 
-  /* ── Semantic tokens mapped to Radix sand scale ── */
+  /* ── Brand tokens (cyan + amber dual-tone) ───────────── */
+  /* Used by hero gradients, badges, accents — referenced via
+     bg-[var(--brand-cyan)], bg-clip-text, etc. in app code. */
+  --brand-cyan: #06b6d4;        /* cyan-500 */
+  --brand-cyan-deep: #0e7490;   /* cyan-700, AA-contrast on white */
+  --brand-cyan-soft: #ecfeff;   /* cyan-50 */
+  --brand-amber: #f59e0b;       /* amber-500 */
+  --brand-amber-deep: #b45309;  /* amber-700 */
+  --brand-amber-soft: #fffbeb;  /* amber-50 */
+
+  /* ── Semantic tokens mapped to Radix sand scale ──────── */
   /* Backgrounds */
   --background: #f6f4f0;
   --card: var(--color-sand-2);
@@ -25,7 +35,7 @@
   /* Borders */
   --border: var(--color-sand-6);
   --input: var(--color-sand-7);
-  --ring: var(--color-sand-8);
+  --ring: var(--brand-cyan);              /* focus ring picks up brand */
   --sidebar-border: var(--color-sand-6);
 
   /* Text */
@@ -37,18 +47,18 @@
   --muted-foreground: var(--color-sand-11);
   --code-foreground: var(--foreground);
 
-  /* Primary (buttons, key actions) */
-  --primary: var(--color-sand-12);
-  --primary-foreground: var(--color-sand-1);
+  /* Primary (buttons, key actions) — brand cyan */
+  --primary: var(--brand-cyan-deep);
+  --primary-foreground: #ffffff;
 
   /* Sidebar */
   --sidebar: transparent;
   --sidebar-foreground: var(--color-sand-11);
   --sidebar-accent: var(--color-sand-3);
   --sidebar-accent-foreground: var(--color-sand-12);
-  --sidebar-primary: var(--color-sand-12);
-  --sidebar-primary-foreground: var(--color-sand-1);
-  --sidebar-ring: var(--color-sand-8);
+  --sidebar-primary: var(--brand-cyan-deep);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: var(--brand-cyan);
 
   /* Status colors (keep Tailwind built-in) */
   --destructive: var(--color-red-500);
@@ -60,16 +70,16 @@
   --warning: var(--color-amber-500);
   --warning-foreground: var(--color-amber-700);
 
-  /* Charts */
-  --chart-1: var(--color-orange-600);
-  --chart-2: var(--color-teal-600);
-  --chart-3: var(--color-cyan-900);
-  --chart-4: var(--color-amber-400);
-  --chart-5: var(--color-amber-500);
+  /* Charts (brand-aligned) */
+  --chart-1: var(--brand-cyan);
+  --chart-2: var(--brand-amber);
+  --chart-3: var(--color-emerald-500);
+  --chart-4: var(--color-violet-500);
+  --chart-5: var(--color-rose-500);
 
   /* Misc */
   --code-highlight: var(--color-sand-3);
-  --radius: 0.625rem;
+  --radius: 0.875rem;            /* bumped from 0.625 → 0.875 for friendlier corners */
 }
 
 @theme inline {

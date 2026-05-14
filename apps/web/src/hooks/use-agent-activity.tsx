@@ -92,7 +92,7 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
         const { token: apiToken } = (await apiTokRes.json()) as { token: string };
         const tokRes = await fetch(`${apiOrigin}/api/v1/ws/token`, {
           method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer cw_api_${apiToken}` },
+          headers: { "content-type": "application/json", authorization: `Bearer sy_api_${apiToken}` },
           body: JSON.stringify({ scope: "gateway" }),
         }).catch(() => null);
         if (!tokRes || !tokRes.ok) { reconnectTimer = setTimeout(connect, 30_000); return; }

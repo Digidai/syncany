@@ -134,7 +134,7 @@ export default function SettingsPage() {
       const apiToken = await fetch("/api/me/api-token", { credentials: "include" }).then(r => r.json()).then((d: any) => d.token);
       const res = await fetch(meta.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type, "Authorization": `Bearer cw_api_${apiToken}` },
+        headers: { "Content-Type": file.type, "Authorization": `Bearer sy_api_${apiToken}` },
         body: await file.arrayBuffer(),
       });
       if (!res.ok) throw new Error(await res.text());

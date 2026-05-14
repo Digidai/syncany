@@ -7,9 +7,15 @@ import { HomeCta } from "@/components/home-cta";
 export default function Home(): React.ReactElement {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Subtle radial brand wash behind hero */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[700px] overflow-hidden">
+        <div className="absolute left-1/2 top-[-200px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(6,182,212,0.18),_transparent_60%)]" />
+        <div className="absolute right-[-200px] top-[100px] h-[400px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(245,158,11,0.14),_transparent_60%)]" />
+      </div>
+
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-amber-500 text-white shadow-sm">
             <Sparkles className="h-4 w-4" />
           </span>
           Syncany
@@ -23,14 +29,18 @@ export default function Home(): React.ReactElement {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+      <section className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground">
-            <Zap className="h-3 w-3" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
             Now in private beta
           </span>
           <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
-            Your AI teammates, in the same room.
+            Your{" "}
+            <span className="bg-gradient-to-r from-cyan-500 via-cyan-600 to-amber-500 bg-clip-text text-transparent">
+              AI teammates
+            </span>
+            ,<br className="hidden sm:inline" /> in the same room.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-balance text-lg text-muted-foreground">
             Syncany is a chat workspace where AI agents work alongside your team — replying in channels,
@@ -121,13 +131,15 @@ export default function Home(): React.ReactElement {
       </section>
 
       {/* Final CTA */}
-      <section className="mx-auto max-w-6xl px-6 py-20 text-center">
-        <h2 className="text-3xl font-semibold tracking-tight">Stop tab-switching. Start co-working.</h2>
-        <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          Bring your AI teammates into the same room as the rest of your team. Free during beta.
-        </p>
-        <div className="mt-8 flex justify-center">
-          <HomeCta />
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-transparent to-amber-500/10 px-8 py-16 text-center sm:px-12">
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Stop tab-switching. Start co-working.</h2>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+            Bring your AI teammates into the same room as the rest of your team. Free during beta.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <HomeCta />
+          </div>
         </div>
       </section>
 
@@ -149,8 +161,8 @@ function Step({ n, title, body, pill }: {
   n: number; title: string; body: string; pill?: string;
 }): React.ReactElement {
   return (
-    <div className="rounded-xl border border-border bg-card/40 p-6">
-      <div className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+    <div className="rounded-2xl border border-border bg-card/40 p-6 transition-shadow hover:shadow-md">
+      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-cyan-700 text-sm font-semibold text-white shadow-sm">
         {n}
       </div>
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
@@ -167,7 +179,8 @@ function Step({ n, title, body, pill }: {
 
 function UseCase({ title, body }: { title: string; body: string }): React.ReactElement {
   return (
-    <div className="rounded-xl border border-border bg-card/40 p-6">
+    <div className="rounded-2xl border border-border bg-card/40 p-6 transition-all hover:border-cyan-500/40 hover:shadow-md">
+      <div className="mb-3 h-1 w-10 rounded-full bg-gradient-to-r from-cyan-500 to-amber-500" />
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>
     </div>
@@ -178,8 +191,8 @@ function Feature({ icon, title, body }: {
   icon: React.ReactNode; title: string; body: string;
 }): React.ReactElement {
   return (
-    <div className="rounded-xl border border-border bg-card/40 p-6">
-      <div className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-foreground/5 text-foreground">
+    <div className="rounded-2xl border border-border bg-card/40 p-6 transition-all hover:border-cyan-500/30 hover:shadow-md">
+      <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
         {icon}
       </div>
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>

@@ -26,14 +26,14 @@ Five-round independent review using a rotating cast of evaluators:
 ### Tier S — fired/sued/CVEed within 30 days
 
 #### S1. Bridge → CLI auth path returns 401 (LIVE-VERIFIED)
-- `apps/api/src/index.ts:154-173` only matches `Bearer ck_` and `Bearer cw_api_` prefixes
+- `apps/api/src/index.ts:154-173` only matches `Bearer ck_` and `Bearer sy_api_` prefixes
 - `apps/bridge/src/agent-manager.ts:371` and `packages/cli/src/index.ts:60` send `Bearer ${wsToken}` (raw HS256 JWT, no prefix)
 - `resolveSubject` returns `null` → 401 UNAUTHENTICATED
 - **Live confirmation**:
   - `Bearer <wsToken>` → HTTP 401
-  - `Bearer cw_api_<wsToken>` → HTTP 200
+  - `Bearer sy_api_<wsToken>` → HTTP 200
 - **Impact**: every CLI call from a spawned agent fails. The npm-published agent reply loop **does not work end-to-end on production**. The "live demo" only covers the web→DO WS path.
-- **Fix**: 5 lines. Add a third prefix `cw_bridge_` (or detect bridge tokens by `claims.bridgeId` and accept raw HMAC fallback).
+- **Fix**: 5 lines. Add a third prefix `sy_bridge_` (or detect bridge tokens by `claims.bridgeId` and accept raw HMAC fallback).
 
 #### S2. Machine key (`ck_…`) is unscoped to its server
 - `packages/auth-core/src/machine-keys.ts:23-48` stores `serverId` per key
@@ -106,7 +106,7 @@ Five-round independent review using a rotating cast of evaluators:
 
 **Single PR**:
 
-1. Fix bridge auth 401 — extend `resolveSubject` (`apps/api/src/index.ts:154`) to handle bridge wsTokens; OR change bridge + CLI to send `Bearer cw_api_${token}`
+1. Fix bridge auth 401 — extend `resolveSubject` (`apps/api/src/index.ts:154`) to handle bridge wsTokens; OR change bridge + CLI to send `Bearer sy_api_${token}`
 2. Add `subject.serverId` enforcement in `policy.servers.canRead/canUpdate`, `policy.agents.*`, `policy.channels.*` when `subject.kind === "machine"`
 3. Add a Vitest in `packages/auth-core` covering both gates so they don't regress
 

@@ -6,7 +6,7 @@ import { createAuth } from "@syncany/auth-core";
  * verification email links share a single domain with the UI.
  *
  * The syncany-api Worker no longer serves /api/auth/*; it just trusts
- * Bearer cw_session_<token> headers, looking up sessions in the same D1.
+ * Bearer sy_session_<token> headers, looking up sessions in the same D1.
  */
 async function handler(req: Request): Promise<Response> {
   const { env } = getCloudflareContext();
