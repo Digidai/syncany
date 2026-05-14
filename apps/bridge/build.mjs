@@ -12,7 +12,7 @@ await build({
   format: "esm",
   outfile: "dist/index.js",
   // Just the shebang. createRequire is imported by the bundled agent-manager
-  // module already (used to resolve @digidai/syncany-cli at runtime).
+  // module already (used to resolve @syncany/cli at runtime).
   banner: { js: "#!/usr/bin/env node" },
   // Don't bundle 'claude' — bridge calls it via child_process.spawn.
   external: ["claude"],

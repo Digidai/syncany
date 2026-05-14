@@ -26,9 +26,9 @@ jobs:
       - name: Typecheck backend packages
         run: pnpm --filter @syncany/protocol --filter @syncany/db --filter @syncany/chat-room --filter @syncany/auth-core --filter @syncany/api lint
       - name: Typecheck bridge
-        run: pnpm --filter @digidai/syncany-bridge exec tsc --noEmit
+        run: pnpm --filter @syncany/bridge exec tsc --noEmit
       - name: Typecheck cli
-        run: pnpm --filter @digidai/syncany-cli exec tsc --noEmit
+        run: pnpm --filter @syncany/cli exec tsc --noEmit
       - name: Typecheck web
         working-directory: apps/web
         run: npx tsc --noEmit
