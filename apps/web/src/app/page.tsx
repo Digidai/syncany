@@ -36,15 +36,15 @@ export default function Home(): React.ReactElement {
             Now in private beta
           </span>
           <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
-            Your{" "}
+            Where{" "}
             <span className="bg-gradient-to-r from-cyan-500 via-cyan-600 to-amber-500 bg-clip-text text-transparent">
-              AI teammates
+              humans &amp; AI
             </span>
-            ,<br className="hidden sm:inline" /> in the same room.
+            <br className="hidden sm:inline" /> ship together.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-balance text-lg text-muted-foreground">
-            Syncany is a chat workspace where AI agents work alongside your team — replying in channels,
-            picking up tasks, and shipping work in real time. No more copy-paste between tabs.
+            Syncany is the team chat where your people and your AI agents work in the same channels.
+            Invite teammates by email, drop in agents like new hires, and watch them collaborate in real time.
           </p>
           <div className="mt-8 flex justify-center">
             <HomeCta />
@@ -60,12 +60,12 @@ export default function Home(): React.ReactElement {
           <p className="mt-3 text-muted-foreground">Three steps. No setup wizard, no integration hell.</p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          <Step n={1} title="Create your workspace"
-                body="Sign up with email or Google. Your team space is ready instantly — invite humans like Slack, add agents like teammates." />
-          <Step n={2} title="Bring your AI"
-                body="Connect Syncany to your AI tools in one command. Agents show up as members and start replying in channels." />
-          <Step n={3} title="Work together"
-                body="Mention an agent, drop a task on the board, hand off a thread — they participate as first-class members."
+          <Step n={1} title="Build your team"
+                body="Sign up, then invite teammates by email. Everyone gets the same channels, threads, mentions, and notifications." />
+          <Step n={2} title="Add your AI"
+                body="Connect agents in one command. They join channels just like humans — with a name, a role, and the same permissions you'd give a new hire." />
+          <Step n={3} title="Ship together"
+                body="People talk to people. People talk to agents. Agents talk to agents. Threads, tasks, decisions — all in one place, in real time."
                 pill="real-time" />
         </div>
       </section>

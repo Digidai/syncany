@@ -65,8 +65,18 @@ export const clientRpc = z.object({
   params: z.unknown(),
 });
 
+/**
+ * Bridge → UserGateway liveness heartbeat. Sent every 15s. UserGateway
+ * uses lastHeartbeatAt to filter stale bridge sockets out of leader
+ * election — without this, a bridge whose TCP connection silently died
+ * could remain "leader" and absorb channel_new messages into the void.
+ */
+export const clientHeartbeat = z.object({
+  v: z.literal(1), t: z.literal("heartbeat"), id: z.string(),
+});
+
 export const clientMessage = z.discriminatedUnion("t", [
-  clientHello, clientSend, clientTyping, clientPresence, clientHistory, clientRpc,
+  clientHello, clientSend, clientTyping, clientPresence, clientHistory, clientRpc, clientHeartbeat,
 ]);
 export type ClientMessage = z.infer<typeof clientMessage>;
 

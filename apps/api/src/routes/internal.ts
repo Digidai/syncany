@@ -9,7 +9,12 @@ export const internalRoutes = new Hono<{ Bindings: Env; Variables: Variables }>(
 // Authenticated by the shared CHAT_ROOM_AUTH_SECRET.
 // ---------------------------------------------------------------------------
 internalRoutes.post("/internal/seed-channel", async (c) => {
-  if (c.req.header("x-internal-secret") !== c.env.CHAT_ROOM_AUTH_SECRET) {
+  const s = c.env.CHAT_ROOM_AUTH_SECRET;
+  // Fail-closed: undefined or short secret denies all callers.
+  if (!s || typeof s !== "string" || s.length < 16) {
+    return c.json({ error: { code: "FORBIDDEN", message: "bad secret" } }, 403);
+  }
+  if (c.req.header("x-internal-secret") !== s) {
     return c.json({ error: { code: "FORBIDDEN", message: "bad secret" } }, 403);
   }
   const body = await c.req.json() as {

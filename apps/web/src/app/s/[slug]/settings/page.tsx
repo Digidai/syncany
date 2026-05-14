@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { notifyThrown } from "@/lib/notify";
+import { notifyThrown, notifySuccess } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/ui/card";
@@ -53,6 +53,9 @@ export default function SettingsPage() {
   const [issuedInvite, setIssuedInvite] = useState<{ url: string } | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [members, setMembers] = useState<Array<{ userId: string; role: string; joinedAt: number; name: string; email: string; image: string | null }>>([]);
   // Persistent inline copies of toast errors for form submissions —
   // toasts auto-dismiss after 7 s, but a failed Create/Upload often needs
   // a longer-lived hint right next to the input the user just touched.
@@ -64,12 +67,14 @@ export default function SettingsPage() {
       try {
         const data = await api.getServerBySlug(slug);
         setServerId(data.server.id);
-        const [kData, iData] = await Promise.all([
+        const [kData, iData, mData] = await Promise.all([
           api.listMachineKeys(),
           api.listInvites(data.server.id).catch(() => ({ invites: [] })),
+          api.listMembers(data.server.id).catch(() => ({ members: [] })),
         ]);
         setKeys(kData.keys as Key[]);
         setInvites(iData.invites as any);
+        setMembers(mData.members);
       } catch (e) {
         notifyThrown("Couldn't load settings", e);
       }
@@ -87,9 +92,10 @@ export default function SettingsPage() {
     setKeyError(null);
     try {
       const res = await api.createMachineKey({ serverId, name: keyName.trim() });
+      const apiUrl = process.env.NEXT_PUBLIC_SYNCANY_API_URL ?? "https://api.syncany.app";
       setIssued({
         apiKey: res.apiKey,
-        cmd: `npx -y @syncany/bridge --api-key ${res.apiKey} --server-url https://api.syncany.app`,
+        cmd: `npx -y @syncany/bridge --api-key ${res.apiKey} --server-url ${apiUrl}`,
       });
       setKeyName("");
       reloadKeys();
@@ -109,6 +115,34 @@ export default function SettingsPage() {
       setInvites(i.invites as any);
     } catch (e) {
       notifyThrown("Couldn't create invite", e);
+    }
+  }
+
+  async function handleSendEmailInvite() {
+    if (!serverId || !inviteEmail.trim()) return;
+    setSendingInvite(true);
+    try {
+      const res = await api.inviteByEmail({ serverId, email: inviteEmail.trim() });
+      const i = await api.listInvites(serverId);
+      setInvites(i.invites as any);
+      setInviteEmail("");
+      notifySuccess("Invite sent", `Email delivered to ${res.sentTo}`);
+    } catch (e) {
+      notifyThrown("Couldn't send invite", e);
+    } finally {
+      setSendingInvite(false);
+    }
+  }
+
+  async function handleRemoveMember(userId: string, name: string) {
+    if (!serverId) return;
+    if (!confirm(`Remove ${name} from this workspace? They'll lose access to all channels.`)) return;
+    try {
+      await api.removeMember(serverId, userId);
+      const m = await api.listMembers(serverId);
+      setMembers(m.members);
+    } catch (e) {
+      notifyThrown("Couldn't remove member", e);
     }
   }
 
@@ -175,10 +209,23 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" /> Invite people</CardTitle>
-            <CardDescription>Share a link to add humans to this workspace.</CardDescription>
+            <CardDescription>Send an email invite, or share a link to add humans to this workspace.</CardDescription>
           </CardHeader>
-          <CardPanel>
-            <Button onClick={handleCreateInvite}>+ New invite link (7-day, unlimited uses)</Button>
+          <CardPanel className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="teammate@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail((e.target as HTMLInputElement).value)}
+                className="flex-1"
+              />
+              <Button onClick={handleSendEmailInvite} disabled={!inviteEmail.includes("@") || sendingInvite}>
+                {sendingInvite ? "Sending…" : "Send invite"}
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground">— or —</div>
+            <Button onClick={handleCreateInvite} variant="outline">+ New invite link (7-day, unlimited uses)</Button>
             {issuedInvite && (
               <div className="mt-3 rounded-md border bg-emerald-50 p-3 text-xs">
                 <p className="mb-2 font-medium text-emerald-800">Share this link:</p>
@@ -199,13 +246,46 @@ export default function SettingsPage() {
                         {inv.expiresAt ? new Date(inv.expiresAt).toLocaleDateString() : "never"}
                       </td>
                       <td className="py-1 text-right">
-                        <button className="text-xs text-red-600 hover:underline"
+                        <button className="text-xs text-destructive-foreground hover:underline"
                           onClick={() => handleRevokeInvite(inv.id)}>Revoke</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+          </CardPanel>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" /> Members</CardTitle>
+            <CardDescription>People in this workspace.</CardDescription>
+          </CardHeader>
+          <CardPanel>
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : (
+              <ul className="space-y-2">
+                {members.map((m) => (
+                  <li key={m.userId} className="flex items-center gap-3 text-sm">
+                    {m.image
+                      ? <img src={m.image} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-medium text-cyan-700">{m.name.slice(0,1).toUpperCase()}</div>}
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate font-medium">{m.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{m.email}</div>
+                    </div>
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium capitalize">{m.role}</span>
+                    {m.role !== "owner" && (
+                      <button
+                        className="text-xs text-destructive-foreground hover:underline"
+                        onClick={() => handleRemoveMember(m.userId, m.name)}
+                      >Remove</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </CardPanel>
         </Card>
@@ -275,7 +355,7 @@ export default function SettingsPage() {
                       <td className="py-1 text-xs text-muted-foreground">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "never"}</td>
                       <td className="py-1 text-right">
                         <button
-                          className="text-xs text-red-600 hover:underline"
+                          className="text-xs text-destructive-foreground hover:underline"
                           onClick={async () => {
                             if (!confirm(`Revoke key "${k.name}"? Bridges using it will disconnect.`)) return;
                             try { await api.revokeMachineKey(k.id); reloadKeys(); }

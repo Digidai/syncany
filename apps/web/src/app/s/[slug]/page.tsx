@@ -49,7 +49,7 @@ export default function ServerHomePage() {
     return () => { cancelled = true; };
   }, [slug]);
 
-  if (loading) return <div className="flex flex-1 items-center justify-center"><div className="text-sm text-muted-foreground">Loading...</div></div>;
+  if (loading) return <div className="flex flex-1 items-center justify-center"><div className="text-sm text-muted-foreground">Loading…</div></div>;
   if (!stats) return <div className="flex flex-1 items-center justify-center"><div className="text-sm text-muted-foreground">Workspace not found</div></div>;
 
   return (

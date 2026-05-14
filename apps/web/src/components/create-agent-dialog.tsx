@@ -95,7 +95,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     ))}
                   </div>
                 </Field>
-                {error && <p className="text-sm text-red-600">{error}</p>}
+                {error && <p className="text-sm text-destructive-foreground">{error}</p>}
               </div>
             </DialogPanel>
             <DialogFooter className="flex justify-end gap-2">

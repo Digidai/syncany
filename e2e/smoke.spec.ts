@@ -36,7 +36,7 @@ test.describe("homepage", () => {
   test("/ renders the public marketing landing for unauthenticated visitors", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { name: /Your AI teammates/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /humans .* AI/i })).toBeVisible();
     // Auth-aware CTA pair (signed-out branch shows both buttons; appears in
     // both hero + final-CTA so .first() to avoid strict-mode multi-match).
     await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible();

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Channel, type ChannelMember, type Agent, ApiError } from "@/lib/api";
+import { notifyThrown } from "@/lib/notify";
 import { useChannelSocket } from "@/hooks/use-channel-socket";
 import { useGateway } from "@/hooks/use-agent-activity";
 import { authClient } from "@/lib/auth-client";
@@ -172,19 +173,19 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     const next = editingDraft.trim();
     if (!next || next === m.content) { cancelEdit(); return; }
     try { await api.editMessage(m.id, next); }
-    catch (e) { console.error(e); }
+    catch (e) { notifyThrown("Couldn't save edit", e); }
     cancelEdit();
   }
 
   async function handleDelete(m: MessageRow) {
     if (!confirm("Delete this message? This can't be undone.")) return;
     try { await api.deleteMessage(m.id); }
-    catch (e) { console.error(e); }
+    catch (e) { notifyThrown("Couldn't delete message", e); }
   }
 
   async function handleReact(m: MessageRow, emoji: string) {
     try { await api.toggleReaction(m.id, emoji); }
-    catch (e) { console.error(e); }
+    catch (e) { notifyThrown("Couldn't react", e); }
   }
 
   return (
@@ -279,7 +280,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
           {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">(edited)</span>}
           {isSystem && <span className="text-[10px] uppercase text-muted-foreground">system</span>}
           {!isDeleted && (
-            <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <button onClick={() => setShowPicker(p => !p)} title="Add reaction"
                 className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
                 <Smile className="h-3.5 w-3.5" />
@@ -291,7 +292,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button onClick={onDelete} title="Delete"
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-red-600">
+                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive-foreground">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </>

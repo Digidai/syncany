@@ -14,7 +14,7 @@ interface Props {
   onDismiss?: () => void;
 }
 
-const API_URL = "https://api.syncany.app";
+const API_URL = process.env.NEXT_PUBLIC_SYNCANY_API_URL ?? "https://api.syncany.app";
 
 /**
  * 4-step wizard shown to users who haven't connected a bridge yet:
@@ -73,9 +73,8 @@ export function SetupWizard({ serverId, serverSlug, onDismiss }: Props) {
               </button>
             </div>
             <CardDescription>
-              Syncany lets human and AI teammates share channels. Each agent runs as
-              a Claude Code process on <em>your own</em> laptop, talking to the
-              hosted UI you're looking at right now.
+              Each AI teammate runs on <em>your own</em> laptop and joins channels
+              here in real time. We&apos;ll connect your laptop in 2 minutes.
             </CardDescription>
           </CardHeader>
           <CardPanel>
@@ -107,7 +106,7 @@ export function SetupWizard({ serverId, serverSlug, onDismiss }: Props) {
                       <KeyRound className="mr-1 h-3.5 w-3.5" /> Issue key
                     </Button>
                   </div>
-                  {error && <p className="text-red-600">{error}</p>}
+                  {error && <p className="text-destructive-foreground">{error}</p>}
                   <p className="text-xs text-muted-foreground">
                     Keys are shown once. Treat them like passwords.
                   </p>

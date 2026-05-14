@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@syncany/auth-core";
 import { createTaskRequest, updateTaskRequest, listTasksQuery } from "@syncany/protocol";
-import { channelMembers, messages, tasks } from "@syncany/db";
+import { channelMembers, channels, messages, tasks } from "@syncany/db";
 import { and, desc, eq } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
@@ -43,15 +43,24 @@ tasksRoutes.get("/api/v1/tasks", requireAuth, async (c) => {
   }
 
   // No channel filter → list across channels visible to subject's agents/self.
+  // Membership join below already constrains to subject's channels (humans).
+  // For machine subjects we additionally constrain via the channel's serverId
+  // so a key for serverA can't enumerate serverB tasks even if the user is
+  // a member of both servers.
+  const conds = [
+    eq(channelMembers.channelId, tasks.channelId),
+    eq(channelMembers.memberId, subject.userId),
+  ];
   const rows = await db
-    .select({ t: tasks, content: messages.content })
+    .select({ t: tasks, content: messages.content, serverId: channels.serverId })
     .from(tasks)
-    .innerJoin(channelMembers, and(
-      eq(channelMembers.channelId, tasks.channelId),
-      eq(channelMembers.memberId, subject.userId),
-    ))
+    .innerJoin(channelMembers, and(...conds))
+    .innerJoin(channels, eq(channels.id, tasks.channelId))
     .leftJoin(messages, eq(messages.id, tasks.messageId))
-    .where(q.status ? eq(tasks.status, q.status) : undefined)
+    .where(and(
+      q.status ? eq(tasks.status, q.status) : undefined,
+      subject.kind === "machine" ? eq(channels.serverId, subject.serverId) : undefined,
+    ))
     .orderBy(desc(tasks.createdAt))
     .limit(q.limit);
   return c.json({ tasks: rows.map(r => ({ ...r.t, title: titleFromMessage(r.content) })) });
@@ -65,57 +74,68 @@ tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
 
   const db = drizzle(c.env.DB);
 
-  // Allocate the next task_number with a write-side conditional INSERT so
-  // concurrent callers can't both compute the same number. Retry up to 5
-  // times if UNIQUE(channel_id, task_number) collides.
+  // 1. Allocate task_number atomically via INSERT-then-retry on UNIQUE
+  //    collision. Row is inserted with messageId=null; the DO send happens
+  //    AFTER we know the committed task_number, then we back-fill messageId.
+  //    This avoids the prior bug where retry posted duplicate user-visible
+  //    chat messages with diverging task numbers.
   const id = crypto.randomUUID();
   const now = new Date();
   let taskNumber = 0;
-  let messageRes: { ok?: boolean; seq?: number; messageId?: string } = {};
-
+  let inserted = false;
   for (let attempt = 0; attempt < 5; attempt++) {
     const existing = await db.select({ max: tasks.taskNumber })
       .from(tasks).where(eq(tasks.channelId, body.channelId));
     taskNumber = (existing.reduce((m, r) => Math.max(m, r.max ?? 0), 0)) + 1;
-
-    // 1. Send the chat message via the ChatRoom DO so it gets a real seq
-    //    (no more seq=0 hack) AND broadcasts to live subscribers.
-    const stub = c.env.CHAT_ROOM.get(c.env.CHAT_ROOM.idFromName(body.channelId));
-    const sendRes = await stub.fetch("https://chat-room/internal/send", {
-      method: "POST",
-      headers: { "x-internal-secret": c.env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
-      body: JSON.stringify({
-        channelId: body.channelId,
-        senderId: subject.userId,
-        senderType: "human",
-        content: `📋 Task #${taskNumber}: ${body.title}`,
-        threadParentId: null,
-        idempotencyKey: `task-create-${id}`,
-      }),
-    });
-    if (!sendRes.ok) {
-      return c.json({ error: { code: "TASK_SEND_FAILED", message: "DO rejected task system message" } }, 500);
-    }
-    messageRes = await sendRes.json() as { ok: boolean; seq: number; messageId: string };
-
-    // 2. Insert the task row referencing the DO-allocated message.
     try {
       await db.insert(tasks).values({
-        id, messageId: messageRes.messageId!, channelId: body.channelId,
+        id, messageId: null, channelId: body.channelId,
         taskNumber, status: "todo",
         assigneeId: body.assigneeId ?? null,
         assigneeType: body.assigneeType ?? null,
         createdAt: now, updatedAt: now,
       });
-      return c.json({ id, taskNumber, messageId: messageRes.messageId, seq: messageRes.seq });
+      inserted = true;
+      break;
     } catch (e) {
-      // UNIQUE collision on (channel_id, task_number) → another caller raced
-      // us. Loop and try the next number.
-      if (String(e).includes("UNIQUE") && attempt < 4) continue;
+      // Unique-constraint codes vary by D1 version; "UNIQUE" or "constraint"
+      // both cover SQLite's text. Retry on conflict, surface anything else.
+      const m = String(e);
+      if ((m.includes("UNIQUE") || m.includes("constraint")) && attempt < 4) continue;
       throw e;
     }
   }
-  return c.json({ error: { code: "TASK_CONFLICT", message: "could not allocate task number after retries" } }, 409);
+  if (!inserted) {
+    return c.json({ error: { code: "TASK_CONFLICT", message: "could not allocate task number after retries" } }, 409);
+  }
+
+  // 2. Now post the chat message with the COMMITTED task_number. Idempotency
+  //    key is stable (per task id) so any retry of THIS endpoint dedupes.
+  const stub = c.env.CHAT_ROOM.get(c.env.CHAT_ROOM.idFromName(body.channelId));
+  const sendRes = await stub.fetch("https://chat-room/internal/send", {
+    method: "POST",
+    headers: { "x-internal-secret": c.env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+    body: JSON.stringify({
+      channelId: body.channelId,
+      senderId: subject.userId,
+      senderType: "human",
+      content: `📋 Task #${taskNumber}: ${body.title}`,
+      threadParentId: null,
+      idempotencyKey: `task-create-${id}`,
+    }),
+  });
+  if (!sendRes.ok) {
+    // Row exists but message didn't post — leave row with null messageId so
+    // a manual retry endpoint (future work) can backfill it. Return success
+    // since the task itself was created.
+    return c.json({ id, taskNumber, messageId: null, seq: null, warning: "task created but chat message failed" });
+  }
+  const messageRes = await sendRes.json() as { ok: boolean; seq: number; messageId: string };
+
+  // 3. Backfill the messageId so the UI can link task ↔ message.
+  await db.update(tasks).set({ messageId: messageRes.messageId }).where(eq(tasks.id, id));
+
+  return c.json({ id, taskNumber, messageId: messageRes.messageId, seq: messageRes.seq });
 });
 
 tasksRoutes.patch("/api/v1/tasks/:id", requireAuth, async (c) => {

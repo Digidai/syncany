@@ -52,19 +52,14 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
 messagesRoutes.patch("/api/v1/messages/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
   const body = editMessageRequest.parse(await c.req.json());
-  const subject = c.get("subject");
+  const ctx = ctxFor(c);
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
   if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
   const m = rows[0];
-  // Only original sender can edit. (For agent messages, only the agent's owner.)
-  let allowed = m.senderId === subject.userId;
-  if (!allowed && m.senderType === "agent") {
-    const own = await db.select({ id: agents.id }).from(agents)
-      .where(and(eq(agents.id, m.senderId), eq(agents.ownerId, subject.userId))).limit(1);
-    allowed = own.length > 0;
-  }
-  if (!allowed) return c.json({ error: { code: "FORBIDDEN", message: "not your message" } }, 403);
+  // Edit permission goes through policy.messages.canEdit — same enforcement
+  // surface as the other routes (covers machine-key serverId scoping too).
+  await requirePolicy(policy.messages.canEdit(ctx, { senderId: m.senderId, senderType: m.senderType }));
   if (m.deletedAt) return c.json({ error: { code: "GONE", message: "message deleted" } }, 410);
 
   const editedAt = new Date();
@@ -77,18 +72,12 @@ messagesRoutes.patch("/api/v1/messages/:id", requireAuth, async (c) => {
 
 messagesRoutes.delete("/api/v1/messages/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
-  const subject = c.get("subject");
+  const ctx = ctxFor(c);
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
   if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
   const m = rows[0];
-  let allowed = m.senderId === subject.userId;
-  if (!allowed && m.senderType === "agent") {
-    const own = await db.select({ id: agents.id }).from(agents)
-      .where(and(eq(agents.id, m.senderId), eq(agents.ownerId, subject.userId))).limit(1);
-    allowed = own.length > 0;
-  }
-  if (!allowed) return c.json({ error: { code: "FORBIDDEN", message: "not your message" } }, 403);
+  await requirePolicy(policy.messages.canEdit(ctx, { senderId: m.senderId, senderType: m.senderType }));
 
   const deletedAt = new Date();
   await db.update(messages).set({

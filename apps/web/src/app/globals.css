@@ -243,15 +243,16 @@
   --muted-foreground: var(--color-sanddark-11);
   --popover: var(--color-sanddark-2);
   --popover-foreground: var(--color-sanddark-12);
-  --primary: var(--color-sanddark-12);
-  --primary-foreground: var(--color-sanddark-1);
-  --ring: var(--color-sanddark-8);
+  /* Brand carries through dark mode too. */
+  --primary: var(--brand-cyan);
+  --primary-foreground: #ffffff;
+  --ring: var(--brand-cyan);
   --secondary: var(--color-sanddark-3);
   --secondary-foreground: var(--color-sanddark-12);
-  --chart-1: var(--color-blue-700);
-  --chart-2: var(--color-emerald-500);
-  --chart-3: var(--color-amber-500);
-  --chart-4: var(--color-purple-500);
+  --chart-1: var(--brand-cyan);
+  --chart-2: var(--brand-amber);
+  --chart-3: var(--color-emerald-500);
+  --chart-4: var(--color-violet-500);
   --chart-5: var(--color-rose-500);
   --code: var(--color-sanddark-2);
   --code-foreground: var(--foreground);

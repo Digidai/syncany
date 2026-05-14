@@ -46,6 +46,12 @@ machineKeysRoutes.post("/api/v1/machine-keys", requireAuth, async (c) => {
 
 machineKeysRoutes.get("/api/v1/machine-keys", requireAuth, async (c) => {
   const subject = c.get("subject");
+  // Listing keys is a sensitive operation — only the user themselves
+  // (cookie session, not a machine key bearer) can enumerate their keys.
+  // A leaked machine key must NOT be able to list other keys.
+  if (subject.kind !== "user") {
+    return c.json({ error: { code: "FORBIDDEN", message: "user session required" } }, 403);
+  }
   const db = drizzle(c.env.DB);
   const rows = await db.select({
     id: machineKeys.id, prefix: machineKeys.keyPrefix, name: machineKeys.name,

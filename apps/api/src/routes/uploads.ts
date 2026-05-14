@@ -35,6 +35,12 @@ uploadsRoutes.put("/api/v1/uploads/r2/:key{.+}", requireAuth, async (c) => {
   if (!/^image\/(png|jpe?g|gif|webp)$/.test(ct)) {
     return c.json({ error: { code: "BAD_TYPE", message: "image/* only" } }, 400);
   }
+  // Pre-flight content-length check — refuse oversized uploads BEFORE
+  // streaming the body into worker memory. Stops trivial OOM attempts.
+  const declared = Number(c.req.header("content-length") ?? "0");
+  if (declared > 2_000_000) {
+    return c.json({ error: { code: "TOO_LARGE", message: "max 2MB" } }, 413);
+  }
   const body = await c.req.arrayBuffer();
   if (body.byteLength > 2_000_000) {
     return c.json({ error: { code: "TOO_LARGE", message: "max 2MB" } }, 413);
@@ -49,6 +55,11 @@ uploadsRoutes.put("/api/v1/uploads/r2/:key{.+}", requireAuth, async (c) => {
 
 uploadsRoutes.get("/uploads/:key{.+}", async (c) => {
   const key = decodeURIComponent(c.req.param("key"));
+  // Public surface: avatars only. Anything else in the bucket is private
+  // (future expansion) — refuse to serve unprefixed keys.
+  if (!key.startsWith("avatars/")) {
+    return c.text("not found", 404);
+  }
   const obj = await c.env.UPLOADS.get(key);
   if (!obj) return c.text("not found", 404);
   const headers = new Headers();

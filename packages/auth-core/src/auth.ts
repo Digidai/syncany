@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
 import * as schema from "@syncany/db/schema";
 import { runOnboarding } from "./onboarding";
 import { sendEmail, type EmailEnv } from "./email";
@@ -56,13 +57,34 @@ export function createAuth(env: AuthEnv) {
         if (!u.searchParams.has("callbackURL")) {
           u.searchParams.set("callbackURL", "/verify-email");
         }
-        await sendEmail(env, {
-          to: user.email,
-          subject: "Verify your Syncany email",
-          html: `<p>Welcome to Syncany, ${escapeHtml(user.name)}.</p>
-            <p><a href="${u.toString()}">Click to verify your email</a></p>
-            <p style="color:#888;font-size:12px">If you didn't sign up, just ignore this.</p>`,
-        });
+        try {
+          await sendEmail(env, {
+            to: user.email,
+            subject: "Verify your Syncany email",
+            html: `<p>Welcome to Syncany, ${escapeHtml(user.name)}.</p>
+              <p><a href="${u.toString()}">Click to verify your email</a></p>
+              <p style="color:#888;font-size:12px">If you didn't sign up, just ignore this.</p>`,
+          });
+        } catch (err) {
+          // Atomic-ish signup: if we can't send the verification email, the
+          // user is permanently locked out (can't log in without verifying,
+          // can't re-signup because email is taken). Roll back the user row
+          // so they can try again. Onboarding artifacts (server, channels)
+          // get garbage-collected by the FK cascade on `user`.
+          console.error("[auth] verification email failed — rolling back user", {
+            userId: user.id, email: user.email, error: String(err),
+          });
+          try {
+            await db.delete(schema.user).where(eq(schema.user.id, user.id));
+          } catch (rollbackErr) {
+            console.error("[auth] FAILED TO ROLL BACK USER", {
+              userId: user.id, error: String(rollbackErr),
+            });
+          }
+          // Re-throw so better-auth returns a 5xx and the UI shows an error
+          // instead of a misleading "verification email sent" toast.
+          throw err;
+        }
       },
     },
     socialProviders: env.GOOGLE_CLIENT_ID && env.BETTER_AUTH_GOOGLE_CLIENT_SECRET

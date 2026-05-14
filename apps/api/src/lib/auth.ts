@@ -28,6 +28,9 @@ export async function resolveSubject(c: Ctx): Promise<Subject | null> {
     const token = authz.slice("Bearer sy_api_".length);
     const claims = await verifyWsToken(token, c.env.CHAT_ROOM_AUTH_SECRET);
     if (!claims) return null;
+    // Same revocation surface as bridge tokens — a leaked sy_api_ token
+    // can be invalidated by writing its jti into the KV deny-list.
+    if (claims.jti && await isTokenRevoked(c.env.RATE_LIMITS, claims.jti)) return null;
     return { kind: "user", userId: claims.sub };
   }
 

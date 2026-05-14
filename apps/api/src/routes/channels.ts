@@ -22,31 +22,35 @@ channelsRoutes.post("/api/v1/channels/:id/read", requireAuth, async (c) => {
   const db = drizzle(c.env.DB);
 
   // Clamp to actual max(seq) so a stale/buggy client can't mark read past
-  // anything that exists. Take max(existing, requested) so multi-tab races
-  // never roll the read marker backwards.
-  const [maxRow, currentRow] = await Promise.all([
-    db.select({ m: sqlFn<number>`COALESCE(MAX(${messages.seq}), 0)` })
-      .from(messages).where(eq(messages.channelId, channelId)),
-    db.select({ s: channelMembers.lastReadSeq })
-      .from(channelMembers)
-      .where(and(
-        eq(channelMembers.channelId, channelId),
-        eq(channelMembers.memberId, subject.userId),
-        eq(channelMembers.memberType, "human"),
-      )).limit(1),
-  ]);
+  // anything that exists. The actual UPDATE uses SQL `MAX(lastReadSeq, ?)`
+  // so multi-tab concurrent writes can't roll the marker backwards even
+  // if their requests interleave (no SELECT-then-UPDATE race).
+  const maxRow = await db
+    .select({ m: sqlFn<number>`COALESCE(MAX(${messages.seq}), 0)` })
+    .from(messages).where(eq(messages.channelId, channelId));
   const maxSeq = Number(maxRow[0]?.m ?? 0);
-  const current = Number(currentRow[0]?.s ?? 0);
-  const next = Math.min(maxSeq, Math.max(current, body.seq));
-  if (next === current) return c.json({ ok: true, lastReadSeq: current });
+  const requested = Math.min(maxSeq, body.seq);
 
   await db.update(channelMembers)
-    .set({ lastReadSeq: next })
+    .set({ lastReadSeq: sqlFn`MAX(COALESCE(${channelMembers.lastReadSeq}, 0), ${requested})` })
     .where(and(
       eq(channelMembers.channelId, channelId),
       eq(channelMembers.memberId, subject.userId),
       eq(channelMembers.memberType, "human"),
     ));
+
+  // Read final value back so the response + downstream notify carry the
+  // committed seq (which may differ from `requested` if a concurrent tab
+  // wrote a higher value first).
+  const finalRow = await db
+    .select({ s: channelMembers.lastReadSeq })
+    .from(channelMembers)
+    .where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, subject.userId),
+      eq(channelMembers.memberType, "human"),
+    )).limit(1);
+  const next = Number(finalRow[0]?.s ?? requested);
 
   // Tell every other tab/device of this user via UserGateway so sidebars
   // can clear the badge instantly without re-fetching.
@@ -122,16 +126,11 @@ channelsRoutes.patch("/api/v1/channels/:id", requireAuth, async (c) => {
 
 channelsRoutes.delete("/api/v1/channels/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
-  const subject = c.get("subject");
+  const ctx = ctxFor(c);
+  // Same gate as channels.patch — creator OR server owner, with machine-key
+  // serverId scoping enforced through policy.channels.canDelete.
+  await requirePolicy(policy.channels.canDelete(ctx, id));
   const db = drizzle(c.env.DB);
-  // Only creator or server owner can delete.
-  const ch = await db.select({ createdBy: channels.createdBy, serverId: channels.serverId })
-    .from(channels).where(eq(channels.id, id)).limit(1);
-  if (ch.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
-  const isCreator = ch[0].createdBy === subject.userId;
-  const isOwner = (await db.select({ id: servers.id }).from(servers)
-    .where(and(eq(servers.id, ch[0].serverId), eq(servers.ownerId, subject.userId))).limit(1)).length > 0;
-  if (!isCreator && !isOwner) return c.json({ error: { code: "FORBIDDEN", message: "not allowed" } }, 403);
   await db.delete(channels).where(eq(channels.id, id));
   return c.json({ ok: true });
 });

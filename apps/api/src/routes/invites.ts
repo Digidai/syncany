@@ -1,13 +1,21 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { requirePolicy, policy } from "@syncany/auth-core";
+import { requirePolicy, policy, sendEmail } from "@syncany/auth-core";
 import { createInviteRequest } from "@syncany/protocol";
 import { servers, serverMembers, invites } from "@syncany/db";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
 
 export const invitesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+const emailInviteRequest = z.object({
+  serverId: z.string(),
+  email: z.string().email().max(254),
+  role: z.enum(["admin", "member"]).default("member"),
+  ttlHours: z.number().int().positive().max(24 * 30).default(24 * 7),
+});
 
 // ---------------------------------------------------------------------------
 // /api/v1/invites — create / accept / list / revoke
@@ -79,6 +87,34 @@ invitesRoutes.get("/api/v1/invites/:id/preview", async (c) => {
   });
 });
 
+// Email-invite: same flow as the link variant, but server emails the link
+// to the recipient instead of returning it to the inviter to copy/paste.
+invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
+  const body = emailInviteRequest.parse(await c.req.json());
+  const subject = c.get("subject");
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.servers.canUpdate(ctx, body.serverId));
+  const id = "inv_" + crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+  const expiresAt = new Date(Date.now() + body.ttlHours * 3600_000);
+  const db = drizzle(c.env.DB);
+  await db.insert(invites).values({
+    id, serverId: body.serverId, invitedBy: subject.userId,
+    role: body.role, maxUses: 1, uses: 0, expiresAt, createdAt: new Date(),
+  });
+  const url = `${c.env.WEB_ORIGIN}/invite/${id}`;
+  // Look up server name + inviter name for the email body.
+  const [srv] = await db.select({ name: servers.name }).from(servers).where(eq(servers.id, body.serverId)).limit(1);
+  const serverName = srv?.name ?? "your workspace";
+  await sendEmail(c.env, {
+    to: body.email,
+    subject: `You're invited to join ${serverName} on Syncany`,
+    html: `<p>You've been invited to join <strong>${escapeHtml(serverName)}</strong> on Syncany.</p>
+      <p><a href="${url}">Click to accept the invite</a></p>
+      <p style="color:#888;font-size:12px">This link expires in ${body.ttlHours} hours and can be used once.</p>`,
+  });
+  return c.json({ id, url, sentTo: body.email });
+});
+
 invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
@@ -114,3 +150,7 @@ invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, async (c) => {
   const srv = await db.select({ slug: servers.slug }).from(servers).where(eq(servers.id, inv.serverId)).limit(1);
   return c.json({ ok: true, serverSlug: srv[0]?.slug });
 });
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}

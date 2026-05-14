@@ -173,7 +173,12 @@ export type Reaction = typeof reactions.$inferSelect;
 
 export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),
-  messageId: text("message_id").notNull().unique().references(() => messages.id, { onDelete: "cascade" }),
+  // Nullable so the row is inserted FIRST (atomic UNIQUE on
+  // (channel_id, task_number)), then the chat message is posted with the
+  // correct number, then this column gets back-filled. Avoids the race
+  // where a retry-on-UNIQUE-collision posted duplicate user-visible chat
+  // messages with diverging numbers.
+  messageId: text("message_id").unique().references(() => messages.id, { onDelete: "cascade" }),
   channelId: text("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
   taskNumber: integer("task_number").notNull(),
   status: text("status", { enum: ["todo", "in_progress", "in_review", "done"] }).notNull().default("todo"),

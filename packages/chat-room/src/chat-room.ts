@@ -9,30 +9,37 @@ import {
   encode,
   PROTOCOL_VERSION,
 } from "@syncany/protocol";
-import { verifyWsToken } from "@syncany/auth-core";
+import { verifyWsToken, isTokenRevoked } from "@syncany/auth-core";
 
 export interface ChatRoomEnv {
   DB: D1Database;
   CHAT_ROOM_AUTH_SECRET: string;
   /** UserGateway DO — used to fanout new-message events for sidebar unread badges. */
   USER_GATEWAY?: DurableObjectNamespace;
+  /** KV deny-list for revoked tokens (jti + bridgeId). Optional in dev. */
+  RATE_LIMITS?: KVNamespace;
 }
 
 interface AttachedSession {
   userId: string;
   agentIds: string[];
   channelId: string;
+  /** Bridge id from sy_bridge_ token — used for membership re-checks +
+   *  revocation across the WS lifetime. */
+  bridgeId?: string;
 }
 
 interface VerifiedToken {
   userId: string;
   agentIds: string[];
   channelId: string;
+  bridgeId?: string;
   exp: number;
 }
 
 const MAX_PENDING_BATCH = 50;
 const ALARM_DELAY_MS = 250;
+const MAX_FLUSH_ATTEMPTS = 5;
 const ALARM_BACKOFF_MS = 5_000;
 
 /**
@@ -101,7 +108,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
   /** Server-to-server fanout (message edits, deletes, reactions). */
   private async handleNotify(req: Request): Promise<Response> {
-    if (req.headers.get("x-internal-secret") !== this.env.CHAT_ROOM_AUTH_SECRET) {
+    if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as ServerMessage;
@@ -144,6 +151,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       userId: claims.userId,
       agentIds: claims.agentIds,
       channelId,
+      bridgeId: claims.bridgeId,
     };
     server.serializeAttachment(attached);
     this.ctx.acceptWebSocket(server, [`u:${claims.userId}`, `c:${channelId}`]);
@@ -170,7 +178,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
    * subscribers, AND honours an idempotency key so retries don't double-post.
    */
   private async handleInternalSend(req: Request): Promise<Response> {
-    if (req.headers.get("x-internal-secret") !== this.env.CHAT_ROOM_AUTH_SECRET) {
+    if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as {
@@ -189,8 +197,11 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       return Response.json({ ok: true, seq: Number(dup.seq), deduped: true });
     }
 
-    const seq = ++this.nextSeq;
-    sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(this.nextSeq));
+    // Persist next_seq BEFORE bumping in-memory so a SQL failure doesn't
+    // leave nextSeq ahead of storage (would create a gap in broadcast seqs).
+    const seq = this.nextSeq + 1;
+    sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(seq));
+    this.nextSeq = seq;
     const now = Date.now();
     const messageId = crypto.randomUUID();
     const row: MessageRow = {
@@ -211,7 +222,10 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
     // Fanout to every channel member's UserGateway so sidebar unread badges
     // can update without re-fetching. Don't await — best-effort.
-    this.fanoutToGateways(body.channelId, seq, body.senderId).catch(() => {});
+    // ctx.waitUntil keeps the fanout Promise alive even if the DO is
+    // evicted immediately after we respond — without it, sidebar unread
+    // bumps could go missing under high pressure.
+    this.ctx.waitUntil(this.fanoutToGateways(body.channelId, seq, body.senderId).catch(() => {}));
     return Response.json({ ok: true, seq, messageId });
   }
 
@@ -246,7 +260,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
   private async handleSeed(req: Request): Promise<Response> {
     // Internal-only endpoint used by onboarding / system flows.
-    if (req.headers.get("x-internal-secret") !== this.env.CHAT_ROOM_AUTH_SECRET) {
+    if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as { channelId: string; messages: Array<Omit<MessageRow, "seq" | "createdAt" | "updatedAt">> };
@@ -255,8 +269,9 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     const now = Date.now();
     const persisted: MessageRow[] = [];
     for (const m of body.messages) {
-      const seq = ++this.nextSeq;
-      sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(this.nextSeq));
+      const seq = this.nextSeq + 1;
+      sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(seq));
+      this.nextSeq = seq;
       // Always overwrite channelId from body (caller passes "" placeholder).
       const row: MessageRow = { ...m, channelId: body.channelId, seq, createdAt: now, updatedAt: now };
       sql.exec(`INSERT INTO pending_writes(seq, message_json) VALUES(?, ?)`, seq, JSON.stringify(row));
@@ -331,21 +346,43 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   private async handleSend(ws: WebSocket, sess: AttachedSession, msg: Extract<ClientMessage, { t: "send" }>): Promise<void> {
     const sql = this.ctx.storage.sql;
 
-    // Idempotency
-    const dup = sql.exec(`SELECT seq FROM idem WHERE user_id=? AND key=?`, sess.userId, msg.idempotencyKey).toArray()[0];
+    // Resolve sender first so the idempotency dedupe key is scoped to the
+    // ACTUAL sender (human or agent), not just sess.userId — otherwise an
+    // agent + human under the same session collide on dup keys.
+    const senderType: "human" | "agent" =
+      msg.as && sess.agentIds.includes(msg.as) ? "agent" : "human";
+    const senderId = senderType === "agent" ? msg.as! : sess.userId;
+
+    // Membership recheck. Token TTL can be up to 7d (bridge); a user removed
+    // from the channel mid-session must not keep posting. (P1 from diag.)
+    const db = drizzle(this.env.DB);
+    const member = await db
+      .select({ id: channelMembers.memberId })
+      .from(channelMembers)
+      .where(and(
+        eq(channelMembers.channelId, this.channelId),
+        eq(channelMembers.memberId, senderId),
+        eq(channelMembers.memberType, senderType),
+      ))
+      .limit(1);
+    if (member.length === 0) {
+      this.sendErr(ws, msg.id, "FORBIDDEN", "not a member of this channel");
+      return;
+    }
+
+    // Idempotency keyed on actual sender, not session user.
+    const dup = sql.exec(`SELECT seq FROM idem WHERE user_id=? AND key=?`, senderId, msg.idempotencyKey).toArray()[0];
     if (dup) {
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id, seq: Number(dup.seq) });
       return;
     }
 
-    // Resolve sender
-    const senderType: "human" | "agent" =
-      msg.as && sess.agentIds.includes(msg.as) ? "agent" : "human";
-    const senderId = senderType === "agent" ? msg.as! : sess.userId;
-
-    // Allocate seq
-    const seq = ++this.nextSeq;
-    sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(this.nextSeq));
+    // Allocate seq AFTER persisting next_seq so a SQL failure doesn't leave
+    // the in-memory counter ahead of storage (would create a gap in the
+    // broadcast seq sequence). Same fix below.
+    const seq = this.nextSeq + 1;
+    sql.exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('next_seq',?)`, String(seq));
+    this.nextSeq = seq;
 
     const messageId = crypto.randomUUID();
     const now = Date.now();
@@ -362,7 +399,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     };
 
     sql.exec(`INSERT INTO pending_writes(seq, message_json) VALUES(?, ?)`, seq, JSON.stringify(row));
-    sql.exec(`INSERT INTO idem(user_id, key, seq) VALUES(?, ?, ?)`, sess.userId, msg.idempotencyKey, seq);
+    sql.exec(`INSERT INTO idem(user_id, key, seq) VALUES(?, ?, ?)`, senderId, msg.idempotencyKey, seq);
 
     await this.scheduleFlush();
 
@@ -407,9 +444,14 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
   async alarm(): Promise<void> {
     const sql = this.ctx.storage.sql;
+    // Skip rows that have already exceeded MAX_FLUSH_ATTEMPTS — they're
+    // moved to a "dead-letter" zone (attempts column kept high) so the
+    // queue keeps draining the live tail instead of blocking forever.
     const pending = sql.exec(
-      `SELECT seq, message_json FROM pending_writes ORDER BY seq ASC LIMIT ?`,
-      MAX_PENDING_BATCH,
+      `SELECT seq, message_json, attempts FROM pending_writes
+       WHERE attempts < ?
+       ORDER BY seq ASC LIMIT ?`,
+      MAX_FLUSH_ATTEMPTS, MAX_PENDING_BATCH,
     ).toArray();
     if (pending.length === 0) return;
 
@@ -433,17 +475,33 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       // Use onConflictDoNothing — if a previous alarm crashed mid-flight,
       // the rows may already be in D1 by the time we retry.
       await db.insert(messages).values(goodRows).onConflictDoNothing();
-      const maxSeq = pending[pending.length - 1].seq as number;
-      sql.exec(`DELETE FROM pending_writes WHERE seq <= ?`, maxSeq);
+      const goodSeqs = goodRows.map(r => r.seq);
+      sql.exec(`DELETE FROM pending_writes WHERE seq IN (${goodSeqs.map(() => "?").join(",")})`, ...goodSeqs);
     } catch (e) {
       console.error("[ChatRoom alarm] D1 flush failed", { channelId: this.channelId, error: String(e) });
-      sql.exec(`UPDATE pending_writes SET attempts = attempts + 1 WHERE seq <= ?`,
-        pending[pending.length - 1].seq as number);
+      const goodSeqs = goodRows.map(r => r.seq);
+      sql.exec(
+        `UPDATE pending_writes SET attempts = attempts + 1 WHERE seq IN (${goodSeqs.map(() => "?").join(",")})`,
+        ...goodSeqs,
+      );
+      // Mark exhausted rows with a one-time error log so an operator can
+      // grep for them and manually resolve. The row stays in pending_writes
+      // (attempts >= MAX) so it doesn't block live traffic but isn't lost
+      // from the DO either — manual replay possible.
+      const exhausted = sql.exec(
+        `SELECT seq FROM pending_writes WHERE attempts >= ? LIMIT 10`,
+        MAX_FLUSH_ATTEMPTS,
+      ).toArray();
+      for (const r of exhausted) {
+        console.error("[ChatRoom alarm] DEAD_LETTER", {
+          channelId: this.channelId, seq: r.seq, attempts: MAX_FLUSH_ATTEMPTS,
+        });
+      }
       await this.ctx.storage.setAlarm(Date.now() + ALARM_BACKOFF_MS);
       return;
     }
 
-    if (sql.exec(`SELECT 1 FROM pending_writes LIMIT 1`).toArray().length > 0) {
+    if (sql.exec(`SELECT 1 FROM pending_writes WHERE attempts < ? LIMIT 1`, MAX_FLUSH_ATTEMPTS).toArray().length > 0) {
       await this.ctx.storage.setAlarm(Date.now() + ALARM_DELAY_MS);
     }
   }
@@ -454,10 +512,22 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   private async verifyToken(token: string): Promise<VerifiedToken> {
     const payload = await verifyWsToken(token, this.env.CHAT_ROOM_AUTH_SECRET);
     if (!payload) throw new Error("invalid token");
+    // KV deny-list check — same as REST resolveSubject. Without this, a
+    // revoked machine key's still-open WS keeps working until the 7-day
+    // token TTL elapses (P1 from 6-agent diagnostic).
+    if (this.env.RATE_LIMITS) {
+      if (payload.jti && await isTokenRevoked(this.env.RATE_LIMITS, payload.jti)) {
+        throw new Error("token revoked");
+      }
+      if (payload.bridgeId && await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${payload.bridgeId}`)) {
+        throw new Error("bridge revoked");
+      }
+    }
     return {
       userId: payload.sub,
       agentIds: Array.isArray(payload.agents) ? payload.agents : [],
       channelId: typeof payload.channelId === "string" ? payload.channelId : "",
+      bridgeId: typeof payload.bridgeId === "string" ? payload.bridgeId : undefined,
       exp: payload.exp,
     };
   }
@@ -485,6 +555,18 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Fail-closed internal-secret check. Plain `header !== env.SECRET` is unsafe
+ * if the env var is undefined: `undefined === undefined` would let any
+ * caller through. We require the secret to be a non-empty string.
+ */
+export function checkInternalSecret(req: Request, secret: string | undefined): boolean {
+  if (!secret || typeof secret !== "string" || secret.length < 16) return false;
+  const header = req.headers.get("x-internal-secret");
+  if (!header) return false;
+  return header === secret;
+}
 
 function deserializeMessage(json: string): Message {
   const parsed = JSON.parse(json);

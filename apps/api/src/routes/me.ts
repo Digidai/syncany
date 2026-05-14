@@ -70,6 +70,13 @@ meRoutes.get("/api/v1/agent/messages/check", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 meRoutes.get("/api/v1/me", requireAuth, async (c) => {
   const subject = c.get("subject");
+  // Bootstrap data is for human-session UI only. A machine key bearer hitting
+  // /me would be enumerating all the user's servers, leaking serverB metadata
+  // through a serverA key. Block — bridges already get their own bootstrap
+  // payload via /api/v1/bridge/connect.
+  if (subject.kind !== "user") {
+    return c.json({ error: { code: "FORBIDDEN", message: "user session required" } }, 403);
+  }
   const db = drizzle(c.env.DB);
   const ownedServers = await db
     .select()

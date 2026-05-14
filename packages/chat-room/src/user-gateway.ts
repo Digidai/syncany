@@ -19,7 +19,12 @@ interface AttachedSession {
   bridgeId?: string;            // present for bridge connections (machine-key sessions)
   connectedAt: number;          // ms epoch — used for "latest bridge wins" leader election
   isBridge: boolean;            // true if this socket has a bridgeId
+  lastHeartbeatAt?: number;     // ms epoch — bumped on every clientHeartbeat
 }
+
+/** Bridge sockets older than this with no heartbeat are excluded from
+ *  leader election. The bridge sends one every 15s; we tolerate ~2 misses. */
+const BRIDGE_LIVENESS_WINDOW_MS = 45_000;
 
 /**
  * One DO per user. Carries cross-channel concerns:
@@ -82,6 +87,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       bridgeId: claims.bridgeId,
       connectedAt: Date.now(),
       isBridge: !!claims.bridgeId,
+      lastHeartbeatAt: Date.now(),  // initial — bridge will refresh every 15s
     };
     server.serializeAttachment(attached);
     this.ctx.acceptWebSocket(server, [`u:${claims.userId}`]);
@@ -102,19 +108,25 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     });
   }
 
-  /** Tells every bridge socket whether it is currently the leader. */
+  /** Tells every bridge socket whether it is currently the leader.
+   *  Stale bridges (no heartbeat in BRIDGE_LIVENESS_WINDOW_MS) are
+   *  excluded — they may be in a half-open TCP state and would silently
+   *  swallow channel_new dispatches if elected. */
   private broadcastLeaderStatus(): void {
+    const now = Date.now();
     let leaderWs: WebSocket | null = null;
     let best = -1;
-    const bridgeSockets: { ws: WebSocket; a: AttachedSession }[] = [];
+    const bridgeSockets: { ws: WebSocket; a: AttachedSession; live: boolean }[] = [];
     for (const ws of this.ctx.getWebSockets()) {
       const a = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
       if (!a?.isBridge) continue;
-      bridgeSockets.push({ ws, a });
-      if (a.connectedAt > best) { best = a.connectedAt; leaderWs = ws; }
+      const lastBeat = a.lastHeartbeatAt ?? a.connectedAt;
+      const live = now - lastBeat < BRIDGE_LIVENESS_WINDOW_MS;
+      bridgeSockets.push({ ws, a, live });
+      if (live && a.connectedAt > best) { best = a.connectedAt; leaderWs = ws; }
     }
-    for (const { ws } of bridgeSockets) {
-      const isLeader = ws === leaderWs;
+    for (const { ws, live } of bridgeSockets) {
+      const isLeader = live && ws === leaderWs;
       try {
         ws.send(encode({ v: PROTOCOL_VERSION, t: "leader_status", isLeader }));
       } catch { /* ignore */ }
@@ -122,7 +134,10 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   }
 
   private async handleNotify(req: Request): Promise<Response> {
-    if (req.headers.get("x-internal-secret") !== this.env.CHAT_ROOM_AUTH_SECRET) {
+    const s = this.env.CHAT_ROOM_AUTH_SECRET;
+    // Fail-closed: undefined or short secret denies all callers.
+    if (!s || typeof s !== "string" || s.length < 16) return new Response("forbidden", { status: 403 });
+    if (req.headers.get("x-internal-secret") !== s) {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as ServerMessage;
@@ -144,6 +159,15 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     }
 
     if (msg.t === "hello") {
+      this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
+      return;
+    }
+    if (msg.t === "heartbeat") {
+      // Track liveness for stale-bridge detection in leader election.
+      const now = Date.now();
+      sess.lastHeartbeatAt = now;
+      this.sessions.set(ws, sess);
+      try { ws.serializeAttachment(sess); } catch { /* ignore — survives next msg */ }
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
       return;
     }
@@ -193,14 +217,20 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     const sample = this.sessions.values().next().value as AttachedSession | undefined;
     const ownerId = sample?.userId;
 
-    // Determine the leader bridge socket (latest connectedAt wins).
+    // Determine the leader bridge socket (latest LIVE connectedAt wins).
+    // Stale bridges (no heartbeat in window) are excluded — same liveness
+    // gate as broadcastLeaderStatus, otherwise channel_new could be sent
+    // to a half-dead bridge whose ws.send swallows the bytes.
     const isLeaderEligible = (msg as { t?: string }).t === "channel_new";
     let leaderBridgeWs: WebSocket | null = null;
     if (isLeaderEligible) {
+      const now = Date.now();
       let best = -1;
       for (const ws of this.ctx.getWebSockets()) {
         const a = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
         if (!a?.isBridge) continue;
+        const lastBeat = a.lastHeartbeatAt ?? a.connectedAt;
+        if (now - lastBeat >= BRIDGE_LIVENESS_WINDOW_MS) continue;
         if (a.connectedAt > best) { best = a.connectedAt; leaderBridgeWs = ws; }
       }
     }

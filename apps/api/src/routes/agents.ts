@@ -15,7 +15,12 @@ export const agentsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 agentsRoutes.get("/api/v1/agents", requireAuth, async (c) => {
   const subject = c.get("subject");
   const db = drizzle(c.env.DB);
-  const rows = await db.select().from(agents).where(eq(agents.ownerId, subject.userId));
+  // Machine subjects must be scoped to their own server; user subjects
+  // see all agents they own across servers.
+  const where = subject.kind === "machine"
+    ? and(eq(agents.ownerId, subject.userId), eq(agents.serverId, subject.serverId))
+    : eq(agents.ownerId, subject.userId);
+  const rows = await db.select().from(agents).where(where);
   return c.json({ agents: rows });
 });
 

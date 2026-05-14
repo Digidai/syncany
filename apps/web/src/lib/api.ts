@@ -172,6 +172,20 @@ export const api = {
   acceptInvite: (id: string) =>
     call<{ ok: true; serverSlug: string }>(`/api/v1/invites/${encodeURIComponent(id)}/accept`, { method: "POST", body: JSON.stringify({ inviteId: id }) }),
 
+  inviteByEmail: (body: { serverId: string; email: string; role?: "member" | "admin"; ttlHours?: number }) =>
+    call<{ id: string; url: string; sentTo: string }>("/api/v1/invites/email", {
+      method: "POST", body: JSON.stringify({ role: "member", ttlHours: 24 * 7, ...body }),
+    }),
+
+  // ---- workspace members ----
+  listMembers: (serverId: string) =>
+    call<{ members: Array<{ userId: string; role: string; joinedAt: number; name: string; email: string; image: string | null }> }>(
+      `/api/v1/servers/${encodeURIComponent(serverId)}/members`,
+    ),
+
+  removeMember: (serverId: string, userId: string) =>
+    call<{ ok: true }>(`/api/v1/servers/${encodeURIComponent(serverId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+
   // ---- search ----
   search: (q: string, channelId?: string) => {
     const p = new URLSearchParams({ q });

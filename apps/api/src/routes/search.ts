@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@syncany/auth-core";
 import { searchQuery } from "@syncany/protocol";
-import { channelMembers, messages } from "@syncany/db";
+import { channelMembers, channels, messages } from "@syncany/db";
 import { and, desc, eq, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
@@ -24,11 +24,20 @@ searchRoutes.get("/api/v1/search", requireAuth, async (c) => {
     await requirePolicy(policy.channels.canRead(ctx, q.channelId));
     conds.push(eq(messages.channelId, q.channelId));
   } else {
-    // Limit to channels the user is a member of (human or via owned agents).
-    const myChannels = await db
-      .select({ id: channelMembers.channelId })
-      .from(channelMembers)
-      .where(eq(channelMembers.memberId, subject.userId));
+    // Limit to channels the user is a member of. For machine subjects,
+    // additionally constrain to the key's own server so a key for serverA
+    // can't search messages on serverB even if the user is in both.
+    const memberConds = [eq(channelMembers.memberId, subject.userId)];
+    const myChannels = subject.kind === "machine"
+      ? await db
+          .select({ id: channelMembers.channelId })
+          .from(channelMembers)
+          .innerJoin(channels, eq(channels.id, channelMembers.channelId))
+          .where(and(...memberConds, eq(channels.serverId, subject.serverId)))
+      : await db
+          .select({ id: channelMembers.channelId })
+          .from(channelMembers)
+          .where(and(...memberConds));
     const ids = myChannels.map(r => r.id);
     if (ids.length === 0) return c.json({ messages: [] });
     conds.push(inArray(messages.channelId, ids));

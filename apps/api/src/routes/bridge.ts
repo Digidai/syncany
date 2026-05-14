@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { resolveMachineKey, signWsToken } from "@syncany/auth-core";
 import { bridgeConnectRequest } from "@syncany/protocol";
 import { agents, channels, channelMembers } from "@syncany/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { rateLimit, clientIp } from "../lib/rate-limit";
 
@@ -19,14 +19,23 @@ bridgeRoutes.post("/api/v1/bridge/connect", async (c) => {
   const mk = await resolveMachineKey(c.env, body.apiKey);
   if (!mk) return c.json({ error: { code: "BAD_KEY", message: "invalid api key" } }, 401);
 
+  // SECURITY: filter by mk.serverId, NOT just mk.userId. A user with multiple
+  // servers must NOT be able to use serverA's machine key to operate on
+  // serverB's agents/channels. Cross-server isolation is enforced here.
   const db = drizzle(c.env.DB);
   const [myAgents, myChannels] = await Promise.all([
-    db.select().from(agents).where(eq(agents.ownerId, mk.userId)),
+    db.select().from(agents).where(
+      and(eq(agents.ownerId, mk.userId), eq(agents.serverId, mk.serverId)),
+    ),
     db.select({ ch: channels, agentId: channelMembers.memberId })
       .from(channels)
       .innerJoin(channelMembers, eq(channelMembers.channelId, channels.id))
       .innerJoin(agents, eq(agents.id, channelMembers.memberId))
-      .where(eq(agents.ownerId, mk.userId)),
+      .where(and(
+        eq(agents.ownerId, mk.userId),
+        eq(agents.serverId, mk.serverId),
+        eq(channels.serverId, mk.serverId),
+      )),
   ]);
 
   type ChannelType = typeof channels.$inferSelect["type"];

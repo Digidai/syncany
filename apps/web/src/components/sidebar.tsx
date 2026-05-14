@@ -153,15 +153,17 @@ function ChannelLink({ channel, activeId, serverSlug, icon }: {
     <Link
       href={`/s/${serverSlug}/${channel.type === "dm" ? "dm" : "channel"}/${channel.id}`}
       className={cn(
-        "flex items-center gap-2 rounded px-2 py-1 hover:bg-accent",
-        activeId === channel.id && "bg-accent",
+        "relative flex items-center gap-2 rounded px-2 py-1 hover:bg-accent",
+        // Active channel uses brand cyan accent (left bar + tinted bg) so the
+        // sidebar carries brand color, not the old neutral sand-3.
+        activeId === channel.id && "bg-cyan-500/10 text-cyan-700 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-cyan-500 dark:text-cyan-400",
         unread > 0 && "font-semibold",
       )}
     >
       {icon}
       <span className="flex-1 truncate">{channel.name}</span>
       {unread > 0 && (
-        <span className="rounded-full bg-blue-600 px-1.5 text-[10px] font-medium text-white">
+        <span className="rounded-full bg-cyan-600 px-1.5 text-[10px] font-medium text-white">
           {unread > 99 ? "99+" : unread}
         </span>
       )}

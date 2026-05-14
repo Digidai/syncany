@@ -152,7 +152,10 @@ export class Bridge {
         v: PROTOCOL_VERSION, t: "hello", id: crypto.randomUUID(),
         agentIds: this.boot!.agents.map((a) => a.id),
       });
-      this.startHeartbeat(ws);
+      // Gateway socket needs APPLICATION-level heartbeat (vs the raw "ping"
+      // for transport keep-alive) so UserGateway DO can detect a half-open
+      // bridge socket and exclude it from leader election. Send every 15s.
+      this.startGatewayHeartbeat(ws);
     });
     ws.addEventListener("message", (ev) => {
       let msg: ServerMessage;
@@ -183,6 +186,17 @@ export class Bridge {
       if (ws.readyState !== WebSocket.OPEN) return;
       try { ws.send("ping"); } catch { /* ignore */ }
     }, HEARTBEAT_MS);
+    this.heartbeats.set(ws, t);
+  }
+  /** Like startHeartbeat but sends an application-level `heartbeat` so the
+   *  UserGateway DO can track liveness for stale-bridge eviction. 15s. */
+  private startGatewayHeartbeat(ws: WebSocket): void {
+    const t = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(encode({ v: PROTOCOL_VERSION, t: "heartbeat", id: crypto.randomUUID() }));
+      } catch { /* ignore */ }
+    }, 15_000);
     this.heartbeats.set(ws, t);
   }
   private stopHeartbeat(ws: WebSocket): void {

@@ -109,7 +109,7 @@ export default function InvitePage() {
             <p className="text-center text-sm text-muted-foreground">
               You'll join as <strong>{preview.role}</strong>.
             </p>
-            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-2 text-center text-sm text-destructive-foreground">{error}</p>}
           </CardPanel>
           <CardFooter className="flex-col gap-2">
             <Button onClick={handleAccept} loading={accepting} className="w-full">Accept invite</Button>
