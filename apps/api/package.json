@@ -1,0 +1,27 @@
+{
+  "name": "@syncany/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "deploy": "wrangler deploy",
+    "lint": "tsc --noEmit",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@syncany/auth-core": "workspace:*",
+    "@syncany/chat-room": "workspace:*",
+    "@syncany/db": "workspace:*",
+    "@syncany/protocol": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.13",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250108.0",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.42.0"
+  }
+}

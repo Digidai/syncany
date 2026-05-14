@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck backend packages
+        run: pnpm --filter @syncany/protocol --filter @syncany/db --filter @syncany/chat-room --filter @syncany/auth-core --filter @syncany/api lint
+      - name: Typecheck bridge
+        run: pnpm --filter @digidai/syncany-bridge exec tsc --noEmit
+      - name: Typecheck cli
+        run: pnpm --filter @digidai/syncany-cli exec tsc --noEmit
+      - name: Typecheck web
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+  build:
+    name: Build (Next + Worker dry-run)
+    runs-on: ubuntu-latest
+    needs: typecheck
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build Next.js (web)
+        working-directory: apps/web
+        run: npx next build
+        env:
+          NEXT_PUBLIC_SYNCANY_API_URL: https://syncany-api.example.workers.dev
+      - name: Build api Worker (dry run)
+        working-directory: apps/api
+        run: npx wrangler deploy --dry-run --outdir=dist
+      - name: Build bridge bundle
+        working-directory: apps/bridge
+        run: pnpm run build
+
+  unit-tests:
+    name: Unit tests (auth-core + chat-room DO)
+    runs-on: ubuntu-latest
+    needs: typecheck
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run all package tests
+        run: pnpm -r test --run
+
+  e2e:
+    name: E2E (Playwright vs staging)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, build]
+    # Only on push-to-main: PRs from forks shouldn't probe live staging.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm e2e:install
+      - name: Run E2E
+        run: pnpm e2e
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

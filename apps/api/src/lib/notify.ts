@@ -1,0 +1,65 @@
+import type { Env } from "./env";
+
+interface MessageRowLike {
+  id: string;
+  channelId: string;
+  senderId: string;
+  senderType: string;
+  content: string;
+  seq: number;
+  threadParentId: string | null;
+  createdAt: Date | number;
+  updatedAt: Date | number;
+  editedAt?: Date | number | null;
+  deletedAt?: Date | number | null;
+}
+
+/** Tell every channel WS subscriber that a message was edited or deleted. */
+export async function broadcastMessageUpdate(env: Env, channelId: string, m: MessageRowLike): Promise<void> {
+  try {
+    const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(channelId));
+    await stub.fetch("https://chat-room/internal/notify", {
+      method: "POST",
+      headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+      body: JSON.stringify({
+        v: 1,
+        t: "message_update",
+        message: {
+          ...m,
+          createdAt: m.createdAt instanceof Date ? m.createdAt.getTime() : Number(m.createdAt),
+          updatedAt: m.updatedAt instanceof Date ? m.updatedAt.getTime() : Number(m.updatedAt),
+          editedAt: m.editedAt ? (m.editedAt instanceof Date ? m.editedAt.getTime() : Number(m.editedAt)) : null,
+          deletedAt: m.deletedAt ? (m.deletedAt instanceof Date ? m.deletedAt.getTime() : Number(m.deletedAt)) : null,
+        },
+      }),
+    });
+  } catch (e) { console.warn("broadcastMessageUpdate failed", e); }
+}
+
+/** Tell every channel WS subscriber about a reaction add/remove. */
+export async function broadcastReaction(
+  env: Env,
+  channelId: string,
+  payload: { messageId: string; emoji: string; reactorId: string; added: boolean },
+): Promise<void> {
+  try {
+    const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(channelId));
+    await stub.fetch("https://chat-room/internal/notify", {
+      method: "POST",
+      headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+      body: JSON.stringify({ v: 1, t: "reaction", ...payload }),
+    });
+  } catch (e) { console.warn("broadcastReaction failed", e); }
+}
+
+/** Tell a user's UserGateway DO about a cross-channel notification. */
+export async function notifyGateway(env: Env, userId: string, msg: unknown): Promise<void> {
+  try {
+    const stub = env.USER_GATEWAY.get(env.USER_GATEWAY.idFromName(userId));
+    await stub.fetch("https://user-gateway/internal/notify", {
+      method: "POST",
+      headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+      body: JSON.stringify(msg),
+    });
+  } catch (e) { console.warn("notifyGateway failed", userId, e); }
+}

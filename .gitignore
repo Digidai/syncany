@@ -1,0 +1,19 @@
+node_modules/
+.next/
+.open-next/
+dist/
+.turbo/
+.wrangler/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+
+# OS / editor cruft
+.DS_Store
+*.log
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

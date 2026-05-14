@@ -1,0 +1,24 @@
+name = "chat-room-test"
+main = "test/fixture.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CHAT_ROOM_AUTH_SECRET = "test-secret-do-not-use-in-prod"
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[durable_objects.bindings]]
+name = "USER_GATEWAY"
+class_name = "UserGateway"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom", "UserGateway"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "syncany-test"
+database_id = "00000000-0000-0000-0000-000000000000"

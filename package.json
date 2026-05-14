@@ -1,0 +1,34 @@
+{
+  "name": "syncany",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "dev:web": "pnpm --filter @syncany/web dev",
+    "dev:bridge": "pnpm --filter @syncany/bridge dev",
+    "db:generate": "pnpm --filter @syncany/db generate",
+    "db:push": "pnpm --filter @syncany/db push",
+    "test": "pnpm -r test --run",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@slock-ai/daemon": "^0.40.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "react-notion-avatar>@types/react": "^19",
+      "react-notion-avatar>@types/react-dom": "^19"
+    }
+  }
+}

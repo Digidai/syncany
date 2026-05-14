@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "syncany-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "48d9ccaf5ee7914c803b5d0656462848",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "syncany-staging",
+      "database_id": "f29f3753-0381-4bb1-9da3-1c059108ceb8",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "RATE_LIMITS",
+      "id": "0220a0370443459da81d3c834702e9cd"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "syncany-uploads"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHAT_ROOM",    "class_name": "ChatRoom" },
+      { "name": "USER_GATEWAY", "class_name": "UserGateway" }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ChatRoom", "UserGateway"]
+    }
+  ],
+
+  "vars": {
+    "WEB_ORIGIN": "https://syncany-web.genedai.workers.dev",
+    "RESEND_FROM": "Syncany <noreply@mails0.com>",
+    "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@syncany/db",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate:local": "wrangler d1 migrations apply syncany-staging --local",
+    "migrate:remote": "wrangler d1 migrations apply syncany-staging --remote",
+    "studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250108.0",
+    "drizzle-kit": "^0.31.5",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.42.0"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "@syncany/bridge",
+  "version": "0.2.0",
+  "description": "Syncany local bridge — connects your Claude Code agents to the Syncany web app",
+  "homepage": "https://github.com/Digidai/syncany",
+  "repository": { "type": "git", "url": "https://github.com/Digidai/syncany.git" },
+  "type": "module",
+  "bin": {
+    "syncany-bridge": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node build.mjs",
+    "postbuild": "chmod +x dist/index.js",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "syncany",
+    "claude",
+    "claude-code",
+    "ai",
+    "agent",
+    "bridge"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@syncany/cli": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@syncany/cli": { "optional": false }
+  },
+  "dependencies": {
+    "@syncany/cli": "workspace:^"
+  },
+  "devDependencies": {
+    "@syncany/protocol": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/node": "^20.19.39",
+    "esbuild": "^0.27.7",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "zod": "^4.3.6"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

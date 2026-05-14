@@ -1,0 +1,26 @@
+{
+  "name": "@syncany/auth-core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./onboarding": "./src/onboarding.ts",
+    "./policy": "./src/policy.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@syncany/db": "workspace:*",
+    "better-auth": "^1.2.7",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250108.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  }
+}

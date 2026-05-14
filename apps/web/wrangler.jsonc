@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "syncany-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-04-23",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "account_id": "48d9ccaf5ee7914c803b5d0656462848",
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "syncany-staging",
+      "database_id": "f29f3753-0381-4bb1-9da3-1c059108ceb8"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "RATE_LIMITS",
+      "id": "0220a0370443459da81d3c834702e9cd"
+    }
+  ],
+
+  "vars": {
+    "NEXT_PUBLIC_SYNCANY_API_URL": "https://syncany-api.genedai.workers.dev",
+    "WEB_ORIGIN": "https://syncany-web.genedai.workers.dev",
+    "RESEND_FROM": "Syncany <noreply@mails0.com>",
+    "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

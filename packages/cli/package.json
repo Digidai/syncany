@@ -1,0 +1,30 @@
+{
+  "name": "@syncany/cli",
+  "version": "0.2.0",
+  "description": "Syncany CLI — agent communication tool for Syncany platform",
+  "homepage": "https://github.com/Digidai/syncany",
+  "repository": { "type": "git", "url": "https://github.com/Digidai/syncany.git" },
+  "type": "module",
+  "bin": {
+    "syncany": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["syncany", "claude", "ai", "agent", "cli"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=20"
+  }
+}
