@@ -7,16 +7,15 @@ This guide walks you through deploying your own Syncany on Cloudflare Workers, e
 - Two Cloudflare Workers: `syncany-web` (Next.js UI + auth) and `syncany-api` (Hono REST + WS + Durable Objects).
 - One D1 database holding all data (12 tables).
 - One KV namespace for sliding-window rate limiting.
-- Auth + email via better-auth + Resend.
+- Auth + email via better-auth + Cloudflare Email Sending (Workers Paid plan, currently in public beta).
 - Optional Google OAuth.
 - A bridge running on each machine where you want agents to live.
 
 ## Prerequisites
 
-- A Cloudflare account
+- A Cloudflare account on the **Workers Paid plan** ($5/mo — required for Email Sending)
 - Node ≥ 20 and pnpm 10 locally
-- A Resend account (free tier — for email verification + reset)
-- A verified Resend sending domain
+- A domain on Cloudflare DNS (for the worker custom domains AND for Email Sending verification)
 - Optional: a Google Cloud project with an OAuth client (for Google sign-in)
 - The repo: `git clone https://github.com/Digidai/syncany.git && cd syncany && pnpm install`
 
@@ -39,7 +38,7 @@ wrangler kv namespace create syncany-rate-limits   # → note id
 
 Edit `apps/web/wrangler.jsonc` and `apps/api/wrangler.jsonc`:
 - replace `database_id`, `kv_namespaces[0].id`, and `account_id`
-- update `vars.WEB_ORIGIN`, `vars.NEXT_PUBLIC_SYNCANY_API_URL`, `vars.RESEND_FROM`
+- update `vars.WEB_ORIGIN`, `vars.NEXT_PUBLIC_SYNCANY_API_URL`, `vars.EMAIL_FROM`
 - if not using Google OAuth, remove `vars.GOOGLE_CLIENT_ID`
 
 ## 3. Apply the database schema
@@ -64,9 +63,12 @@ For each Worker (`syncany-web` and `syncany-api`) you need the **same** values f
 - `CHAT_ROOM_AUTH_SECRET`
 - `MACHINE_KEY_PEPPER`
 
-…and `syncany-web` additionally needs:
-- `RESEND_API_KEY`
-- (optional) `BETTER_AUTH_GOOGLE_CLIENT_SECRET`
+…and `syncany-web` additionally needs (optional):
+- `BETTER_AUTH_GOOGLE_CLIENT_SECRET` (Google OAuth)
+
+Email sending uses the `EMAIL` worker binding declared in `apps/web/wrangler.jsonc`
+under `send_email[]`; no secret needed. You must verify the sender domain in
+Cloudflare dashboard → Email → Domains before the binding will deliver.
 
 ```bash
 S1=$(openssl rand -hex 32)
@@ -78,8 +80,6 @@ for W in syncany-web syncany-api; do
   echo "$S2" | wrangler secret put CHAT_ROOM_AUTH_SECRET  --name $W
   echo "$S3" | wrangler secret put MACHINE_KEY_PEPPER     --name $W
 done
-
-echo "re_…" | wrangler secret put RESEND_API_KEY --name syncany-web
 ```
 
 ## 5. Deploy
@@ -131,7 +131,7 @@ Cloudflare dashboard → each Worker → **Settings → Triggers → Custom Doma
 
 ## Troubleshooting
 
-- **Email not arriving** — Resend domain not verified, or RESEND_FROM points at a domain you don't own. Verify the domain in Resend first.
+- **Email not arriving** — `EMAIL_FROM` domain not verified for Cloudflare Email Sending. Verify in dashboard → Email → Domains; ensure DKIM/SPF/DMARC TXT records were added (auto for zones on Cloudflare DNS).
 - **`Invalid email or password` even with correct password** — secrets out of sync between web and api Workers (BETTER_AUTH_SECRET specifically). Re-run step 4 with the same value on both.
 - **Bridge `npx` 404** — Try `pnpm dlx @syncany/bridge` or `git clone … && pnpm dev:bridge`.
 - **Verify-email link 404** — middleware likely intercepting `/api/auth/*`. `apps/web/src/middleware.ts` PUBLIC_PATHS must include `/api/auth`.

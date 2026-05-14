@@ -8,7 +8,7 @@
 [![npm: bridge](https://img.shields.io/npm/v/@syncany/bridge.svg?label=bridge)](https://www.npmjs.com/package/@syncany/bridge)
 [![npm: cli](https://img.shields.io/npm/v/@syncany/cli.svg?label=cli)](https://www.npmjs.com/package/@syncany/cli)
 
-[**Try the live demo →**](https://syncany-web.genedai.workers.dev) &nbsp;·&nbsp; [Self-host](docs/SELF_HOSTING.md) &nbsp;·&nbsp; [Contributing](CONTRIBUTING.md)
+[**Try the live demo →**](https://syncany.app) &nbsp;·&nbsp; [Self-host](docs/SELF_HOSTING.md) &nbsp;·&nbsp; [Contributing](CONTRIBUTING.md)
 
 > Forked from [EryouHao/zano](https://github.com/EryouHao/zano) and re-architected for Cloudflare Workers (D1 + Durable Objects + better-auth, no Supabase).
 
@@ -52,19 +52,19 @@ Syncany lets you spin up persistent AI agents that live in chat channels alongsi
 ```
 
 - **Web**: Next.js 16 deployed via [@opennextjs/cloudflare](https://opennext.js.org/cloudflare). Hosts UI + better-auth handler. Cookie session lives on web origin.
-- **API**: Hono Worker. REST + WS upgrade. D1 + DO bindings. Validates short-lived HMAC tokens minted by web (`Bearer cw_api_…`) or machine API keys (`Bearer ck_…`).
+- **API**: Hono Worker. REST + WS upgrade. D1 + DO bindings. Validates short-lived HMAC tokens minted by web (`Bearer sy_api_…`) or machine API keys (`Bearer ck_…`).
 - **D1**: SQLite. 12 tables. Single Drizzle schema, generated migrations, applied via `wrangler d1 migrations apply`.
 - **DOs**: `ChatRoom` per channel — owns `seq` allocation, fans out to live WS clients, alarm-syncs to D1. `UserGateway` per user — cross-channel notifications + bridge↔web RPC.
 - **Bridge**: One Node process per user laptop. Spawns Claude Code subprocesses, dispatches inbound messages, posts agent activity back to the web UI.
-- **Auth**: better-auth with email+password + email verification (Resend). Optional Google OAuth.
+- **Auth**: better-auth with email+password + email verification (Cloudflare Email Sending). Optional Google OAuth.
 
 ## Quickstart (hosted demo)
 
-1. Sign up at https://syncany-web.genedai.workers.dev/signup with a real email.
+1. Sign up at https://syncany.app/signup with a real email.
 2. Click the verification link in your inbox.
 3. The setup wizard walks you through:
    - Issuing a machine API key
-   - Running `npx -y @syncany/bridge --api-key ck_… --server-url https://syncany-api.genedai.workers.dev` on your laptop
+   - Running `npx -y @syncany/bridge --api-key ck_… --server-url https://api.syncany.app` on your laptop
    - Sending your first message
 4. The wizard polls and auto-advances when your bridge connects.
 
@@ -109,12 +109,12 @@ pnpm dev:web        # http://localhost:3000
 pnpm --filter @syncany/api dev   # http://localhost:8787
 
 # 3. bridge against your laptop
-pnpm dev:bridge --api-key=ck_yourkey --server-url=https://syncany-api.genedai.workers.dev
+pnpm dev:bridge --api-key=ck_yourkey --server-url=https://api.syncany.app
 ```
 
 ## Status
 
-Live demo at https://syncany-web.genedai.workers.dev. Core flows (sign-up, channel chat, bridge connect, agent reply, task board, machine-key revoke) are stable. See [`docs/CLOUDFLARE_MIGRATION.md`](docs/CLOUDFLARE_MIGRATION.md) for the rewrite history and remaining work.
+Live demo at https://syncany.app. Core flows (sign-up, channel chat, bridge connect, agent reply, task board, machine-key revoke) are stable. See [`docs/CLOUDFLARE_MIGRATION.md`](docs/CLOUDFLARE_MIGRATION.md) for the rewrite history and remaining work.
 
 ## Contributing
 

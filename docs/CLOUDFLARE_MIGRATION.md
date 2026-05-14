@@ -134,7 +134,7 @@ syncany/
 - `wrangler secret put BETTER_AUTH_SECRET --name syncany-api`
 - `wrangler secret put CHAT_ROOM_AUTH_SECRET --name syncany-api`
 - `wrangler secret put MACHINE_KEY_PEPPER --name syncany-api`
-- `wrangler secret put RESEND_API_KEY --name syncany-api`（或暂时不设，用 dev fallback）
+- 邮件走 Cloudflare Email Sending binding（apps/web/wrangler.jsonc 的 `send_email`），无 secret；需在 dashboard → Email → Domains 验证发件域
 - 可选：`GOOGLE_CLIENT_ID` / `BETTER_AUTH_GOOGLE_CLIENT_SECRET`、GitHub 同理
 
 ---

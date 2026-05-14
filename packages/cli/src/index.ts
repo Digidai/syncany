@@ -5,7 +5,7 @@
  *
  * Auth via env vars (set by the bridge when spawning Claude Code):
  *   SYNCANY_AGENT_ID    — UUID of the agent
- *   SYNCANY_API_URL     — e.g. https://syncany-api.genedai.workers.dev
+ *   SYNCANY_API_URL     — e.g. https://api.syncany.app
  *   SYNCANY_AGENT_TOKEN — bridge's session token (HMAC JWT)
  *
  * Usage:

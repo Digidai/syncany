@@ -6,6 +6,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "account_id": "48d9ccaf5ee7914c803b5d0656462848",
 
+  "routes": [
+    { "pattern": "api.syncany.app", "custom_domain": true }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",
@@ -44,8 +48,7 @@
   ],
 
   "vars": {
-    "WEB_ORIGIN": "https://syncany-web.genedai.workers.dev",
-    "RESEND_FROM": "Syncany <noreply@mails0.com>",
+    "WEB_ORIGIN": "https://syncany.app",
     "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
   },
 

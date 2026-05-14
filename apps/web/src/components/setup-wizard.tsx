@@ -14,7 +14,7 @@ interface Props {
   onDismiss?: () => void;
 }
 
-const API_URL = "https://syncany-api.genedai.workers.dev";
+const API_URL = "https://api.syncany.app";
 
 /**
  * 4-step wizard shown to users who haven't connected a bridge yet:

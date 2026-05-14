@@ -89,7 +89,7 @@ export default function SettingsPage() {
       const res = await api.createMachineKey({ serverId, name: keyName.trim() });
       setIssued({
         apiKey: res.apiKey,
-        cmd: `npx -y @syncany/bridge --api-key ${res.apiKey} --server-url https://syncany-api.genedai.workers.dev`,
+        cmd: `npx -y @syncany/bridge --api-key ${res.apiKey} --server-url https://api.syncany.app`,
       });
       setKeyName("");
       reloadKeys();

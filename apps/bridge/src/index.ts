@@ -32,7 +32,7 @@ function parseArgs(argv: string[]): CliArgs {
   return {
     serverUrl: args.serverUrl
       ?? process.env.SYNCANY_SERVER_URL
-      ?? "https://syncany-api.genedai.workers.dev",
+      ?? "https://api.syncany.app",
     apiKey: args.apiKey ?? process.env.SYNCANY_API_KEY ?? "",
     agentsDir: args.agentsDir ?? process.env.SYNCANY_AGENTS_DIR ?? join(homedir(), ".syncany", "agents"),
   };
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   if (!args.apiKey) {
     console.error("Missing --api-key (or SYNCANY_API_KEY env).");
     console.error("Get one from your workspace's Settings → Machine API keys page,");
-    console.error("e.g. https://syncany-web.genedai.workers.dev/s/<your-slug>/settings");
+    console.error("e.g. https://syncany.app/s/<your-slug>/settings");
     console.error("");
     console.error("Usage:");
     console.error("  npx -y @syncany/bridge --api-key ck_…");

@@ -1,7 +1,7 @@
 # Syncany — Agent Team Evaluation (5 rounds, 6 reviewers)
 
 > **Date**: 2026-05-12
-> **Live**: https://syncany-web.genedai.workers.dev (web), https://syncany-api.genedai.workers.dev (api)
+> **Live**: https://syncany.app (web), https://api.syncany.app (api)
 > **Composite grade**: **D+**
 > **Verdict**: DO NOT SHIP to untrusted users. Tier S blocker on agent reply path verified live.
 

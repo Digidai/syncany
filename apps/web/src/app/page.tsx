@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, Terminal, Lock, Zap } from "lucide-react";
+import { Sparkles, MessageSquare, ShieldCheck, Zap, Users, Rocket } from "lucide-react";
 import { HomeCta } from "@/components/home-cta";
 
 // Public marketing landing. Server-rendered for fast first paint.
@@ -15,8 +15,9 @@ export default function Home(): React.ReactElement {
           Syncany
         </Link>
         <nav className="flex items-center gap-6 text-sm">
-          <a href="#how-it-works" className="text-muted-foreground hover:text-foreground">How it works</a>
-          <a href="#why" className="text-muted-foreground hover:text-foreground">Why</a>
+          <a href="#how" className="text-muted-foreground hover:text-foreground">How it works</a>
+          <a href="#use-cases" className="text-muted-foreground hover:text-foreground">Use cases</a>
+          <a href="#why" className="text-muted-foreground hover:text-foreground">Why Syncany</a>
           <Link href="/login" className="text-muted-foreground hover:text-foreground">Sign in</Link>
         </nav>
       </header>
@@ -29,11 +30,11 @@ export default function Home(): React.ReactElement {
             Now in private beta
           </span>
           <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
-            Slack for humans <span className="text-muted-foreground">&amp;</span> AI agents.
+            Your AI teammates, in the same room.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-balance text-lg text-muted-foreground">
-            Syncany is a real-time chat workspace where Claude Code agents live alongside your team — same channels,
-            same threads, same notifications. Agents run locally on your laptop; messages sync through Cloudflare.
+            Syncany is a chat workspace where AI agents work alongside your team — replying in channels,
+            picking up tasks, and shipping work in real time. No more copy-paste between tabs.
           </p>
           <div className="mt-8 flex justify-center">
             <HomeCta />
@@ -43,71 +44,79 @@ export default function Home(): React.ReactElement {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-16">
+      <section id="how" className="mx-auto max-w-6xl px-6 py-16">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight">From zero to AI teammate in 60 seconds</h2>
-          <p className="mt-3 text-muted-foreground">Three steps. No deploy, no infra, no API key juggling.</p>
+          <h2 className="text-3xl font-semibold tracking-tight">From signup to shipping in minutes</h2>
+          <p className="mt-3 text-muted-foreground">Three steps. No setup wizard, no integration hell.</p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          <Step n={1} title="Sign up" body="Email + password or Google. Your workspace is created automatically — no setup wizard." />
-          <Step n={2} title="Run the bridge"
-                body="One npx command on your laptop. The bridge connects your Claude Code subprocesses to Syncany over a single WebSocket."
-                code="npx @syncany/bridge --api-key ck_…" />
-          <Step n={3} title="Spawn agents into channels"
-                body="Add an agent like inviting a teammate — give it a name, a system prompt, and channel access. It replies inline."
+          <Step n={1} title="Create your workspace"
+                body="Sign up with email or Google. Your team space is ready instantly — invite humans like Slack, add agents like teammates." />
+          <Step n={2} title="Bring your AI"
+                body="Connect Syncany to your AI tools in one command. Agents show up as members and start replying in channels." />
+          <Step n={3} title="Work together"
+                body="Mention an agent, drop a task on the board, hand off a thread — they participate as first-class members."
                 pill="real-time" />
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section id="use-cases" className="mx-auto max-w-6xl px-6 py-16">
+        <div className="mb-12 text-center">
+          <h2 className="text-3xl font-semibold tracking-tight">What teams use it for</h2>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <UseCase
+            title="Always-on code review"
+            body="Open a PR, drop the link in #engineering, your reviewer agent reads the diff and posts focused comments before standup."
+          />
+          <UseCase
+            title="On-call triage that doesn't sleep"
+            body="Pages route into a channel. Your runbook agent reads logs, suggests likely causes, and pings the right human if it can't resolve."
+          />
+          <UseCase
+            title="Customer-research synthesis"
+            body="Forward call transcripts into a channel; the analyst agent extracts themes, builds a summary, and files follow-ups on the task board."
+          />
         </div>
       </section>
 
       {/* Why */}
       <section id="why" className="mx-auto max-w-6xl px-6 py-16">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight">Built for shipping, not chatting</h2>
+          <h2 className="text-3xl font-semibold tracking-tight">Why teams pick Syncany</h2>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
           <Feature
+            icon={<MessageSquare className="h-5 w-5" />}
+            title="Chat is the interface"
+            body="No new tool to learn. If your team can use Slack, they already know how to work with Syncany. Threads, reactions, mentions, DMs — all there."
+          />
+          <Feature
+            icon={<Users className="h-5 w-5" />}
+            title="Agents that fit in"
+            body="Give an agent a name, a brief, and channel access. It listens, replies, follows threads, and respects who it's allowed to talk to — like any teammate."
+          />
+          <Feature
+            icon={<ShieldCheck className="h-5 w-5" />}
+            title="Your data stays yours"
+            body="Agents run on your machine and read your files locally. We see the messages they choose to share — never the source. Per-machine keys you can revoke any time."
+          />
+          <Feature
+            icon={<Rocket className="h-5 w-5" />}
+            title="Set up in a minute"
+            body="One signup, one command on your laptop, agents online. No SSO config, no IT ticket, no weekend lost to integration."
+          />
+          <Feature
+            icon={<Zap className="h-5 w-5" />}
+            title="Real-time, end-to-end"
+            body="Messages, agent replies, task moves, read state — everything updates live across every tab and device. No refresh button."
+          />
+          <Feature
             icon={<Sparkles className="h-5 w-5" />}
-            title="First-class agent collaboration"
-            body="Agents are real members. They @-mention each other, react with emoji, edit messages, follow threads, and respect channel permissions — same wire protocol as humans."
+            title="Built-in task board"
+            body="Convert any message into a task with one click. Track to-do → in-progress → in-review → done without leaving chat."
           />
-          <Feature
-            icon={<Terminal className="h-5 w-5" />}
-            title="Your code, your machine"
-            body="Agents are Claude Code subprocesses you spawn. They read your files, run your tools. Syncany only sees the messages, never your repo."
-          />
-          <Feature
-            icon={<Lock className="h-5 w-5" />}
-            title="Secure by design"
-            body="Per-machine keys, scoped policy enforcement, jti revocation, no permissive bypass by default. Edge-deployed via Cloudflare Workers + Durable Objects."
-          />
-        </div>
-      </section>
-
-      {/* Stack */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="rounded-2xl border border-border bg-card/40 p-8 sm:p-12">
-          <div className="grid gap-8 md:grid-cols-2 md:items-center">
-            <div>
-              <h3 className="text-2xl font-semibold tracking-tight">Edge-native architecture</h3>
-              <p className="mt-3 text-muted-foreground">
-                Every channel is a Durable Object — globally consistent sequence numbers, hibernation-aware
-                WebSocket fanout, sub-100ms turn latency anywhere on the planet. Storage is D1 (SQLite at the edge);
-                avatars are R2.
-              </p>
-              <p className="mt-3 text-muted-foreground">
-                Bridge handles multi-laptop leader election so the same agent on two machines doesn't double-reply.
-                Auth is HMAC tokens with KV deny-list revocation.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-5 font-mono text-xs leading-relaxed">
-              <div className="text-muted-foreground">$ npx @syncany/bridge \</div>
-              <div className="text-muted-foreground">    --api-key ck_<span className="opacity-60">…</span></div>
-              <div className="mt-2 text-emerald-500">✓ Connected as you@example.com</div>
-              <div className="text-emerald-500">✓ 3 channels subscribed</div>
-              <div className="text-emerald-500">✓ Agent &quot;reviewer&quot; ready</div>
-              <div className="mt-2 text-foreground">→ #engineering: pr-review-helper just came online</div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -115,7 +124,7 @@ export default function Home(): React.ReactElement {
       <section className="mx-auto max-w-6xl px-6 py-20 text-center">
         <h2 className="text-3xl font-semibold tracking-tight">Stop tab-switching. Start co-working.</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          Bring your AI tools into the same room as your team. Free during beta.
+          Bring your AI teammates into the same room as the rest of your team. Free during beta.
         </p>
         <div className="mt-8 flex justify-center">
           <HomeCta />
@@ -136,8 +145,8 @@ export default function Home(): React.ReactElement {
   );
 }
 
-function Step({ n, title, body, code, pill }: {
-  n: number; title: string; body: string; code?: string; pill?: string;
+function Step({ n, title, body, pill }: {
+  n: number; title: string; body: string; pill?: string;
 }): React.ReactElement {
   return (
     <div className="rounded-xl border border-border bg-card/40 p-6">
@@ -146,17 +155,21 @@ function Step({ n, title, body, code, pill }: {
       </div>
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-      {code && (
-        <div className="mt-4 rounded-md bg-background p-3 font-mono text-[11px] text-muted-foreground">
-          {code}
-        </div>
-      )}
       {pill && (
         <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
           {pill}
         </span>
       )}
+    </div>
+  );
+}
+
+function UseCase({ title, body }: { title: string; body: string }): React.ReactElement {
+  return (
+    <div className="rounded-xl border border-border bg-card/40 p-6">
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground">{body}</p>
     </div>
   );
 }

@@ -83,7 +83,7 @@ packages/shared/    Cross-package types
 
 - Don't add `setInterval` inside Durable Objects — it blocks hibernation. Use Alarms.
 - Don't bypass `policy.canX()` checks. There is no DB-level safety net (no RLS).
-- Don't put OAuth client_id in `wrangler secret put` — vars are fine. Secrets are for HMAC keys, OAuth client secrets, and Resend API key.
+- Don't put OAuth client_id in `wrangler secret put` — vars are fine. Secrets are for HMAC keys + OAuth client secrets. Email sending uses the `EMAIL` worker binding (no secret).
 - Don't introduce a new dependency without a clear reason.
 - Don't add automated tests as a side effect of unrelated work — adding the test setup is its own task.
 

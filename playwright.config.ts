@@ -17,7 +17,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "https://syncany-web.genedai.workers.dev",
+    baseURL: process.env.E2E_BASE_URL ?? "https://syncany.app",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

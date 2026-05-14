@@ -6,6 +6,11 @@
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "account_id": "48d9ccaf5ee7914c803b5d0656462848",
 
+  // NOTE: custom domain binding (syncany.app + www) is wired in the
+  // Cloudflare dashboard because the apex already had externally-managed
+  // DNS records that wrangler refuses to override automatically.
+  // Dashboard: Workers → syncany-web → Custom Domains → Add.
+
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -26,10 +31,17 @@
     }
   ],
 
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["noreply@syncany.app"]
+    }
+  ],
+
   "vars": {
-    "NEXT_PUBLIC_SYNCANY_API_URL": "https://syncany-api.genedai.workers.dev",
-    "WEB_ORIGIN": "https://syncany-web.genedai.workers.dev",
-    "RESEND_FROM": "Syncany <noreply@mails0.com>",
+    "NEXT_PUBLIC_SYNCANY_API_URL": "https://api.syncany.app",
+    "WEB_ORIGIN": "https://syncany.app",
+    "EMAIL_FROM": "Syncany <noreply@syncany.app>",
     "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
   },
 
