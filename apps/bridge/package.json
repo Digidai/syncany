@@ -1,6 +1,6 @@
 {
   "name": "@syncany/bridge",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Syncany local bridge — connects your Claude Code agents to the Syncany web app",
   "homepage": "https://github.com/Digidai/syncany",
   "repository": { "type": "git", "url": "https://github.com/Digidai/syncany.git" },

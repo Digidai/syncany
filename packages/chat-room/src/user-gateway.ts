@@ -164,10 +164,13 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     }
     if (msg.t === "heartbeat") {
       // Track liveness for stale-bridge detection in leader election.
+      // serializeAttachment so post-hibernation rehydrate sees the fresh
+      // timestamp — without it, a hibernated leader gets demoted on next
+      // election even though it's healthy.
       const now = Date.now();
       sess.lastHeartbeatAt = now;
       this.sessions.set(ws, sess);
-      try { ws.serializeAttachment(sess); } catch { /* ignore — survives next msg */ }
+      ws.serializeAttachment(sess);
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
       return;
     }

@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy, sendEmail } from "@syncany/auth-core";
 import { createInviteRequest } from "@syncany/protocol";
-import { servers, serverMembers, invites } from "@syncany/db";
+import { servers, serverMembers, invites, user } from "@syncany/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
+import { rateLimit } from "../lib/rate-limit";
 
 export const invitesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -94,6 +95,20 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
   const subject = c.get("subject");
   const ctx = ctxFor(c);
   await requirePolicy(policy.servers.canUpdate(ctx, body.serverId));
+
+  // Rate-limit: cap at 50 sent invites per server per day to stop a
+  // compromised owner cookie from turning Syncany into a spam relay
+  // (CF Email Sending will throttle/suspend the binding otherwise).
+  const dayKey = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const limited = await rateLimit(c, "invite_email_server", `${body.serverId}:${dayKey}`, 50, 24 * 3600);
+  if (limited) return limited;
+  // Per-recipient cooldown: 1 invite per email per server per hour. Stops
+  // accidental double-clicks + repeated unsolicited send to the same
+  // person after they ignored the first.
+  const recipKey = `${body.serverId}:${body.email.toLowerCase()}`;
+  const recipLimited = await rateLimit(c, "invite_email_recip", recipKey, 1, 3600);
+  if (recipLimited) return recipLimited;
+
   const id = "inv_" + crypto.randomUUID().replace(/-/g, "").slice(0, 24);
   const expiresAt = new Date(Date.now() + body.ttlHours * 3600_000);
   const db = drizzle(c.env.DB);
@@ -102,15 +117,27 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
     role: body.role, maxUses: 1, uses: 0, expiresAt, createdAt: new Date(),
   });
   const url = `${c.env.WEB_ORIGIN}/invite/${id}`;
-  // Look up server name + inviter name for the email body.
-  const [srv] = await db.select({ name: servers.name }).from(servers).where(eq(servers.id, body.serverId)).limit(1);
+  // Look up server name + inviter name+email for the email body — so the
+  // recipient sees who invited them (avoids "looks like spam" + spam-folder).
+  const [srv, [inv]] = await Promise.all([
+    db.select({ name: servers.name }).from(servers).where(eq(servers.id, body.serverId)).limit(1)
+      .then(r => r[0]),
+    db.select({ name: user.name, email: user.email }).from(user).where(eq(user.id, subject.userId)).limit(1),
+  ]);
   const serverName = srv?.name ?? "your workspace";
+  const inviterName = inv?.name ?? inv?.email ?? "A teammate";
   await sendEmail(c.env, {
     to: body.email,
-    subject: `You're invited to join ${serverName} on Syncany`,
-    html: `<p>You've been invited to join <strong>${escapeHtml(serverName)}</strong> on Syncany.</p>
-      <p><a href="${url}">Click to accept the invite</a></p>
-      <p style="color:#888;font-size:12px">This link expires in ${body.ttlHours} hours and can be used once.</p>`,
+    subject: `${inviterName} invited you to ${serverName} on Syncany`,
+    html: `<p><strong>${escapeHtml(inviterName)}</strong> invited you to join
+        <strong>${escapeHtml(serverName)}</strong> on Syncany — a chat workspace
+        where humans and AI agents work in the same channels.</p>
+      <p style="margin-top:24px"><a href="${url}"
+        style="background:#0e7490;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Accept invite</a></p>
+      <p style="color:#888;font-size:12px;margin-top:24px">
+        This link expires in ${body.ttlHours} hours and can be used once.
+        If you weren't expecting this, you can ignore the email.
+      </p>`,
   });
   return c.json({ id, url, sentTo: body.email });
 });

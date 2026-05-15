@@ -55,7 +55,8 @@ export default function SettingsPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
-  const [members, setMembers] = useState<Array<{ userId: string; role: string; joinedAt: number; name: string; email: string; image: string | null }>>([]);
+  const [members, setMembers] = useState<Array<{ userId: string; role: string; joinedAt: number; name: string; email: string | null; image: string | null }>>([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   // Persistent inline copies of toast errors for form submissions —
   // toasts auto-dismiss after 7 s, but a failed Create/Upload often needs
   // a longer-lived hint right next to the input the user just touched.
@@ -75,8 +76,10 @@ export default function SettingsPage() {
         setKeys(kData.keys as Key[]);
         setInvites(iData.invites as any);
         setMembers(mData.members);
+        setMembersLoaded(true);
       } catch (e) {
         notifyThrown("Couldn't load settings", e);
+        setMembersLoaded(true);
       }
     })();
   }, [slug]);
@@ -263,8 +266,10 @@ export default function SettingsPage() {
             <CardDescription>People in this workspace.</CardDescription>
           </CardHeader>
           <CardPanel>
-            {members.length === 0 ? (
+            {!membersLoaded ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Couldn&apos;t load members.</p>
             ) : (
               <ul className="space-y-2">
                 {members.map((m) => (
@@ -274,7 +279,7 @@ export default function SettingsPage() {
                       : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-medium text-cyan-700">{m.name.slice(0,1).toUpperCase()}</div>}
                     <div className="flex-1 min-w-0">
                       <div className="truncate font-medium">{m.name}</div>
-                      <div className="truncate text-xs text-muted-foreground">{m.email}</div>
+                      {m.email && <div className="truncate text-xs text-muted-foreground">{m.email}</div>}
                     </div>
                     <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium capitalize">{m.role}</span>
                     {m.role !== "owner" && (

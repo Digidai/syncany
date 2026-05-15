@@ -61,11 +61,19 @@ export class Bridge {
     for (const ch of this.boot.channels) this.openChannelWs(ch.id);
     this.openGatewayWs();
 
+    // Tell the UI every tracked agent is online + ready. Without this the
+    // sidebar shows them as offline (DB default) until the first message
+    // hits one of them — terrible first-run UX.
+    this.agentManager.broadcastLifecycle("idle");
+
     this.refreshTimer = setInterval(() => this.refreshToken().catch(console.error), TOKEN_REFRESH_MS);
   }
 
   async stop(): Promise<void> {
     this.stopped = true;
+    // Tell the UI agents are going offline BEFORE we tear down the WS
+    // (otherwise the activity POST may race the WS close).
+    this.agentManager.broadcastLifecycle("error");
     if (this.refreshTimer) clearInterval(this.refreshTimer);
     for (const t of this.heartbeats.values()) clearInterval(t);
     for (const ws of this.channelSockets.values()) try { ws.close(); } catch { /* ignore */ }

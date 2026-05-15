@@ -394,6 +394,17 @@ ${a.displayName}
     });
   }
 
+  /** Broadcast an online/offline lifecycle event for every tracked agent.
+   *  Called from bridge.start (online) and bridge.stop (offline). Without
+   *  this, the sidebar shows agents as "offline" after bridge connect
+   *  because the only previous activity events were per-message. */
+  public broadcastLifecycle(status: "idle" | "error"): void {
+    if (!this.boot) return;
+    for (const a of this.boot.agents) {
+      this.broadcastActivity(a.id, status, status === "idle" ? "Online" : "Offline", "");
+    }
+  }
+
   private sessionIdPath(session: AgentSession): string {
     return join(session.workDir, ".syncany", "session_id");
   }

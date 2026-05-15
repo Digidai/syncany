@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@syncany/auth-core";
-import { servers, serverMembers, channels, channelMembers, messages, machineKeys } from "@syncany/db";
+import { agents, servers, serverMembers, channels, channelMembers, messages, machineKeys } from "@syncany/db";
 import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
@@ -17,6 +17,23 @@ meRoutes.post("/api/v1/agent-activity", requireAuth, async (c) => {
   // Verify the agent is actually owned by this subject's user.
   const ctx = ctxFor(c);
   await requirePolicy(policy.agents.canUpdate(ctx, body.agentId));
+
+  // Persist a coarse online/offline state on the agent row. The fine-grained
+  // per-message status (thinking/working/error/idle) only lives in
+  // UserGateway DO + use-agent-activity hook (transient). Without this DB
+  // update, sidebar shows offline gray dot for an alive bridge between
+  // messages.
+  const persistedStatus =
+    body.status === "error" ? "offline" :
+    (body.status === "idle" || body.status === "thinking" || body.status === "working") ? "online" :
+    null;
+  if (persistedStatus) {
+    const db = drizzle(c.env.DB);
+    c.executionCtx.waitUntil(
+      db.update(agents).set({ status: persistedStatus, updatedAt: new Date() })
+        .where(eq(agents.id, body.agentId)).run().catch(() => {}),
+    );
+  }
 
   const stub = c.env.USER_GATEWAY.get(c.env.USER_GATEWAY.idFromName(subject.userId));
   await stub.fetch("https://user-gateway/internal/notify", {

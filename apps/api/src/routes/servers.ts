@@ -93,9 +93,24 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 serversRoutes.get("/api/v1/servers/:id/members", requireAuth, async (c) => {
   const id = c.req.param("id");
+  const subject = c.get("subject");
   const ctx = ctxFor(c);
   await requirePolicy(policy.servers.canRead(ctx, id));
   const db = drizzle(c.env.DB);
+
+  // Email is PII. Only admins/owners see peer emails; regular members get
+  // name + role + image only. Ownership of email enumeration prevented.
+  const myRow = await db
+    .select({ role: serverMembers.role })
+    .from(serverMembers)
+    .where(and(
+      eq(serverMembers.serverId, id),
+      eq(serverMembers.memberId, subject.userId),
+      eq(serverMembers.memberType, "human"),
+    )).limit(1);
+  const myRole = myRow[0]?.role ?? "member";
+  const canSeeEmails = myRole === "owner" || myRole === "admin";
+
   const rows = await db
     .select({
       userId: serverMembers.memberId,
@@ -111,7 +126,8 @@ serversRoutes.get("/api/v1/servers/:id/members", requireAuth, async (c) => {
       eq(serverMembers.serverId, id),
       eq(serverMembers.memberType, "human"),
     ));
-  return c.json({ members: rows });
+  const out = rows.map(r => canSeeEmails ? r : { ...r, email: null });
+  return c.json({ members: out, viewerRole: myRole });
 });
 
 serversRoutes.delete("/api/v1/servers/:id/members/:userId", requireAuth, async (c) => {

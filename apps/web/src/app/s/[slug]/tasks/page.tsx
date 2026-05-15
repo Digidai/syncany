@@ -11,7 +11,10 @@ import { Input } from "@/components/ui/input";
 interface Task {
   id: string;
   channelId: string;
-  messageId: string;
+  // Nullable: a fresh task row may have a null messageId between the row
+  // insert and the back-fill after the chat-message DO send completes
+  // (or permanently null if the DO send failed).
+  messageId: string | null;
   taskNumber: number;
   title?: string;
   status: "todo" | "in_progress" | "in_review" | "done";

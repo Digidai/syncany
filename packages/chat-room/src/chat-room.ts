@@ -321,6 +321,12 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
         return;
       case "history":
         return this.handleHistory(ws, sess, msg);
+      case "heartbeat":
+        // ChatRoom DO doesn't track liveness for leader election (that's
+        // UserGateway), but it should still ack so the bridge can use the
+        // same heartbeat for either socket type without special-casing.
+        this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
+        return;
       case "rpc":
         // RPC routing is owned by UserGateway DO; per-channel DO doesn't handle it.
         this.sendErr(ws, msg.id, "WRONG_DO", "RPC must go to user gateway");

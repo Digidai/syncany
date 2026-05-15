@@ -130,7 +130,7 @@ export const api = {
     const q = new URLSearchParams();
     if (opts?.channelId) q.set("channelId", opts.channelId);
     if (opts?.status) q.set("status", opts.status);
-    return call<{ tasks: Array<{ id: string; channelId: string; messageId: string; taskNumber: number; title?: string; status: "todo" | "in_progress" | "in_review" | "done"; assigneeId: string | null; assigneeType: "human" | "agent" | null; createdAt: number; updatedAt: number }> }>(`/api/v1/tasks?${q}`);
+    return call<{ tasks: Array<{ id: string; channelId: string; messageId: string | null; taskNumber: number; title?: string; status: "todo" | "in_progress" | "in_review" | "done"; assigneeId: string | null; assigneeType: "human" | "agent" | null; createdAt: number; updatedAt: number }> }>(`/api/v1/tasks?${q}`);
   },
 
   createTask: (body: { channelId: string; title: string; assigneeId?: string; assigneeType?: "human" | "agent" }) =>
@@ -179,7 +179,7 @@ export const api = {
 
   // ---- workspace members ----
   listMembers: (serverId: string) =>
-    call<{ members: Array<{ userId: string; role: string; joinedAt: number; name: string; email: string; image: string | null }> }>(
+    call<{ members: Array<{ userId: string; role: string; joinedAt: number; name: string; email: string | null; image: string | null }>; viewerRole: string }>(
       `/api/v1/servers/${encodeURIComponent(serverId)}/members`,
     ),
 
