@@ -145,7 +145,11 @@ export class Bridge {
       if (!this.stopped) setTimeout(() => this.openChannelWs(channelId), 1500);
     });
     ws.addEventListener("error", (e) => {
-      console.error(`[bridge] channel ws error (${channelId})`, (e as any).message ?? e);
+      // Dump everything we can — `Event.error` carries the underlying socket
+      // error in Node's ws shim; the bare event has only `type`.
+      const err = (e as { error?: unknown }).error ?? e;
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error(`[bridge] channel ws error (${channelId}) — ${msg}`);
     });
   }
 
@@ -185,7 +189,9 @@ export class Bridge {
       if (!this.stopped) setTimeout(() => this.openGatewayWs(), 1500);
     });
     ws.addEventListener("error", (e) => {
-      console.error("[bridge] gateway ws error", (e as any).message ?? e);
+      const err = (e as { error?: unknown }).error ?? e;
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error(`[bridge] gateway ws error — ${msg}`);
     });
   }
 

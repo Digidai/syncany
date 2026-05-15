@@ -146,6 +146,16 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   }
 
   async webSocketMessage(ws: WebSocket, raw: ArrayBuffer | string): Promise<void> {
+    // Outer try — any unexpected exception logs but doesn't drop the WS.
+    try {
+      await this.dispatchMessage(ws, raw);
+    } catch (e) {
+      console.error("[UserGateway] webSocketMessage failed", { error: String(e) });
+      this.sendErr(ws, "x", "INTERNAL", "internal error");
+    }
+  }
+
+  private async dispatchMessage(ws: WebSocket, raw: ArrayBuffer | string): Promise<void> {
     let msg: ClientMessage;
     try { msg = decodeClient(raw); }
     catch (e) { this.sendErr(ws, "x", "BAD_MESSAGE", String(e)); return; }

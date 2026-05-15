@@ -289,6 +289,17 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   // WebSocket handlers
   // -------------------------------------------------------------------------
   async webSocketMessage(ws: WebSocket, raw: ArrayBuffer | string): Promise<void> {
+    // Outer try keeps an unexpected exception in any handler from dropping
+    // the WS — clients see an INTERNAL err frame instead of a closed socket.
+    try {
+      await this.dispatchMessage(ws, raw);
+    } catch (e) {
+      console.error("[ChatRoom] webSocketMessage failed", { channelId: this.channelId, error: String(e) });
+      this.sendErr(ws, "x", "INTERNAL", "internal error");
+    }
+  }
+
+  private async dispatchMessage(ws: WebSocket, raw: ArrayBuffer | string): Promise<void> {
     let msg: ClientMessage;
     try {
       msg = decodeClient(raw);
@@ -521,12 +532,20 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     // KV deny-list check — same as REST resolveSubject. Without this, a
     // revoked machine key's still-open WS keeps working until the 7-day
     // token TTL elapses (P1 from 6-agent diagnostic).
+    // FAIL-OPEN: KV transient errors must not drop a healthy WS. Worst
+    // case a revoked token works for a few seconds during a KV outage —
+    // way better than 100% of bridges flapping if KV blips.
     if (this.env.RATE_LIMITS) {
-      if (payload.jti && await isTokenRevoked(this.env.RATE_LIMITS, payload.jti)) {
-        throw new Error("token revoked");
-      }
-      if (payload.bridgeId && await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${payload.bridgeId}`)) {
-        throw new Error("bridge revoked");
+      try {
+        if (payload.jti && await isTokenRevoked(this.env.RATE_LIMITS, payload.jti)) {
+          throw new Error("token revoked");
+        }
+        if (payload.bridgeId && await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${payload.bridgeId}`)) {
+          throw new Error("bridge revoked");
+        }
+      } catch (e) {
+        if (String(e).includes("revoked")) throw e;  // intentional revocation rejection
+        console.warn("[ChatRoom] KV revocation lookup failed, allowing", { error: String(e) });
       }
     }
     return {
