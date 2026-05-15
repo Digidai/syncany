@@ -48,6 +48,54 @@ agentsRoutes.get("/api/v1/agents", requireAuth, async (c) => {
     if (ids.includes(r.agentId)) dmByAgent.set(r.agentId, r.channelId);
   }
 
+  // Lazy backfill — agents created before the auto-DM feature shipped
+  // (e.g. via early POST /agents or the legacy onboarding row) have no
+  // DM channel, so the sidebar shows them as un-clickable. Create one
+  // now so a refresh "just works" without requiring the user to do
+  // anything. Best-effort: failures here are swallowed and surfaced as
+  // null dmChannelId (legacy behavior), so the rest of the response
+  // still ships.
+  if (subject.kind === "user") {
+    for (const r of rows) {
+      if (dmByAgent.has(r.id)) continue;
+      const newChannelId = crypto.randomUUID();
+      const now = new Date();
+      try {
+        await db.batch([
+          db.insert(channels).values({
+            id: newChannelId,
+            serverId: r.serverId,
+            name: r.displayName,
+            description: `Direct messages with ${r.displayName}`,
+            type: "dm",
+            createdBy: subject.userId,
+            createdAt: now,
+          }),
+          db.insert(channelMembers).values([
+            { channelId: newChannelId, memberId: subject.userId, memberType: "human", joinedAt: now },
+            { channelId: newChannelId, memberId: r.id, memberType: "agent", joinedAt: now },
+          ]),
+        ]);
+        dmByAgent.set(r.id, newChannelId);
+      } catch (e) {
+        // Most likely a race: a concurrent /agents request also tried to
+        // backfill. Re-query for the existing row instead of creating a
+        // duplicate.
+        const existing = await db.select({ id: channels.id })
+          .from(channels)
+          .innerJoin(channelMembers, and(
+            eq(channelMembers.channelId, channels.id),
+            eq(channelMembers.memberId, r.id),
+            eq(channelMembers.memberType, "agent"),
+          ))
+          .where(eq(channels.type, "dm"))
+          .limit(1);
+        if (existing[0]) dmByAgent.set(r.id, existing[0].id);
+        else console.warn("[agents.list] DM backfill failed", { agentId: r.id, error: String(e) });
+      }
+    }
+  }
+
   return c.json({
     agents: rows.map(r => ({ ...r, dmChannelId: dmByAgent.get(r.id) ?? null })),
   });
