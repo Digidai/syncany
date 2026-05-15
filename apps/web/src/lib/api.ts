@@ -77,6 +77,10 @@ export interface Agent {
   description: string | null; systemPrompt: string | null;
   model: "opus" | "sonnet" | "haiku"; status: "online" | "sleeping" | "offline";
   isDefault: boolean; createdAt: number; updatedAt: number;
+  /** Direct-message channel id (sidebar links to this). Created automatically
+   *  when the agent is created. May be null for agents created before the
+   *  auto-DM feature shipped (legacy onboarding rows). */
+  dmChannelId?: string | null;
 }
 
 export const api = {

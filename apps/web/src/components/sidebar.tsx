@@ -100,9 +100,9 @@ export function Sidebar({ serverSlug, serverId, serverName }: SidebarProps) {
             )}
             {agents.map((a) => {
               const act = activities[a.id];
-              return (
-                <div key={a.id} className="flex items-center gap-2 px-2 py-1 text-sm">
-                  <span className={cn("h-2 w-2 rounded-full",
+              const inner = (
+                <>
+                  <span className={cn("h-2 w-2 rounded-full shrink-0",
                     act?.status === "thinking" ? "bg-violet-500 animate-pulse" :
                     act?.status === "working"  ? "bg-blue-500 animate-pulse" :
                     act?.status === "error"    ? "bg-red-500" :
@@ -112,6 +112,23 @@ export function Sidebar({ serverSlug, serverId, serverName }: SidebarProps) {
                     <span className="truncate">{a.displayName}</span>
                     {act?.label && <span className="truncate text-[10px] text-muted-foreground">{act.label}</span>}
                   </div>
+                </>
+              );
+              // Click an agent → jump to their DM channel. Falls back to a
+              // disabled-looking row if the agent has no DM yet (legacy
+              // pre-auto-DM rows).
+              return a.dmChannelId ? (
+                <Link
+                  key={a.id}
+                  href={`/s/${serverSlug}/dm/${a.dmChannelId}`}
+                  className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
+                  title={`Direct message ${a.displayName}`}
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={a.id} className="flex items-center gap-2 px-2 py-1 text-sm opacity-70" title="No DM channel — open settings to set one up">
+                  {inner}
                 </div>
               );
             })}

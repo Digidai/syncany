@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/ui/card";
 import { CreateChannelDialog } from "@/components/create-channel-dialog";
 import { CreateAgentDialog } from "@/components/create-agent-dialog";
+import { EditAgentDialog } from "@/components/edit-agent-dialog";
+import type { Agent } from "@/lib/api";
+import Link from "next/link";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Hash, Cpu, KeyRound, Copy, UserPlus } from "lucide-react";
 
@@ -57,6 +60,9 @@ export default function SettingsPage() {
   const [sendingInvite, setSendingInvite] = useState(false);
   const [members, setMembers] = useState<Array<{ userId: string; role: string; joinedAt: number; name: string; email: string | null; image: string | null }>>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
+  const [agentList, setAgentList] = useState<Agent[]>([]);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [editAgentOpen, setEditAgentOpen] = useState(false);
   // Persistent inline copies of toast errors for form submissions —
   // toasts auto-dismiss after 7 s, but a failed Create/Upload often needs
   // a longer-lived hint right next to the input the user just touched.
@@ -68,15 +74,17 @@ export default function SettingsPage() {
       try {
         const data = await api.getServerBySlug(slug);
         setServerId(data.server.id);
-        const [kData, iData, mData] = await Promise.all([
+        const [kData, iData, mData, agData] = await Promise.all([
           api.listMachineKeys(),
           api.listInvites(data.server.id).catch(() => ({ invites: [] })),
           api.listMembers(data.server.id).catch(() => ({ members: [] })),
+          api.listAgents().catch(() => ({ agents: [] })),
         ]);
         setKeys(kData.keys as Key[]);
         setInvites(iData.invites as any);
         setMembers(mData.members);
         setMembersLoaded(true);
+        setAgentList(agData.agents);
       } catch (e) {
         notifyThrown("Couldn't load settings", e);
         setMembersLoaded(true);
@@ -162,6 +170,22 @@ export default function SettingsPage() {
     }
   }
 
+  async function reloadAgents() {
+    const r = await api.listAgents().catch(() => ({ agents: [] }));
+    setAgentList(r.agents);
+  }
+
+  async function handleDeleteAgent(a: Agent) {
+    if (!confirm(`Delete agent "${a.displayName}"?\n\nThis also removes its DM channel and any agent-channel memberships. The bridge will stop spawning a Claude Code process for it.`)) return;
+    try {
+      await api.deleteAgent(a.id);
+      reloadAgents();
+      notifySuccess(`Deleted ${a.displayName}`);
+    } catch (e) {
+      notifyThrown("Couldn't delete agent", e);
+    }
+  }
+
   async function handleAvatarChange(file: File | null) {
     if (!file) return;
     setUploadingAvatar(true);
@@ -196,16 +220,60 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Hash className="h-4 w-4" /> Channels & agents</CardTitle>
-            <CardDescription>Add new channels and bring in additional AI agents.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Hash className="h-4 w-4" /> Channels</CardTitle>
+            <CardDescription>Add new channels for your team.</CardDescription>
           </CardHeader>
           <CardPanel>
-            <div className="flex gap-2">
-              <Button onClick={() => setOpenChannel(true)}>+ New channel</Button>
-              <Button onClick={() => setOpenAgent(true)} variant="outline">
-                <Cpu className="mr-1 h-3.5 w-3.5" /> + New agent
-              </Button>
+            <Button onClick={() => setOpenChannel(true)}>+ New channel</Button>
+          </CardPanel>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2"><Cpu className="h-4 w-4" /> Agents</CardTitle>
+                <CardDescription>AI teammates that run on your laptop and join channels.</CardDescription>
+              </div>
+              <Button onClick={() => setOpenAgent(true)} size="sm">+ New agent</Button>
             </div>
+          </CardHeader>
+          <CardPanel>
+            {agentList.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No agents yet. Click <span className="font-medium text-foreground">+ New agent</span> to add your first one.</p>
+            ) : (
+              <ul className="space-y-2">
+                {agentList.map((a) => (
+                  <li key={a.id} className="flex items-center gap-3 rounded border border-border p-3 text-sm">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${
+                      a.status === "online" ? "bg-emerald-500" :
+                      a.status === "sleeping" ? "bg-amber-500" : "bg-zinc-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium">{a.displayName}</span>
+                        <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-mono text-muted-foreground">{a.name}</span>
+                        <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] capitalize text-cyan-700">{a.model}</span>
+                      </div>
+                      {a.description && <div className="truncate text-xs text-muted-foreground">{a.description}</div>}
+                    </div>
+                    {a.dmChannelId && (
+                      <Link
+                        href={`/s/${slug}/dm/${a.dmChannelId}`}
+                        className="text-xs text-cyan-700 hover:underline"
+                      >DM</Link>
+                    )}
+                    <button
+                      className="text-xs text-foreground hover:underline"
+                      onClick={() => { setEditingAgent(a); setEditAgentOpen(true); }}
+                    >Edit</button>
+                    <button
+                      className="text-xs text-destructive-foreground hover:underline"
+                      onClick={() => handleDeleteAgent(a)}
+                    >Delete</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardPanel>
         </Card>
 
@@ -381,7 +449,10 @@ export default function SettingsPage() {
       <CreateChannelDialog serverId={serverId} open={openChannel} onOpenChange={setOpenChannel}
         onCreated={() => location.reload()} />
       <CreateAgentDialog serverId={serverId} open={openAgent} onOpenChange={setOpenAgent}
-        onCreated={() => location.reload()} />
+        onCreated={() => { reloadAgents(); }} />
+      <EditAgentDialog agent={editingAgent} open={editAgentOpen}
+        onOpenChange={setEditAgentOpen}
+        onSaved={() => { reloadAgents(); notifySuccess("Agent updated"); }} />
     </div>
   );
 }
