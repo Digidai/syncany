@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>Raltic Settings</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        background: #0a0a0a; color: #fff;
+        font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        margin: 0; padding: 24px; -webkit-app-region: drag;
+      }
+      .wrap { display: flex; flex-direction: column; gap: 16px; -webkit-app-region: no-drag; }
+      h1 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+      .hint { font-size: 12px; color: #aaa; margin: 0; }
+      label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #ccc; }
+      input[type="text"], input[type="password"] {
+        background: #161616; color: #fff; border: 1px solid #2a2a2a;
+        border-radius: 6px; padding: 8px 10px; font: inherit; outline: none;
+      }
+      input:focus { border-color: #4cafd6; }
+      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+      button {
+        background: #1e1e1e; color: #fff; border: 1px solid #2a2a2a;
+        border-radius: 6px; padding: 8px 14px; font: inherit; cursor: pointer;
+      }
+      button.primary { background: #4cafd6; color: #000; border-color: #4cafd6; }
+      button:disabled { opacity: 0.5; cursor: progress; }
+      .status { font-size: 12px; color: #4cafd6; min-height: 16px; }
+      .err { color: #ef6868; }
+    </style>
+    <script type="module" crossorigin src="./assets/settings-DHTZffcu.js"></script>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <h1>Raltic Settings</h1>
+        <p class="hint">
+          The bridge connects this machine to your workspace. Get a key
+          from your workspace's Settings → Machine API keys page.
+        </p>
+      </div>
+
+      <label>
+        Machine API key
+        <input id="apiKey" type="password" placeholder="ck_…" autocomplete="off" spellcheck="false" />
+      </label>
+
+      <label>
+        Server URL <span style="opacity:0.6">(advanced — leave blank for production)</span>
+        <input id="serverUrl" type="text" placeholder="https://api.raltic.com" autocomplete="off" spellcheck="false" />
+      </label>
+
+      <div class="status" id="status"></div>
+
+      <div class="row">
+        <button id="updates">Check for updates</button>
+        <button id="save" class="primary">Save &amp; restart bridge</button>
+      </div>
+    </div>
+
+  </body>
+</html>

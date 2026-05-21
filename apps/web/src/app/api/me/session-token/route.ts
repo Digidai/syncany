@@ -1,10 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createAuth } from "@syncany/auth-core";
+import { createAuth } from "@raltic/auth-core";
 
 /**
  * Returns the current session token (the value of the better-auth session
  * cookie) so the web client can use it as Bearer auth when calling the
- * cross-origin syncany-api Worker.
+ * cross-origin raltic-api Worker.
  *
  * This is safe to expose to same-origin callers because they could already
  * read the cookie value via document.cookie if HttpOnly were off. We keep

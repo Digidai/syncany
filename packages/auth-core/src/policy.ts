@@ -7,14 +7,30 @@ import {
   channelMembers,
   agents,
   user,
-} from "@syncany/db";
+} from "@raltic/db";
 
 /**
  * The acting subject for any data access. Either a logged-in user or a bridge
  * connected with a machine API key (which is scoped to one userId + serverId).
  */
+/**
+ * Authenticated subject. Three resolution paths produce a Subject;
+ * `via` discriminates them so middlewares like `requireUser` can refuse
+ * subjects whose token type shouldn't reach a given surface.
+ *
+ *   - via: "cookie" — better-auth session cookie. Full human user; the
+ *     ONLY one allowed to mutate identity-level state (default
+ *     workspace, profile fields).
+ *   - via: "api_token" — short-lived `sy_api_` JWT minted from the
+ *     cookie by web for cross-origin fetches. Functionally equivalent
+ *     to cookie for most routes; treat as a cookie.
+ *   - via: "bridge_token" — `sy_bridge_` JWT minted from a machine key
+ *     for WS upgrades + activity POSTs. MUST NOT be allowed to call
+ *     /me/default-server, change profile, etc — codex review caught a
+ *     bypass where requireUser accepted bridge tokens as user sessions.
+ */
 export type Subject =
-  | { kind: "user"; userId: string }
+  | { kind: "user"; userId: string; via: "cookie" | "api_token" | "bridge_token" }
   | { kind: "machine"; userId: string; serverId: string; keyId: string };
 
 type DB = DrizzleD1Database<Record<string, unknown>>;
@@ -67,6 +83,34 @@ export async function userIsServerOwner(ctx: AuthCtx, serverId: string): Promise
       .where(and(eq(servers.id, serverId), eq(servers.ownerId, ctx.subject.userId)))
       .limit(1);
     return rows.length > 0;
+  });
+}
+
+/** Resolves the subject's role in a server, if any. Returns null when the
+ *  subject is not a member. Not cached (ctx.cache stores boolean promises
+ *  only) — the query is index-backed and rarely repeated per request. */
+export async function userServerRole(
+  ctx: AuthCtx,
+  serverId: string,
+): Promise<"owner" | "admin" | "member" | null> {
+  const rows = await ctx.db
+    .select({ role: serverMembers.role })
+    .from(serverMembers)
+    .where(and(
+      eq(serverMembers.serverId, serverId),
+      eq(serverMembers.memberId, ctx.subject.userId),
+      eq(serverMembers.memberType, "human"),
+    ))
+    .limit(1);
+  return rows[0]?.role ?? null;
+}
+
+/** Owner OR admin — for rename, icon change, member removal. Stricter than
+ *  read but looser than delete/transfer. */
+export async function userIsServerAdminOrOwner(ctx: AuthCtx, serverId: string): Promise<boolean> {
+  return memo(ctx, `sao:${serverId}`, async () => {
+    const role = await userServerRole(ctx, serverId);
+    return role === "owner" || role === "admin";
   });
 }
 
@@ -219,10 +263,25 @@ export const policy = {
     canCreate: (ctx: AuthCtx) =>
       // Machine keys cannot create new servers — that's a human-only action.
       Promise.resolve(ctx.subject.kind === "user"),
+    /** Highest-trust mutations: owner only. Used for slug change (link-
+     *  breaking) and any policy/billing changes if we add them later. */
     canUpdate: async (ctx: AuthCtx, id: string) =>
       machineScoped(ctx, id) && (await userIsServerOwner(ctx, id)),
     canDelete: async (ctx: AuthCtx, id: string) =>
       machineScoped(ctx, id) && (await userIsServerOwner(ctx, id)),
+    /** Day-to-day workspace mgmt: rename, set icon, remove members. Owner
+     *  OR admin. Machine subjects always denied (this is human-initiated). */
+    canEdit: async (ctx: AuthCtx, id: string) => {
+      if (ctx.subject.kind !== "user") return false;
+      return machineScoped(ctx, id) && (await userIsServerAdminOrOwner(ctx, id));
+    },
+    /** Self-leave a workspace. Permitted for any non-owner member. The
+     *  owner must transfer ownership first (or delete the workspace). */
+    canLeave: async (ctx: AuthCtx, id: string) => {
+      if (ctx.subject.kind !== "user") return false;
+      if (!(await userIsServerMember(ctx, id))) return false;
+      return !(await userIsServerOwner(ctx, id));
+    },
   },
   agents: {
     canRead:   async (ctx: AuthCtx, id: string) =>
@@ -305,8 +364,15 @@ export const policy = {
   machineKeys: {
     canRead: (ctx: AuthCtx, ownerId: string) =>
       Promise.resolve(ctx.subject.kind === "user" && ctx.subject.userId === ownerId),
-    canCreate: (ctx: AuthCtx) =>
-      Promise.resolve(ctx.subject.kind === "user"),
+    /** Issue a machine key for a workspace. SECURITY: must require server
+     *  membership — without this check any signed-in user could mint a key
+     *  for any known serverId (machine keys are bridge-scoped to that
+     *  server, so a leaked key for someone else's workspace would let
+     *  them spawn agents and read/write messages in that workspace). */
+    canCreate: async (ctx: AuthCtx, serverId: string) => {
+      if (ctx.subject.kind !== "user") return false;
+      return userIsServerMember(ctx, serverId);
+    },
     canRevoke: (ctx: AuthCtx, ownerId: string) =>
       Promise.resolve(ctx.subject.kind === "user" && ctx.subject.userId === ownerId),
   },

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const API_URL = process.env.E2E_API_URL ?? "https://api.syncany.app";
+const API_URL = process.env.E2E_API_URL ?? "https://api.raltic.com";
 
 /**
  * Smoke suite — never writes to production. Verifies that:
@@ -15,8 +15,8 @@ test.describe("public pages render", () => {
     await page.goto("/login");
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
     await expect(page.getByPlaceholder("Your password")).toBeVisible();
-    // "Syncany" brand title renders as a <div> via the Card primitive.
-    await expect(page.locator('[data-slot="card-title"]').filter({ hasText: /syncany/i })).toBeVisible();
+    // "Raltic" brand title renders as a <div> via the Card primitive.
+    await expect(page.locator('[data-slot="card-title"]').filter({ hasText: /raltic/i })).toBeVisible();
   });
 
   test("/signup shows name + email + password", async ({ page }) => {

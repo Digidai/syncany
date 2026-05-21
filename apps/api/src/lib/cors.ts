@@ -12,7 +12,19 @@ import type { Env, Variables } from "./env";
 export function corsMiddleware(): MiddlewareHandler<{ Bindings: Env; Variables: Variables }> {
   return async (c, next) => {
     if (c.req.path.startsWith("/ws/")) return next();
-    const allowed = [c.env.WEB_ORIGIN, "http://localhost:3000"].filter(Boolean);
+    // Production allowlist = WEB_ORIGIN only. Allowing localhost:3000 in
+    // prod would let any locally-running page read CORS responses with
+    // credentials; harmless today because API is bearer-auth, but a
+    // footgun the moment we add a cookie-backed endpoint.
+    //
+    // Fail-closed when WEB_ORIGIN is unset / not http(s) — we'd rather
+    // break cleanly than silently allow localhost on a misconfigured env.
+    const webOrigin = c.env.WEB_ORIGIN;
+    const allowLocalhost = webOrigin !== undefined && webOrigin.startsWith("http://");
+    const allowed = [
+      webOrigin,
+      ...(allowLocalhost ? ["http://localhost:3000"] : []),
+    ].filter(Boolean);
     return cors({
       origin: (origin) => (origin && allowed.includes(origin) ? origin : null),
       credentials: true,

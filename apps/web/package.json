@@ -1,5 +1,5 @@
 {
-  "name": "@syncany/web",
+  "name": "@raltic/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -15,8 +15,11 @@
     "@base-ui/react": "^1.4.1",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/colors": "^3.0.0",
-    "@syncany/auth-core": "workspace:*",
-    "@syncany/protocol": "workspace:*",
+    "@raltic/auth-core": "workspace:*",
+    "@raltic/protocol": "workspace:*",
+    "@raltic/ui": "workspace:*",
+    "@sentry/nextjs": "^10.53.1",
+    "@tanstack/react-query": "^5.100.11",
     "@tiptap/core": "^3.22.4",
     "@tiptap/extension-heading": "^3.22.4",
     "@tiptap/extension-link": "^3.22.4",
@@ -24,7 +27,7 @@
     "@tiptap/pm": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
-    "better-auth": "^1.6.9",
+    "better-auth": "1.6.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.11.0",
@@ -38,7 +41,8 @@
     "shadcn": "^4.5.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-radix-colors": "^2.1.0",
-    "tiptap-markdown": "^0.9.0"
+    "tiptap-markdown": "^0.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250108.0",

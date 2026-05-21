@@ -1,12 +1,15 @@
 {
-  "name": "@syncany/cli",
-  "version": "0.2.0",
-  "description": "Syncany CLI — agent communication tool for Syncany platform",
-  "homepage": "https://github.com/Digidai/syncany",
-  "repository": { "type": "git", "url": "https://github.com/Digidai/syncany.git" },
+  "name": "@raltic/cli",
+  "version": "0.2.1",
+  "description": "Raltic CLI — agent communication tool for Raltic platform",
+  "homepage": "https://github.com/Digidai/raltic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Digidai/raltic.git"
+  },
   "type": "module",
   "bin": {
-    "syncany": "./dist/index.js"
+    "raltic": "dist/index.js"
   },
   "files": [
     "dist"
@@ -16,10 +19,16 @@
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["syncany", "claude", "ai", "agent", "cli"],
+  "keywords": [
+    "raltic",
+    "claude",
+    "ai",
+    "agent",
+    "cli"
+  ],
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^20.19.39",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
   },

@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react";
 
 // API Worker — for /api/v1/* (data + ws) calls. Cross-origin.
 export const apiOrigin =
-  process.env.NEXT_PUBLIC_SYNCANY_API_URL ?? "https://api.syncany.app";
+  process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
 
 // Auth lives on the WEB origin so cookies and verification email links share
 // a single domain. better-auth client posts to the same origin (relative).

@@ -23,13 +23,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Typecheck backend packages
-        run: pnpm --filter @syncany/protocol --filter @syncany/db --filter @syncany/chat-room --filter @syncany/auth-core --filter @syncany/api lint
-      - name: Typecheck bridge
-        run: pnpm --filter @syncany/bridge exec tsc --noEmit
-      - name: Typecheck cli
-        run: pnpm --filter @syncany/cli exec tsc --noEmit
-      - name: Typecheck web
+      # Typecheck every workspace package via direct tsc, bypassing turbo
+      # (turbo runs `lint` script per package, which is ESLint for web — its
+      # advisory React Compiler warnings aren't gating bugs and have their
+      # own dev-loop signal). Direct tsc gates every package's TypeScript
+      # without ESLint noise, and auto-picks up new packages.
+      - name: Typecheck all packages (direct tsc)
+        run: pnpm --filter './packages/*' --filter './apps/*' --filter '!@raltic/web' exec tsc --noEmit
+      - name: Typecheck web (separate — uses Next plugin)
         working-directory: apps/web
         run: npx tsc --noEmit
 
@@ -50,7 +51,7 @@ jobs:
         working-directory: apps/web
         run: npx next build
         env:
-          NEXT_PUBLIC_SYNCANY_API_URL: https://syncany-api.example.workers.dev
+          NEXT_PUBLIC_RALTIC_API_URL: https://raltic-api.example.workers.dev
       - name: Build api Worker (dry run)
         working-directory: apps/api
         run: npx wrangler deploy --dry-run --outdir=dist
@@ -78,8 +79,11 @@ jobs:
     name: E2E (Playwright vs staging)
     runs-on: ubuntu-latest
     needs: [unit-tests, build]
-    # Only on push-to-main: PRs from forks shouldn't probe live staging.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Run on push-to-main + same-repo PRs (not forks — staging access
+    # tokens shouldn't leak to fork-author scripts).
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -102,3 +106,19 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  # Single status check that aggregates all of the above. Configure this
+  # as the only required check in branch-protection — adding/removing
+  # individual jobs above won't break branch protection rules.
+  ci-summary:
+    name: CI summary
+    runs-on: ubuntu-latest
+    needs: [typecheck, build, unit-tests]
+    if: always()
+    steps:
+      - name: Require all upstream jobs to succeed
+        run: |
+          if [[ "${{ needs.typecheck.result }}" != "success" ]]; then echo "typecheck failed" && exit 1; fi
+          if [[ "${{ needs.build.result }}" != "success" ]]; then echo "build failed" && exit 1; fi
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then echo "unit-tests failed" && exit 1; fi
+          echo "all gates passed"

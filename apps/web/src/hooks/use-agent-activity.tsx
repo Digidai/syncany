@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { authClient, apiOrigin } from "@/lib/auth-client";
-import { decodeServer, encode, PROTOCOL_VERSION } from "@syncany/protocol";
+import { decodeServer, encode, PROTOCOL_VERSION } from "@raltic/protocol";
 
 const wsOrigin = apiOrigin.replace(/^http/, "ws");
 

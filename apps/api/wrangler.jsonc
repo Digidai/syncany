@@ -1,20 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "syncany-api",
+  "name": "raltic-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-23",
   "compatibility_flags": ["nodejs_compat"],
   "account_id": "48d9ccaf5ee7914c803b5d0656462848",
 
   "routes": [
-    { "pattern": "api.syncany.app", "custom_domain": true }
+    { "pattern": "api.raltic.com", "custom_domain": true }
   ],
 
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "syncany-staging",
-      "database_id": "f29f3753-0381-4bb1-9da3-1c059108ceb8",
+      "database_name": "raltic-staging",
+      "database_id": "b1c3ee93-69a6-45a3-bfa9-56d37e8971f2",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
@@ -29,27 +29,77 @@
   "r2_buckets": [
     {
       "binding": "UPLOADS",
-      "bucket_name": "syncany-uploads"
+      "bucket_name": "raltic-uploads"
+    },
+    {
+      "binding": "BACKUPS",
+      "bucket_name": "raltic-backups"
     }
   ],
+
+  // Cron triggers — handlers in src/scheduled.ts dispatch on event.cron.
+  // 03:00 UTC daily: D1 dump → R2 raltic-backups + prune > 30 days.
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
 
   "durable_objects": {
     "bindings": [
       { "name": "CHAT_ROOM",    "class_name": "ChatRoom" },
-      { "name": "USER_GATEWAY", "class_name": "UserGateway" }
+      { "name": "USER_GATEWAY", "class_name": "UserGateway" },
+      // RalticAgent — one DO instance per Agent record (P0 W2).
+      // Class implements CF Agents SDK Agent base; per-agent state,
+      // history, todoList, sandbox container id live in DO storage.
+      { "name": "RALTIC_AGENT", "class_name": "RalticAgent" }
     ]
   },
+
+  // AI binding (Workers AI for embeddings, Llama for local inference).
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Vectorize index for semantic message search (D8: global index +
+  // metadata filter). Create with:
+  //   wrangler vectorize create raltic-messages-prod \
+  //     --dimensions 768 --metric cosine
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "raltic-messages-prod"
+    }
+  ],
 
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["ChatRoom", "UserGateway"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["RalticAgent"]
     }
   ],
 
   "vars": {
-    "WEB_ORIGIN": "https://syncany.app",
-    "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
+    "WEB_ORIGIN": "https://raltic.com",
+    "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com",
+    // Used by the daily backup cron in src/scheduled.ts. Not secrets —
+    // account id is in every URL, database id is in this same file.
+    // CF_API_TOKEN is a secret and must be set via `wrangler secret put`.
+    "CF_ACCOUNT_ID": "48d9ccaf5ee7914c803b5d0656462848",
+    "D1_DATABASE_ID": "b1c3ee93-69a6-45a3-bfa9-56d37e8971f2",
+    // AI Gateway endpoint for RalticAgent. Create the gateway in CF
+    // dashboard (AI → AI Gateway → New gateway, id "raltic-prod"), then
+    // adjust this URL. Worker fails fast at boot if missing.
+    // OpenAI-compatible LLM router. easyrouter.io speaks /v1/chat/completions
+    // and maps model name → upstream provider (Anthropic / OpenAI / Google).
+    // Later: switch to a CF AI Gateway universal endpoint that proxies to
+    // easyrouter (gives us caching + per-tenant metrics on top of router).
+    "AI_GATEWAY_BASE": "https://easyrouter.io/v1"
+    // Secrets to set via `wrangler secret put`:
+    //   LLM_API_KEY          — router platform key (easyrouter sk-...)
+    //   AI_GATEWAY_TOKEN     — only when AI_GATEWAY_BASE is a CF gateway URL
   },
 
   "observability": {

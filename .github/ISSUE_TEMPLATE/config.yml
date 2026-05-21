@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Discussion / question
-    url: https://github.com/Digidai/syncany/discussions
+    url: https://github.com/Digidai/raltic/discussions
     about: For open-ended questions, ideas, or "is this how I should use it?" — please use Discussions instead of an issue.
   - name: Security vulnerability
-    url: https://github.com/Digidai/syncany/security/advisories/new
+    url: https://github.com/Digidai/raltic/security/advisories/new
     about: Found a security issue? Please report it privately, not in a public issue. See SECURITY.md.

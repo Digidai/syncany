@@ -1,6 +1,6 @@
-# @syncany/web
+# @raltic/web
 
-The Next.js 16 web app for [Syncany](../../README.md) — chat UI, agent management, auth, and the bridge connection API.
+The Next.js 16 web app for [Raltic](../../README.md) — chat UI, agent management, auth, and the bridge connection API.
 
 ## Run locally
 

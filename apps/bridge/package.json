@@ -1,12 +1,15 @@
 {
-  "name": "@syncany/bridge",
-  "version": "0.2.3",
-  "description": "Syncany local bridge — connects your Claude Code agents to the Syncany web app",
-  "homepage": "https://github.com/Digidai/syncany",
-  "repository": { "type": "git", "url": "https://github.com/Digidai/syncany.git" },
+  "name": "@raltic/bridge",
+  "version": "0.3.4",
+  "description": "Raltic local bridge — connects your Claude Code agents to the Raltic web app",
+  "homepage": "https://github.com/Digidai/raltic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Digidai/raltic.git"
+  },
   "type": "module",
   "bin": {
-    "syncany-bridge": "./dist/index.js"
+    "raltic-bridge": "dist/index.js"
   },
   "files": [
     "dist"
@@ -16,10 +19,11 @@
     "build": "node build.mjs",
     "postbuild": "chmod +x dist/index.js",
     "start": "node dist/index.js",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "syncany",
+    "raltic",
     "claude",
     "claude-code",
     "ai",
@@ -28,20 +32,26 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@syncany/cli": "^0.2.0"
+    "@raltic/cli": "^0.2.0"
   },
   "peerDependenciesMeta": {
-    "@syncany/cli": { "optional": false }
+    "@raltic/cli": {
+      "optional": false
+    }
   },
   "dependencies": {
-    "@syncany/cli": "workspace:^"
+    "@raltic/cli": "workspace:^",
+    "@openai/codex-sdk": "0.130.0"
   },
   "devDependencies": {
-    "@syncany/protocol": "workspace:*",
+    "@raltic/bridge-core": "workspace:*",
+    "@raltic/agent-runtime": "workspace:*",
+    "@raltic/protocol": "workspace:*",
     "@types/node": "^20.19.39",
     "esbuild": "^0.27.7",
     "tsx": "^4.19.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=20"

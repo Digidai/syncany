@@ -1,5 +1,5 @@
 {
-  "name": "@syncany/db",
+  "name": "@raltic/db",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "build": "tsc",
     "lint": "tsc --noEmit",
     "generate": "drizzle-kit generate",
-    "migrate:local": "wrangler d1 migrations apply syncany-staging --local",
-    "migrate:remote": "wrangler d1 migrations apply syncany-staging --remote",
+    "migrate:local": "wrangler d1 migrations apply raltic-staging --local",
+    "migrate:remote": "wrangler d1 migrations apply raltic-staging --remote",
     "studio": "drizzle-kit studio"
   },
   "dependencies": {

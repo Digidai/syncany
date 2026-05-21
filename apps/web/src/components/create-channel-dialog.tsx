@@ -4,10 +4,10 @@ import { useState } from "react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field, FieldLabel } from "@/components/ui/field";
+} from "@raltic/ui/components/ui/dialog";
+import { Button } from "@raltic/ui/components/ui/button";
+import { Input } from "@raltic/ui/components/ui/input";
+import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
 import { api, ApiError } from "@/lib/api";
 
 interface Props {

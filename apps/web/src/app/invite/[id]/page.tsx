@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
+import { Button } from "@raltic/ui/components/ui/button";
 
 interface Preview {
   server: { id: string; name: string; slug: string; description: string | null };
@@ -42,7 +42,11 @@ export default function InvitePage() {
     setAccepting(true); setError(null);
     try {
       const res = await api.acceptInvite(inviteId);
-      router.push(`/s/${res.serverSlug}`);
+      // `?welcome=joined` triggers a one-time toast on landing pointing
+      // out the user's own personal workspace (top-left switcher) — most
+      // invitees don't realize they have one and otherwise wonder why
+      // their own agents are "missing" from this workspace's sidebar.
+      router.push(`/s/${res.serverSlug}?welcome=joined`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setAccepting(false);
@@ -50,7 +54,7 @@ export default function InvitePage() {
   }
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading…</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">Loading…</div>;
   }
 
   if (error || !preview) {

@@ -1,0 +1,43 @@
+{
+  "name": "@raltic/ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Shared React UI: low-level primitives (button, dialog, …), hooks, and the PlatformAdapter abstraction. Consumed by apps/web (Next.js host) and apps/desktop (Electron host). NO host-specific imports (no next/*, no electron) live in here — platform differences route through PlatformAdapter.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./components/ui/*": "./src/components/ui/*.tsx",
+    "./features": "./src/features/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./providers": "./src/providers/index.tsx",
+    "./lib/platform": "./src/lib/platform.ts",
+    "./lib/api-client": "./src/lib/api-client.ts",
+    "./lib/utils": "./src/lib/utils.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@raltic/protocol": "workspace:*",
+    "@base-ui/react": "^1.4.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.11.0",
+    "react-day-picker": "^9.14.0",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5.8.0"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

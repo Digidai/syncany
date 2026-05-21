@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import * as schema from "@syncany/db/schema";
+import * as schema from "@raltic/db/schema";
 import { runOnboarding } from "./onboarding";
 import { sendEmail, type EmailEnv } from "./email";
 
@@ -26,6 +26,19 @@ export interface AuthEnv extends EmailEnv {
  * scoped to the current invocation. The construction itself is cheap.
  */
 export function createAuth(env: AuthEnv) {
+  // Defensive: fail loud if the signing secret is missing. Without this,
+  // better-auth silently falls back to a randomly-generated secret per
+  // isolate — every Worker cold-start re-issues a fresh secret and every
+  // existing session cookie becomes unverifiable. Looks like "logout on
+  // every deploy" but is actually "logout on every cold start", made
+  // worse on deploy because deploys evict all isolates simultaneously.
+  if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 16) {
+    throw new Error(
+      "[auth-core] BETTER_AUTH_SECRET is missing or too short. " +
+      "Set it via `wrangler secret put BETTER_AUTH_SECRET` (≥32 random bytes)."
+    );
+  }
+
   const db = drizzle(env.DB, { schema });
 
   return betterAuth({
@@ -36,10 +49,15 @@ export function createAuth(env: AuthEnv) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
+      // Keep this in sync with the UI hints in signup / reset-password.
+      // Bumped from the better-auth default (8) — we previously had a
+      // mismatch where signup placeholder said "≥6" but reset enforced 8.
+      minPasswordLength: 8,
+      maxPasswordLength: 256,
       sendResetPassword: async ({ user, url }) => {
         await sendEmail(env, {
           to: user.email,
-          subject: "Reset your Syncany password",
+          subject: "Reset your Raltic password",
           html: `<p>Hi ${escapeHtml(user.name)},</p>
             <p><a href="${url}">Click here to set a new password</a></p>
             <p style="color:#888;font-size:12px">If you didn't request a reset, just ignore this email.</p>`,
@@ -60,8 +78,8 @@ export function createAuth(env: AuthEnv) {
         try {
           await sendEmail(env, {
             to: user.email,
-            subject: "Verify your Syncany email",
-            html: `<p>Welcome to Syncany, ${escapeHtml(user.name)}.</p>
+            subject: "Verify your Raltic email",
+            html: `<p>Welcome to Raltic, ${escapeHtml(user.name)}.</p>
               <p><a href="${u.toString()}">Click to verify your email</a></p>
               <p style="color:#888;font-size:12px">If you didn't sign up, just ignore this.</p>`,
           });
@@ -104,16 +122,47 @@ export function createAuth(env: AuthEnv) {
         }
       : {},
     session: {
-      cookieCache: { enabled: true, maxAge: 5 * 60 },
-      expiresIn: 60 * 60 * 24 * 30,
+      // cookieCache: signed cookie carrying the session payload, so
+      // hot reads skip the DB roundtrip. Bumped from 5min → 1hr because:
+      //   • The cache is forge-resistant (HMAC'd with BETTER_AUTH_SECRET).
+      //   • Shorter cache means more DB hits during a cold-start / first-
+      //     request burst, which on Cloudflare's free D1 plan is the
+      //     window where intermittent 500s are most likely.
+      //   • 1hr is well below the session lifetime (1 year) and updateAge
+      //     (1 day) so revocation lag is bounded.
+      cookieCache: { enabled: true, maxAge: 60 * 60 },
+      // Effectively "never expires" while the user keeps using the app:
+      // a fresh session lasts 1 year, and `updateAge` rolls the expiry
+      // forward by another year on every visit that's > 1 day old.
+      // A truly infinite session is a security footgun (lost laptops,
+      // shared browsers); 1-year-rolling gives the same UX without
+      // ever surprising an active user with a sign-in prompt.
+      expiresIn: 60 * 60 * 24 * 365,
+      updateAge: 60 * 60 * 24,
     },
     rateLimit: {
       enabled: true,
       window: 60,
-      max: 30,
+      // 10/min/IP is enough for a real human + a fat-finger or two and
+      // tight enough to slow a credential-stuffer. Was 30 — too generous.
+      max: 10,
       // Best-effort — uses better-auth's in-memory store. KV-backed store
-      // would require a custom adapter; in-memory is enough at our scale
-      // (one Worker isolate handles bursts within seconds).
+      // would require a custom adapter; per-isolate is enough at our scale
+      // (an attacker can rotate colos but pays a real latency tax).
+    },
+    account: {
+      // Account linking IS enabled, but `trustedProviders` is intentionally
+      // empty: silent auto-link on a Google sign-in lets an attacker who
+      // controls a Gmail at the same address as an unverified local
+      // account take it over (better-auth doesn't gate trusted-provider
+      // linking on the local account being email-verified). With no
+      // trusted providers, linking still works — but only after the user
+      // is already signed into the local account and explicitly initiates
+      // it from settings. Fail-closed beats fail-merge.
+      accountLinking: {
+        enabled: true,
+        trustedProviders: [],
+      },
     },
     advanced: {
       ipAddress: {

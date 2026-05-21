@@ -1,14 +1,14 @@
 {
-  "name": "syncany",
+  "name": "raltic",
   "private": true,
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "dev:web": "pnpm --filter @syncany/web dev",
-    "dev:bridge": "pnpm --filter @syncany/bridge dev",
-    "db:generate": "pnpm --filter @syncany/db generate",
-    "db:push": "pnpm --filter @syncany/db push",
+    "dev:web": "pnpm --filter @raltic/web dev",
+    "dev:bridge": "pnpm --filter @raltic/bridge dev",
+    "db:generate": "pnpm --filter @raltic/db generate",
+    "db:push": "pnpm --filter @raltic/db push",
     "test": "pnpm -r test --run",
     "e2e": "playwright test",
     "e2e:install": "playwright install chromium"
@@ -28,7 +28,9 @@
   "pnpm": {
     "overrides": {
       "react-notion-avatar>@types/react": "^19",
-      "react-notion-avatar>@types/react-dom": "^19"
+      "react-notion-avatar>@types/react-dom": "^19",
+      "better-auth": "1.6.9",
+      "@better-auth/core": "1.6.9"
     }
   }
 }

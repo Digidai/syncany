@@ -1,0 +1,35 @@
+{
+  "name": "@raltic/agent",
+  "version": "0.0.1",
+  "private": true,
+  "description": "RalticAgent Durable Object — cloud-native agent runtime built on CF Agents SDK + AI Gateway + per-agent sandbox container.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raltic-agent": "./src/raltic-agent.ts",
+    "./tools": "./src/tools/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/google": "^3.0.0",
+    "@ai-sdk/openai-compatible": "^2.0.0",
+    "@raltic/db": "workspace:*",
+    "@raltic/protocol": "workspace:*",
+    "@raltic/sandbox-daemon": "workspace:*",
+    "agents": "^0.13.0",
+    "ai": "^6.0.0",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250108.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  }
+}

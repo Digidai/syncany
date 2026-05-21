@@ -1,7 +1,7 @@
-# Syncany — Agent Team Evaluation (5 rounds, 6 reviewers)
+# Raltic — Agent Team Evaluation (5 rounds, 6 reviewers)
 
 > **Date**: 2026-05-12
-> **Live**: https://syncany.app (web), https://api.syncany.app (api)
+> **Live**: https://raltic.com (web), https://api.raltic.com (api)
 > **Composite grade**: **D+**
 > **Verdict**: DO NOT SHIP to untrusted users. Tier S blocker on agent reply path verified live.
 
@@ -69,7 +69,7 @@ Five-round independent review using a rotating cast of evaluators:
 - **No analytics SDK wired** — grep for posthog/mixpanel/amplitude/segment returns 0. Cannot measure PMF.
 - **No billing, no quotas** — anyone can hammer D1+DO bandwidth.
 - **`window.prompt()` for message editing** — placeholder UI never promoted to a real component.
-- **Email verification required for `@syncany.local` test addresses bounce** — no eval/sandbox bypass.
+- **Email verification required for `@raltic.local` test addresses bounce** — no eval/sandbox bypass.
 - **In-memory better-auth rate limit** — useless across Cloudflare isolate spread; Resend budget abuse vector.
 - **Bridge `ws-token` not refreshed** — sidebar live state and CLI poll loop both die after 10 min.
 
@@ -138,12 +138,12 @@ But a product is graded on what a user can do today, not what the architecture d
 
 ## Per-reviewer raw outputs
 
-- `/tmp/syncany-eval/r1/code-reviewer.md` — Architecture B-
-- `/tmp/syncany-eval/r2/gemini.md` — Security C-
-- `/tmp/syncany-eval/r2/bug-analyzer.md` — Security D+
-- `/tmp/syncany-eval/r3/gemini.md` — UX B-
-- `/tmp/syncany-eval/r3/pm.md` — Product C-
-- `/tmp/syncany-eval/r5/gemini.md` — Synthesis D+
-- `/tmp/syncany-eval/r5/synthesizer.md` — Synthesis D+
+- `/tmp/raltic-eval/r1/code-reviewer.md` — Architecture B-
+- `/tmp/raltic-eval/r2/gemini.md` — Security C-
+- `/tmp/raltic-eval/r2/bug-analyzer.md` — Security D+
+- `/tmp/raltic-eval/r3/gemini.md` — UX B-
+- `/tmp/raltic-eval/r3/pm.md` — Product C-
+- `/tmp/raltic-eval/r5/gemini.md` — Synthesis D+
+- `/tmp/raltic-eval/r5/synthesizer.md` — Synthesis D+
 
 (Codex CLI output unavailable — see methodology note. Both R1 and R4 codex invocations hung indefinitely under sandboxed `exec` mode.)

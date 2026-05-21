@@ -1,15 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "syncany-web",
+  "name": "raltic-web",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-04-23",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "account_id": "48d9ccaf5ee7914c803b5d0656462848",
 
-  // NOTE: custom domain binding (syncany.app + www) is wired in the
+  // NOTE: custom domain binding (raltic.com + www) is wired in the
   // Cloudflare dashboard because the apex already had externally-managed
   // DNS records that wrangler refuses to override automatically.
-  // Dashboard: Workers → syncany-web → Custom Domains → Add.
+  // Dashboard: Workers → raltic-web → Custom Domains → Add.
 
   "assets": {
     "directory": ".open-next/assets",
@@ -19,8 +19,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "syncany-staging",
-      "database_id": "f29f3753-0381-4bb1-9da3-1c059108ceb8"
+      "database_name": "raltic-staging",
+      "database_id": "b1c3ee93-69a6-45a3-bfa9-56d37e8971f2"
     }
   ],
 
@@ -34,14 +34,14 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_sender_addresses": ["noreply@syncany.app"]
+      "allowed_sender_addresses": ["noreply@raltic.com"]
     }
   ],
 
   "vars": {
-    "NEXT_PUBLIC_SYNCANY_API_URL": "https://api.syncany.app",
-    "WEB_ORIGIN": "https://syncany.app",
-    "EMAIL_FROM": "Syncany <noreply@syncany.app>",
+    "NEXT_PUBLIC_RALTIC_API_URL": "https://api.raltic.com",
+    "WEB_ORIGIN": "https://raltic.com",
+    "EMAIL_FROM": "Raltic <noreply@raltic.com>",
     "GOOGLE_CLIENT_ID": "354332228451-j9k7m3js0tlgt2rajfiov9cd505votbl.apps.googleusercontent.com"
   },
 

@@ -84,6 +84,91 @@ describe("policy.machineKeys", () => {
     const ctx = newAuthCtx({} as any, machineSrvA);
     expect(await policy.machineKeys.canRevoke(ctx, "u1")).toBe(false);
     expect(await policy.machineKeys.canRead(ctx, "u1")).toBe(false);
-    expect(await policy.machineKeys.canCreate(ctx)).toBe(false);
+    // canCreate now requires a serverId; non-membership ⇒ denied.
+    const dbNotMember = {
+      select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }) }),
+    } as any;
+    expect(await policy.machineKeys.canCreate(newAuthCtx(dbNotMember, machineSrvA), "srvA")).toBe(false);
+  });
+  it("user who is a server member CAN mint a key for that server", async () => {
+    const dbMember = {
+      select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([{ id: "srvA" }]) }) }) }),
+    } as any;
+    expect(await policy.machineKeys.canCreate(newAuthCtx(dbMember, human), "srvA")).toBe(true);
+  });
+  it("user who is NOT a server member cannot mint a key for that server (the round-1 security gap)", async () => {
+    const dbNotMember = {
+      select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }) }),
+    } as any;
+    expect(await policy.machineKeys.canCreate(newAuthCtx(dbNotMember, human), "srvA")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New role-aware policy methods (canEdit / canLeave / userServerRole)
+// ---------------------------------------------------------------------------
+
+/** Build a stub db whose serverMembers.role query returns the given row. */
+function dbWithRole(role: "owner" | "admin" | "member" | null) {
+  const rows = role ? [{ role }] : [];
+  return {
+    select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve(rows) }) }) }),
+  } as any;
+}
+
+describe("policy.servers.canEdit (owner+admin)", () => {
+  it("allows owner", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("owner"), human), "srvA")).toBe(true);
+  });
+  it("allows admin", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("admin"), human), "srvA")).toBe(true);
+  });
+  it("denies regular member", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("member"), human), "srvA")).toBe(false);
+  });
+  it("denies non-member (no row)", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole(null), human), "srvA")).toBe(false);
+  });
+  it("denies machine subjects entirely (workspace admin is human-only)", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("owner"), machineSrvA), "srvA")).toBe(false);
+  });
+});
+
+describe("policy.servers.canLeave (non-owner member)", () => {
+  /** canLeave checks: machineScoped(ok for user) AND userIsServerMember AND
+   *  NOT userIsServerOwner. Each gate hits a different table; the stub
+   *  needs to answer all three. We make the membership query and the
+   *  owner-check query distinguishable by row count. */
+  function dbForLeave({ isMember, isOwner }: { isMember: boolean; isOwner: boolean }) {
+    // Both userIsServerMember and userIsServerOwner do `.select(...).from(...).where(...).limit(1)`.
+    // Differentiate by mutating which call returns which response — the
+    // simplest mock: alternate by call sequence. canLeave first awaits
+    // userIsServerMember (memo'd), THEN awaits userIsServerOwner (memo'd).
+    let call = 0;
+    return {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              const which = call++;
+              const ans = which === 0 ? isMember : isOwner;
+              return Promise.resolve(ans ? [{ id: "srvA" }] : []);
+            },
+          }),
+        }),
+      }),
+    } as any;
+  }
+  it("allows admin or regular member who is not the owner", async () => {
+    expect(await policy.servers.canLeave(newAuthCtx(dbForLeave({ isMember: true, isOwner: false }), human), "srvA")).toBe(true);
+  });
+  it("DENIES the owner — they must transfer or delete instead", async () => {
+    expect(await policy.servers.canLeave(newAuthCtx(dbForLeave({ isMember: true, isOwner: true }), human), "srvA")).toBe(false);
+  });
+  it("denies a non-member (can't leave what you didn't join)", async () => {
+    expect(await policy.servers.canLeave(newAuthCtx(dbForLeave({ isMember: false, isOwner: false }), human), "srvA")).toBe(false);
+  });
+  it("denies machine subjects (human-only action)", async () => {
+    expect(await policy.servers.canLeave(newAuthCtx(dbForLeave({ isMember: true, isOwner: false }), machineSrvA), "srvA")).toBe(false);
   });
 });

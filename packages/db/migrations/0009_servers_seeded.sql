@@ -1,0 +1,27 @@
+-- 0009_servers_seeded.sql
+--
+-- Adds `servers.seeded` so the invite-flow personal-workspace creation
+-- path can defer agent / welcome-channel / welcome-message creation
+-- until the user first visits their personal workspace (lazy seed).
+--
+-- Why lazy seed:
+--   Today runOnboarding unconditionally seeds the onboarding agent +
+--   2 welcome channels + welcome messages for EVERY new user, including
+--   users who arrived via an invite to someone else's workspace and
+--   may never visit their personal workspace. Result: D1 carries
+--   orphan offline agents + dead channels per invitee, and invitees
+--   see a confusing second "Olivia's Workspace" in the switcher with
+--   stale welcome messages they didn't ask for.
+--
+-- Default 1 (true) so existing rows stay marked seeded — they already
+-- have the rows runOnboarding created. Only new invite-flow rows get
+-- seeded=0; the seed endpoint flips them to 1 on first owner GET or
+-- explicit POST /api/v1/servers/:id/seed.
+--
+-- D1 / SQLite notes:
+--   • ADD COLUMN with NOT NULL DEFAULT is metadata-only — fast.
+--   • The conditional UPDATE pattern (`SET seeded=1 WHERE seeded=0`)
+--     wins exactly once under concurrent reads thanks to SQLite's
+--     row-level serial commit. Checked via meta.changes count.
+
+ALTER TABLE `servers` ADD COLUMN `seeded` integer NOT NULL DEFAULT 1;

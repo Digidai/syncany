@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Syncany E2E suite.
+ * Raltic E2E suite.
  *
  * Default target = deployed staging worker. Override with E2E_BASE_URL for
  * local dev (`E2E_BASE_URL=http://localhost:3000 pnpm e2e`).
@@ -17,7 +17,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "https://syncany.app",
+    baseURL: process.env.E2E_BASE_URL ?? "https://raltic.com",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

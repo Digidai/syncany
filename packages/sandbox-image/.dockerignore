@@ -1,0 +1,12 @@
+# Keep build context small — only the daemon source travels.
+**/node_modules
+**/dist
+**/.next
+**/.open-next
+**/test
+**/coverage
+apps
+docs
+.git
+.github
+*.md

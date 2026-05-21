@@ -1,13 +1,14 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { requirePolicy, policy } from "@syncany/auth-core";
-import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@syncany/protocol";
-import { agents, messages, reactions } from "@syncany/db";
+import { requirePolicy, policy } from "@raltic/auth-core";
+import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@raltic/protocol";
+import { agents, channels, channelMembers, messages, reactions } from "@raltic/db";
 import { and, eq } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
 import { broadcastMessageUpdate, broadcastReaction } from "../lib/notify";
+import { dispatchToAgents, extractAgentMentions, resolveChannelAgents } from "../lib/agent-dispatch";
 
 export const messagesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -16,7 +17,10 @@ export const messagesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>(
 // ---------------------------------------------------------------------------
 messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
   const subject = c.get("subject");
-  const limited = await rateLimit(c, "msg_send", subject.userId, 120, 60); // 120/min/user
+  // Per-user cap blocks single-account abuse; per-channel + per-workspace
+  // caps stop a 50-person workspace from legally summing to firehose
+  // traffic against ChatRoom DOs and downstream notifications.
+  const limited = await rateLimit(c, "msg_send", subject.userId, 120, 60);
   if (limited) return limited;
   const body = sendMessageRequest.parse(await c.req.json());
   const ctx = ctxFor(c);
@@ -25,6 +29,10 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
   await requirePolicy(policy.messages.canSendAs(ctx, {
     channelId: body.channelId, senderId, senderType,
   }));
+  // Per-channel cap runs AFTER policy so an unauthorized caller can't
+  // probe channel quota / observe 429-vs-403 to enumerate membership.
+  const channelLimited = await rateLimit(c, "msg_send_chan", body.channelId, 600, 60);
+  if (channelLimited) return channelLimited;
   // Route through the channel's DO so seq is allocated AND broadcast happens.
   const stub = c.env.CHAT_ROOM.get(c.env.CHAT_ROOM.idFromName(body.channelId));
   const res = await stub.fetch("https://chat-room/internal/send", {
@@ -43,6 +51,53 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
     return c.json({ error: { code: "SEND_FAILED", message: "channel DO rejected message" } }, 500);
   }
   const data = await res.json() as { ok: true; seq: number; messageId?: string };
+
+  // P0 W3: dispatch @-mentioned cloud agents (runtime_mode='raltic').
+  // Best-effort: never fail the original post if dispatch errors.
+  // Limit candidates to agents in this workspace's channel members —
+  // /agents API surface is per-workspace, but here we lazily expand
+  // the candidate set to all agents @mention syntax may target.
+  if (data.messageId && senderType === "human") {
+    // P0 debug: dispatch inline (await) instead of waitUntil. Slower for
+    // the user (response blocks on agent completion ~1-3s) but rules out
+    // cross-isolate waitUntil tracking issues. TODO: switch back to
+    // waitUntil after we've verified end-to-end works at least once.
+    try {
+      // Resolve channel-member agents (id + name).
+      const candidates = await resolveChannelAgents(c.env, body.channelId);
+      if (candidates.length > 0) {
+        // Two dispatch triggers:
+        //   1. Explicit @-mention (any channel type)
+        //   2. DM channel with exactly one agent member — every message
+        //      auto-dispatches (no @-mention required). DM with an
+        //      agent = private chat with that agent.
+        let mentioned = extractAgentMentions(body.content, candidates);
+        if (mentioned.length === 0) {
+          const db = drizzle(c.env.DB);
+          const ch = await db.select({ type: channels.type })
+            .from(channels)
+            .where(eq(channels.id, body.channelId))
+            .limit(1);
+          if (ch[0]?.type === "dm" && candidates.length === 1) {
+            mentioned = [candidates[0]!.id];
+          }
+        }
+        if (mentioned.length > 0) {
+          await dispatchToAgents(c.env, {
+            channelId: body.channelId,
+            messageId: data.messageId!,
+            text: body.content,
+            callerId: senderId,
+            callerType: senderType,
+            mentionedAgentIds: mentioned,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[messages.post] agent dispatch failed:", e);
+    }
+  }
+
   return c.json(data);
 });
 
@@ -51,6 +106,11 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 messagesRoutes.patch("/api/v1/messages/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
+  const subject = c.get("subject");
+  // 60 edits/min/user — a legit user fixing typos burst-edits a few
+  // times, never per-second; cap suspicious edit storms.
+  const limited = await rateLimit(c, "msg_edit", subject.userId, 60, 60);
+  if (limited) return limited;
   const body = editMessageRequest.parse(await c.req.json());
   const ctx = ctxFor(c);
   const db = drizzle(c.env.DB);
@@ -72,6 +132,10 @@ messagesRoutes.patch("/api/v1/messages/:id", requireAuth, async (c) => {
 
 messagesRoutes.delete("/api/v1/messages/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
+  const subject = c.get("subject");
+  // 30 deletes/min/user — same intent as edit; bounds delete-spam.
+  const limited = await rateLimit(c, "msg_delete", subject.userId, 30, 60);
+  if (limited) return limited;
   const ctx = ctxFor(c);
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
@@ -93,13 +157,30 @@ messagesRoutes.delete("/api/v1/messages/:id", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 messagesRoutes.post("/api/v1/messages/:id/reactions", requireAuth, async (c) => {
   const messageId = c.req.param("id");
-  const body = toggleReactionRequest.parse(await c.req.json());
   const subject = c.get("subject");
+  // 300 reactions/min/user. Reactions are bursty (user emoji-bombs a
+  // chain) but no legit flow needs > 5/s sustained.
+  const limited = await rateLimit(c, "reaction_toggle", subject.userId, 300, 60);
+  if (limited) return limited;
+  const body = toggleReactionRequest.parse(await c.req.json());
   const db = drizzle(c.env.DB);
   const reactorType = body.reactorType ?? "human";
-  const reactorId = body.reactorId ?? subject.userId;
-  // If reacting as an agent, must own it.
-  if (reactorType === "agent") {
+  // Human reactor: identity is ALWAYS the subject — never trust
+  // body.reactorId for human reactions. Earlier code accepted
+  // `body.reactorId ?? subject.userId`, which let a caller spoof a
+  // reaction as another user by passing their id (codex review caught
+  // this as a HIGH bypass). Agent reactor: trust body.reactorId but
+  // require subject owns the agent AND the agent is a member of the
+  // message's channel (otherwise an agent can react in channels it
+  // was never invited to).
+  let reactorId: string;
+  if (reactorType === "human") {
+    reactorId = subject.userId;
+  } else {
+    if (!body.reactorId) {
+      return c.json({ error: { code: "INVALID", message: "reactorId required for agent reactions" } }, 400);
+    }
+    reactorId = body.reactorId;
     const own = await db.select({ id: agents.id }).from(agents)
       .where(and(eq(agents.id, reactorId), eq(agents.ownerId, subject.userId))).limit(1);
     if (own.length === 0) return c.json({ error: { code: "FORBIDDEN", message: "not your agent" } }, 403);
@@ -109,6 +190,22 @@ messagesRoutes.post("/api/v1/messages/:id/reactions", requireAuth, async (c) => 
   if (m.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
   const ctx = ctxFor(c);
   await requirePolicy(policy.channels.canRead(ctx, m[0].channelId));
+  // Agent reactor must additionally be a member of the message's channel —
+  // otherwise an owner could "react" via an agent that isn't actually in
+  // the conversation, bypassing the agent's normal channel-membership gate.
+  if (reactorType === "agent") {
+    const isMember = await db.select({ channelId: channelMembers.channelId })
+      .from(channelMembers)
+      .where(and(
+        eq(channelMembers.channelId, m[0].channelId),
+        eq(channelMembers.memberId, reactorId),
+        eq(channelMembers.memberType, "agent"),
+      ))
+      .limit(1);
+    if (isMember.length === 0) {
+      return c.json({ error: { code: "FORBIDDEN", message: "agent not in this channel" } }, 403);
+    }
+  }
 
   // Toggle: if exists, remove; else add.
   const existing = await db.select().from(reactions)

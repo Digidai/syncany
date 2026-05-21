@@ -4,12 +4,16 @@ import { useEffect, useState } from "react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { api, ApiError, type Agent } from "@/lib/api";
+} from "@raltic/ui/components/ui/dialog";
+import { Button } from "@raltic/ui/components/ui/button";
+import { Input } from "@raltic/ui/components/ui/input";
+import { Textarea } from "@raltic/ui/components/ui/textarea";
+import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+import { api, ApiError, RUNTIME_LABEL, RUNTIME_MODELS, type Agent, type RuntimeId } from "@/lib/api";
+import { GeneratedAvatar } from "./generated-avatar";
+import { randomAvatarSeed } from "@/lib/avatar";
+import { Shuffle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   agent: Agent | null;
@@ -18,13 +22,13 @@ interface Props {
   onSaved?: () => void;
 }
 
-const MODELS = ["sonnet", "opus", "haiku"] as const;
-
 export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [model, setModel] = useState<typeof MODELS[number]>("sonnet");
+  const [runtime, setRuntime] = useState<RuntimeId>("claude");
+  const [model, setModel] = useState<string>("sonnet");
+  const [avatarSeed, setAvatarSeed] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,10 +37,21 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
       setDisplayName(agent.displayName);
       setDescription(agent.description ?? "");
       setSystemPrompt(agent.systemPrompt ?? "");
-      setModel(agent.model);
+      setRuntime(agent.runtime);
+      // Guard: if the agent's stored model is no longer in the runtime's
+      // capability list (model deprecated), fall back to the first valid
+      // one so the picker has a selection + submit is valid.
+      const allowed = RUNTIME_MODELS[agent.runtime];
+      setModel(allowed.includes(agent.model) ? agent.model : allowed[0]);
+      setAvatarSeed(agent.avatarSeed ?? null);
       setError(null);
     }
   }, [agent, open]);
+
+  function pickRuntime(r: RuntimeId) {
+    setRuntime(r);
+    if (!RUNTIME_MODELS[r].includes(model)) setModel(RUNTIME_MODELS[r][0]);
+  }
 
   if (!agent) return null;
 
@@ -49,7 +64,9 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
         displayName,
         description: description || null,
         systemPrompt: systemPrompt || null,
+        runtime,
         model,
+        avatarSeed,
       });
       onSaved?.();
       onOpenChange(false);
@@ -71,6 +88,25 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
           <form onSubmit={handleSubmit}>
             <DialogPanel>
               <div className="space-y-4">
+                <Field>
+                  <FieldLabel>Avatar</FieldLabel>
+                  <div className="flex items-center gap-3">
+                    <GeneratedAvatar id={agent.id} name={displayName || agent.displayName} seed={avatarSeed} size="xl" />
+                    <div className="flex flex-col gap-1.5">
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={() => setAvatarSeed(randomAvatarSeed())}>
+                        <Shuffle className="mr-1 h-3.5 w-3.5" /> Shuffle
+                      </Button>
+                      {avatarSeed && (
+                        <button type="button"
+                          onClick={() => setAvatarSeed(null)}
+                          className="text-xs text-muted-foreground hover:text-foreground">
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Field>
                 <Field>
                   <FieldLabel>Identifier</FieldLabel>
                   <Input value={agent.name} disabled
@@ -94,11 +130,40 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                     placeholder="You are an expert in…" />
                 </Field>
                 <Field>
+                  <FieldLabel>Runtime</FieldLabel>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {(["claude", "codex"] as RuntimeId[]).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => pickRuntime(r)}
+                        className={cn(
+                          "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                          runtime === r ? "border-cyan-500 bg-cyan-500/10" : "border-border hover:border-foreground/20",
+                        )}
+                      >
+                        <div className="font-medium">{RUNTIME_LABEL[r]}</div>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {RUNTIME_MODELS[r].join(" / ")}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                {runtime !== agent.runtime && (
+                  <p className="rounded border border-amber-500/40 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                    Switching runtime starts a fresh session — past context won&apos;t carry over. DM history is preserved.
+                  </p>
+                )}
+                <Field>
                   <FieldLabel>Model</FieldLabel>
-                  <div className="flex gap-2">
-                    {MODELS.map((m) => (
+                  <div className="flex flex-wrap gap-2">
+                    {RUNTIME_MODELS[runtime].map((m) => (
                       <button key={m} type="button" onClick={() => setModel(m)}
-                        className={`rounded border px-3 py-1 text-sm capitalize ${model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border"}`}>
+                        className={cn(
+                          "rounded border px-3 py-1 text-sm transition-colors",
+                          model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",
+                        )}>
                         {m}
                       </button>
                     ))}
@@ -106,7 +171,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                 </Field>
                 <p className="text-xs text-muted-foreground">
                   Changes to system prompt take effect on the next message —
-                  the bridge restarts the Claude Code process for this agent.
+                  the bridge restarts the agent process to apply them.
                 </p>
                 {error && <p className="text-sm text-destructive-foreground">{error}</p>}
               </div>

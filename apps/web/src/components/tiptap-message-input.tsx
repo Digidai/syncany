@@ -18,7 +18,7 @@ interface TiptapMessageInputProps {
   placeholder?: string;
   disabled?: boolean;
   /** Called when user presses Enter on non-empty content */
-  onSend: (text: string) => void;
+  onSend: (text: string) => void | boolean | Promise<void | boolean>;
   /** Called on every content change */
   onTextUpdate?: (textBeforeCursor: string, fullText: string) => void;
   /** Intercept keys before Tiptap. Return true to consume (for @mention nav). */
@@ -26,7 +26,7 @@ interface TiptapMessageInputProps {
 }
 
 function createSendOnEnterExtension(
-  onSendRef: React.RefObject<(text: string) => void>
+  onSendRef: React.RefObject<(text: string) => void | boolean | Promise<void | boolean>>
 ) {
   return Extension.create({
     name: "sendOnEnter",
@@ -35,8 +35,17 @@ function createSendOnEnterExtension(
         Enter: ({ editor }) => {
           const text = editor.getText({ blockSeparator: "\n" });
           if (!text.trim()) return true;
-          onSendRef.current(text);
-          editor.commands.clearContent(true);
+          const result = onSendRef.current(text);
+          const clearIfUnchanged = () => {
+            if (editor.getText({ blockSeparator: "\n" }) === text) {
+              editor.commands.clearContent(true);
+            }
+          };
+          if (result instanceof Promise) {
+            void result.then((ok) => { if (ok !== false) clearIfUnchanged(); });
+          } else if (result !== false) {
+            clearIfUnchanged();
+          }
           return true;
         },
       };

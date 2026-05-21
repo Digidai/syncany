@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // OpenNext build output is generated, gitignored, and contains
+    // minified third-party JS — linting it produces nothing actionable
+    // and drowns out signal from source-tree warnings.
+    ".open-next/**",
   ]),
 ]);
 

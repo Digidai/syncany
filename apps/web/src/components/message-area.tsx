@@ -8,12 +8,13 @@ import { notifyThrown } from "@/lib/notify";
 import { useChannelSocket } from "@/hooks/use-channel-socket";
 import { useGateway } from "@/hooks/use-agent-activity";
 import { authClient } from "@/lib/auth-client";
-import type { MessageRow } from "@syncany/protocol";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import type { MessageRow } from "@raltic/protocol";
+import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Trash2 } from "lucide-react";
+import { Smile, Pencil, Trash2, MessageSquareReply, Copy, X as XIcon } from "lucide-react";
+import { useMentionPicker, type MentionMember } from "./mention-picker";
+import { notifySuccess } from "@/lib/notify";
 
 interface MessageAreaProps {
   channelId: string | null;
@@ -27,13 +28,20 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const { bumpRead, seedChannel } = useGateway();
 
   const [channel, setChannel] = useState<Channel | null>(null);
-  const [, setMembers] = useState<ChannelMember[]>([]);
+  // DM peer — populated by api.getChannel; used by the header to render
+  // the OTHER party's display name instead of channels.name (which for
+  // human↔human DMs is just a hex slug, never an actual person's name).
+  const [channelPeer, setChannelPeer] = useState<Channel["peer"]>(null);
+  // Members list — used to identify the agent participant in a DM
+  // channel so the composer placeholder can address them by name.
+  const [members, setMembers] = useState<ChannelMember[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const inputRef = useRef<TiptapMessageInputHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const sendInFlightRef = useRef(false);
 
   // Only mark messages as read when this tab is actually visible.
   function isVisible(): boolean {
@@ -62,6 +70,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         ]);
         if (cancelled) return;
         setChannel(chData.channel);
+        setChannelPeer(chData.peer);
         setMembers(chData.members);
         setAgents(agData.agents);
         setMessages(msgData.messages);
@@ -116,11 +125,15 @@ export function MessageArea({ channelId }: MessageAreaProps) {
       const idx = list.findIndex(r => r.emoji === ev.emoji);
       if (ev.added) {
         if (idx === -1) list.push({ emoji: ev.emoji, reactorIds: [ev.reactorId] });
-        else if (!list[idx].reactorIds.includes(ev.reactorId))
-          list[idx] = { ...list[idx], reactorIds: [...list[idx].reactorIds, ev.reactorId] };
+        else {
+          const ids = list[idx].reactorIds ?? [];
+          if (!ids.includes(ev.reactorId))
+            list[idx] = { ...list[idx], reactorIds: [...ids, ev.reactorId] };
+        }
       } else {
         if (idx !== -1) {
-          const remaining = list[idx].reactorIds.filter(r => r !== ev.reactorId);
+          const ids = list[idx].reactorIds ?? [];
+          const remaining = ids.filter(r => r !== ev.reactorId);
           if (remaining.length === 0) list.splice(idx, 1);
           else list[idx] = { ...list[idx], reactorIds: remaining };
         }
@@ -143,6 +156,27 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     return map;
   }, [agents, session.data?.user]);
 
+  // For DM channels: which agent is the "other side"? Drives the
+  // personalised composer placeholder + header subtitle. We need it
+  // memo'd because it depends on members + agents and feeds the
+  // composer's deps array.
+  const dmAgent = useMemo(() => {
+    if (channel?.type !== "dm") return null;
+    const agentMember = members.find((m) => m.memberType === "agent");
+    if (!agentMember) return null;
+    return agents.find((a) => a.id === agentMember.memberId) ?? null;
+  }, [channel?.type, members, agents]);
+
+  // Composer placeholder: name-the-recipient in DM, generic for channels.
+  // Matches the "Ask {agent} anything" pattern competitive products use
+  // — turns an abstract input box into "I'm having a conversation".
+  const composerPlaceholder = useMemo(() => {
+    if (dmAgent) return `Ask ${dmAgent.displayName} anything`;
+    if (channel?.type === "dm") return "Send a direct message";
+    if (channel?.name) return `Message #${channel.name}`;
+    return "Send a message…";
+  }, [dmAgent, channel?.type, channel?.name]);
+
   if (!channelId) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -151,12 +185,62 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     );
   }
 
-  function handleSend(content: string) {
-    if (!content.trim() || !channelId) return;
-    const ok = send(content);
-    if (!ok) return;
-    inputRef.current?.clear();
+  // Reply state — when set, next send goes as a thread reply to this
+  // message id. Chip above the composer shows what's being replied to;
+  // click X (or send) clears.
+  const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  const replyToLabel = replyTo ? memberLabel.get(replyTo.senderId) ?? "someone" : "";
+
+  async function handleSend(content: string): Promise<boolean> {
+    if (!content.trim() || !channelId || sendInFlightRef.current) return false;
+    sendInFlightRef.current = true;
+    try {
+      const ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
+      if (ok) setReplyTo(null);
+      if (!ok) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
+      return ok;
+    } finally {
+      sendInFlightRef.current = false;
+    }
   }
+
+  async function handleCopy(m: MessageRow) {
+    try {
+      await navigator.clipboard.writeText(m.content);
+      notifySuccess("Copied", "Message text copied to clipboard");
+    } catch (e) {
+      notifyThrown("Copy failed", e);
+    }
+  }
+
+  // ── @-mention picker wiring ────────────────────────────────────────────
+  // Candidates = AGENT members of this channel. Human-mention support
+  // requires the workspace members list (separate /servers/:id/members
+  // call) — that lands as a P1 polish. Agents are the primary mention
+  // target in Raltic anyway (humans + AI sharing channels is the
+  // product's whole point).
+  const mentionMembers = useMemo<MentionMember[]>(() => {
+    const out: MentionMember[] = [];
+    const seen = new Set<string>();
+    for (const m of members) {
+      if (m.memberType !== "agent" || seen.has(m.memberId)) continue;
+      seen.add(m.memberId);
+      const a = agents.find(x => x.id === m.memberId);
+      if (a) out.push({
+        id: a.id, displayName: a.displayName,
+        slug: a.name, kind: "agent",
+      });
+    }
+    return out;
+  }, [members, agents]);
+
+  const picker = useMentionPicker({
+    members: mentionMembers,
+    onPick: (member, query) => {
+      inputRef.current?.replaceMention(query, `@${member.slug} `);
+      inputRef.current?.focus();
+    },
+  });
 
   // Inline-edit state — no more window.prompt().
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -189,52 +273,135 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-2">
-        <div>
-          <h3 className="text-sm font-semibold">{channel?.name ?? "Channel"}</h3>
-          {channel?.description && (
-            <p className="text-xs text-muted-foreground">{channel.description}</p>
+    <div className="flex flex-1 flex-col min-w-0">
+      <header className="flex items-center justify-between gap-3 border-b bg-gradient-to-b from-card to-card/60 px-6 py-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {channel?.type && (
+            <span
+              aria-hidden
+              className={
+                "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-medium " +
+                (channel.type === "dm"
+                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  : channel.type === "private"
+                  ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+                  : "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400")
+              }
+            >
+              {channel.type === "dm" ? "@" : channel.type === "private" ? "🔒" : "#"}
+            </span>
           )}
+          <div className="min-w-0">
+            {/* For DMs, header shows the OTHER party's name (peer.name).
+                For channels, shows channel.name. Falls back to the raw
+                channel.name only if peer wasn't returned (older API). */}
+            <h3 className="truncate text-base font-semibold leading-tight">
+              {channel?.type === "dm" && channelPeer?.name
+                ? channelPeer.name
+                : channel?.name ?? "Channel"}
+            </h3>
+            {channel?.description && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{channel.description}</p>
+            )}
+          </div>
         </div>
-        <span className={"inline-flex items-center gap-1 text-xs " + (connected ? "text-emerald-600" : "text-amber-600")}>
-          <span className={"h-2 w-2 rounded-full " + (connected ? "bg-emerald-500" : "bg-amber-500")} />
+        <span className={
+          "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium " +
+          (connected
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400")
+        }>
+          <span className={
+            "h-1.5 w-1.5 rounded-full " +
+            (connected ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-amber-500 animate-pulse")
+          } />
           {connected ? "Live" : "Connecting…"}
         </span>
       </header>
 
-      <ScrollArea className="flex-1" ref={scrollerRef as any}>
-        <div className="space-y-3 p-4">
+      <ScrollArea className="flex-1">
+        <div ref={scrollerRef} className="space-y-6 px-6 py-6">
           {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
           {!loading && messages.length === 0 && (
-            <p className="text-sm text-muted-foreground">No messages yet — say hi.</p>
+            <div className="flex h-full min-h-64 items-center justify-center">
+              <p className="text-sm text-muted-foreground">No messages yet — say hi.</p>
+            </div>
           )}
-          {messages.map((m) => (
-            <MessageRowView
-              key={m.id}
-              m={m}
-              label={memberLabel.get(m.senderId) ?? m.senderId.slice(0, 8)}
-              currentUserId={userId}
-              editing={editingId === m.id}
-              draft={editingDraft}
-              onStartEdit={() => startEdit(m)}
-              onCancelEdit={cancelEdit}
-              onSaveEdit={() => saveEdit(m)}
-              onDraftChange={setEditingDraft}
-              onDelete={() => handleDelete(m)}
-              onReact={(emoji) => handleReact(m, emoji)}
-            />
-          ))}
+          {messages.map((m) => {
+            // Defensive: API has historically sent system rows without a
+            // senderId; .slice on undefined throws and would torch the
+            // whole channel page. Default to a stable placeholder so the
+            // row still renders and a single bad row can never crash the
+            // list.
+            const sid = m.senderId ?? "";
+            const parent = m.threadParentId
+              ? messages.find(p => p.id === m.threadParentId) ?? null
+              : null;
+            return (
+              <MessageRowView
+                key={m.id}
+                m={m}
+                label={memberLabel.get(sid) ?? (sid ? sid.slice(0, 8) : "Unknown")}
+                currentUserId={userId}
+                editing={editingId === m.id}
+                draft={editingDraft}
+                onStartEdit={() => startEdit(m)}
+                onCancelEdit={cancelEdit}
+                onSaveEdit={() => saveEdit(m)}
+                onDraftChange={setEditingDraft}
+                onDelete={() => handleDelete(m)}
+                onReact={(emoji) => handleReact(m, emoji)}
+                onReply={() => { setReplyTo(m); inputRef.current?.focus(); }}
+                onCopy={() => handleCopy(m)}
+                parent={parent}
+                parentLabel={parent ? memberLabel.get(parent.senderId) ?? "" : ""}
+              />
+            );
+          })}
         </div>
       </ScrollArea>
 
-      <footer className="border-t p-2">
-        <TiptapMessageInput
-          ref={inputRef}
-          onSend={handleSend}
-          disabled={!connected}
-          placeholder={connected ? "Send a message…" : "Connecting…"}
-        />
+      <footer className="border-t px-6 py-3">
+        {/* Picker floats above the composer when active. The wrapper has
+            position relative so the absolute panel stays anchored to the
+            footer rather than the viewport. */}
+        <div className="relative">
+          <div className="pointer-events-none absolute bottom-full left-0 right-0 flex justify-start">
+            {picker.render()}
+          </div>
+          {replyTo && (
+            <div className="mb-2 flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+              <MessageSquareReply className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">Replying to {replyToLabel}</div>
+                <div className="truncate text-muted-foreground">
+                  {(replyTo.content ?? "").replace(/\s+/g, " ").trim() || "(empty message)"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Cancel reply"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          {/* key={channelId} forces the TipTap editor to fully unmount + remount
+              when the user navigates between channels — without it the draft
+              text from channel A leaks into channel B's composer because the
+              editor instance is reused. */}
+          <TiptapMessageInput
+            key={channelId ?? "no-channel"}
+            ref={inputRef}
+            onSend={handleSend}
+            disabled={false}
+            placeholder={composerPlaceholder}
+            onTextUpdate={picker.onTextUpdate}
+            onKeyDown={picker.onKeyDown}
+          />
+        </div>
       </footer>
     </div>
   );
@@ -252,38 +419,64 @@ interface MessageRowProps {
   onDraftChange: (s: string) => void;
   onDelete: () => void;
   onReact: (emoji: string) => void;
+  onReply: () => void;
+  onCopy: () => void;
+  /** Parent message of a thread reply — when present we render a small
+   *  quoted chip above the body so the reply has visible context. null
+   *  for top-level messages. */
+  parent: MessageRow | null;
+  parentLabel: string;
 }
 
-function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, onCancelEdit, onSaveEdit, onDraftChange, onDelete, onReact }: MessageRowProps) {
+function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, onCancelEdit, onSaveEdit, onDraftChange, onDelete, onReact, onReply, onCopy, parent, parentLabel }: MessageRowProps) {
   const isAgent = m.senderType === "agent";
   const isSystem = m.senderType === "system";
   const isMine = m.senderId === currentUserId;
   const isDeleted = !!m.deletedAt;
   const [showPicker, setShowPicker] = useState(false);
   return (
-    <div className="group flex gap-3">
-      <div className="shrink-0">
-        {isAgent ? (
-          <Avatar className="h-8 w-8 bg-violet-100 text-violet-700">
-            <AvatarFallback>{label.slice(0, 1).toUpperCase()}</AvatarFallback>
-          </Avatar>
-        ) : (
-          <GeneratedAvatar id={m.senderId} size="md" />
-        )}
+    <div className={
+      "group relative flex gap-3 " +
+      // Agent replies get a subtle cyan rule + tiny badge — visual cue
+      // that this came from an AI teammate, not a human. The product's
+      // whole point is humans + AI together, so the split should be
+      // legible at a glance without being noisy.
+      (isAgent
+        ? "before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:bg-gradient-to-b before:from-cyan-500/60 before:to-cyan-500/0"
+        : "")
+    }>
+      <div className="shrink-0 pt-0.5">
+        <GeneratedAvatar id={m.senderId} name={label} size="lg" />
       </div>
-      <div className="flex-1">
-        <div className="flex items-baseline gap-2 text-xs">
-          <span className="font-medium">{label}</span>
-          <span className="text-muted-foreground">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className={
+            "text-sm font-semibold leading-tight " +
+            (isAgent ? "text-cyan-700 dark:text-cyan-400" : "")
+          }>{label}</span>
+          {isAgent && (
+            <span className="rounded-full bg-cyan-500/10 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
+              AI
+            </span>
+          )}
+          <span className="text-[11px] text-muted-foreground leading-tight">
             {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
           {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">(edited)</span>}
-          {isSystem && <span className="text-[10px] uppercase text-muted-foreground">system</span>}
+          {isSystem && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">system</span>}
           {!isDeleted && (
             <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <button onClick={() => setShowPicker(p => !p)} title="Add reaction"
                 className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
                 <Smile className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={onReply} title="Reply in thread"
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
+                <MessageSquareReply className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={onCopy} title="Copy text"
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
+                <Copy className="h-3.5 w-3.5" />
               </button>
               {isMine && (
                 <>
@@ -300,6 +493,20 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             </div>
           )}
         </div>
+        {parent && (
+          // Tiny quote chip above thread replies — gives the reader
+          // enough context to know what this message is replying to
+          // without scrolling. Inline (not collapsible) for the common
+          // case of 1-2 deep replies; deeper threads should switch to
+          // a dedicated thread pane (P1 polish).
+          <div className="mt-0.5 mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <MessageSquareReply className="h-3 w-3" aria-hidden="true" />
+            <span className="font-medium">{parentLabel || "reply"}</span>
+            <span className="truncate">
+              {(parent.content ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || "(empty)"}
+            </span>
+          </div>
+        )}
         {showPicker && (
           <div className="mt-1 flex gap-1 rounded border bg-card p-1 shadow-sm">
             {QUICK_REACTIONS.map(em => (
@@ -332,7 +539,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             </div>
           </div>
         ) : (
-          <div className={"prose prose-sm dark:prose-invert max-w-none text-sm " + (isDeleted ? "italic text-muted-foreground" : "")}>
+          <div className={"prose prose-sm dark:prose-invert max-w-none mt-0.5 text-[14.5px] leading-relaxed " + (isDeleted ? "italic text-muted-foreground" : "")}>
             {isAgent && !isDeleted ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>{m.content}</ReactMarkdown>
             ) : (
@@ -343,12 +550,16 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
         {m.reactions && m.reactions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {m.reactions.map(r => {
-              const mineReacted = r.reactorIds.includes(currentUserId);
+              // Defensive: a reaction with a missing/empty reactorIds list
+              // shouldn't be on the wire, but we've seen it happen during
+              // partial updates. Treat it as zero-count, not a crash.
+              const ids = r.reactorIds ?? [];
+              const mineReacted = ids.includes(currentUserId);
               return (
                 <button key={r.emoji} onClick={() => onReact(r.emoji)}
                   className={"rounded-full border px-2 py-0.5 text-xs transition-colors " +
                     (mineReacted ? "border-blue-400 bg-blue-50 text-blue-700" : "border-zinc-200 bg-card hover:bg-accent")}>
-                  <span>{r.emoji}</span> <span className="text-[10px] text-muted-foreground">{r.reactorIds.length}</span>
+                  <span>{r.emoji}</span> <span className="text-[10px] text-muted-foreground">{ids.length}</span>
                 </button>
               );
             })}

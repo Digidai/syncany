@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, type Channel, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardPanel } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardPanel } from "@raltic/ui/components/ui/card";
+import { Button } from "@raltic/ui/components/ui/button";
+import { Input } from "@raltic/ui/components/ui/input";
+import { ListChecks } from "lucide-react";
 
 interface Task {
   id: string;
@@ -114,20 +115,41 @@ export default function TaskBoardPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex items-baseline justify-between">
-          <h1 className="text-xl font-semibold">Task board</h1>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Full-width header bar — matches Inbox + Agent profile shells so
+          navigating between sidebar destinations doesn't make the top
+          chrome jump (used to: Tasks had no header, content floated
+          inside padding). Inner row is max-w-5xl mx-auto so the title
+          column lines up across pages too. */}
+      <header className="border-b px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
+          {/* Page tint convention (D-style): Inbox=cyan (notice/attention),
+              Tasks=amber (todo accent), Agents=emerald (automation),
+              People=violet (humans). Distinct per top-level destination
+              so the visual breadcrumb is clear at a glance. */}
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <ListChecks className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold">Tasks</h1>
+            <p className="text-xs text-muted-foreground">
+              Kanban view of work across this workspace.
+            </p>
+          </div>
           <select
             value={filterChannel}
             onChange={(e) => setFilterChannel(e.target.value)}
-            className="rounded border px-2 py-1 text-sm"
+            className="shrink-0 rounded border px-2 py-1 text-sm"
+            aria-label="Filter by channel"
           >
             <option value="">All channels</option>
             {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
           </select>
         </div>
+      </header>
 
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mx-auto max-w-5xl space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold">Quick add</CardTitle>
@@ -196,6 +218,7 @@ export default function TaskBoardPage() {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>

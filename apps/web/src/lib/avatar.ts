@@ -39,9 +39,64 @@ export function getAvatarColor(id: string): {
   const fgLight = 25 + (h % 15); // 25-39% — dark fg for contrast
 
   return {
-    bg: `hsl(${hue}, ${sat}%, ${light}%)`,
+    bg: `hsl(${hue}, ${sat}%, ${fgLight}%)`,
     fg: `hsl(${hue}, ${sat}%, ${fgLight}%)`,
   };
+}
+
+/**
+ * Jelly-style avatar gradient — a layered background that reads as a
+ * glossy 3D blob rather than a flat colored circle. Three pieces:
+ *
+ *   1. A radial top-left highlight (white→transparent) — the "wet"
+ *      light reflection that sells the candy-button look.
+ *   2. A radial bottom-right shadow (black→transparent) — adds depth.
+ *   3. The underlying linear gradient between two complementary hues.
+ *
+ * Stacked in a single CSS `background` shorthand so it composes onto
+ * any element. The accent hsl strings are also exposed separately so
+ * the caller can build matching ring / glow effects.
+ */
+export function getAvatarGradient(seed: string): {
+  background: string;
+  fg: string;
+  accentA: string;
+  accentB: string;
+} {
+  const h1 = hash(seed);
+  const h2 = hash2(seed);
+  const hueA = HUES[h1 % HUES.length];
+  // Offset second hue by ~120° (with jitter) for an analog/complement feel
+  const hueB = (hueA + 110 + (h2 % 50)) % 360;
+  const sat = 78 + (h1 % 14);     // 78-91% — punchier for jelly look
+  const lightA = 58 + (h1 % 8);   // 58-65%
+  const lightB = 44 + (h2 % 8);   // 44-51%
+  const angle = 135 + (h2 % 40);  // 135-174°
+
+  const colorA = `hsl(${hueA},${sat}%,${lightA}%)`;
+  const colorB = `hsl(${hueB},${sat}%,${lightB}%)`;
+
+  const background = [
+    // Top-left wet highlight
+    "radial-gradient(circle at 28% 22%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 42%)",
+    // Bottom-right depth shadow
+    "radial-gradient(circle at 72% 78%, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 55%)",
+    // Hue gradient base
+    `linear-gradient(${angle}deg, ${colorA} 0%, ${colorB} 100%)`,
+  ].join(", ");
+
+  return { background, fg: "#ffffff", accentA: colorA, accentB: colorB };
+}
+
+/**
+ * Generate a fresh random avatar seed. Used by the "shuffle" UI affordance
+ * on agent settings — short URL-safe string, deterministic enough that the
+ * gradient stays stable across reloads.
+ */
+export function randomAvatarSeed(): string {
+  // 12 chars of base36-ish entropy is plenty; we just need uniqueness, not
+  // cryptographic strength.
+  return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 }
 
 // ── Notion avatar config generation ──

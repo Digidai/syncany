@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { requirePolicy, policy } from "@syncany/auth-core";
-import { searchQuery } from "@syncany/protocol";
-import { channelMembers, channels, messages } from "@syncany/db";
+import { requirePolicy, policy } from "@raltic/auth-core";
+import { searchQuery } from "@raltic/protocol";
+import { channelMembers, channels, messages } from "@raltic/db";
 import { and, desc, eq, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";

@@ -1,9 +1,9 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createAuth, signWsToken } from "@syncany/auth-core";
+import { createAuth, signWsToken } from "@raltic/auth-core";
 
 /**
  * Mints a short-lived HMAC-signed JWT bound to the current user, used as
- * Bearer auth when the web client calls cross-origin syncany-api.
+ * Bearer auth when the web client calls cross-origin raltic-api.
  *
  * Why not the better-auth session token directly?
  *   - The session cookie is HttpOnly. Exposing it to JS via a fetch

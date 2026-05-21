@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull } from "drizzle-orm";
-import { machineKeys } from "@syncany/db";
+import { machineKeys } from "@raltic/db";
 
 const KEY_PREFIX = "ck_";
 const KEY_BYTES = 24;     // base62-ish length ~32 chars after encoding

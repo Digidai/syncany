@@ -4,13 +4,13 @@ Context for AI coding assistants working in this repo. For humans, start with [R
 
 ## What this project is
 
-Syncany is a chat platform where humans and AI agents share channels. Agents are long-running Claude Code processes spawned by a local "bridge" daemon; they communicate exclusively through a `syncany` CLI that calls the syncany-api Worker over HTTPS. The web UI is Next.js 16 + Cloudflare Workers + Durable Objects.
+Raltic is a chat platform where humans and AI agents share channels. Agents are long-running Claude Code processes spawned by a local "bridge" daemon; they communicate exclusively through a `raltic` CLI that calls the raltic-api Worker over HTTPS. The web UI is Next.js 16 + Cloudflare Workers + Durable Objects.
 
 ## Architecture (post-Cloudflare migration)
 
 ```
 ┌──────────────────────────┐  HTTPS + WSS  ┌──────────────────────────────┐
-│  Web (Next.js 16, OpenNext)              │  syncany-api (Hono on CF Worker)│
+│  Web (Next.js 16, OpenNext)              │  raltic-api (Hono on CF Worker)│
 │  - better-auth client     │ ◄──────────► │  - better-auth handler         │
 │  - useChannelSocket WS    │              │  - REST CRUD (Drizzle → D1)    │
 └──────────────────────────┘              │  - WS upgrade routes           │
@@ -36,12 +36,12 @@ Syncany is a chat platform where humans and AI agents share channels. Agents are
 │  - dispatches inbound msg │
 └──────────────────────────┘
    │
-   │  spawn child_process with env SYNCANY_AGENT_TOKEN, SYNCANY_API_URL
+   │  spawn child_process with env RALTIC_AGENT_TOKEN, RALTIC_API_URL
    ▼
 ┌──────────────────────────┐
 │  Claude Code agent        │
-│  - uses `syncany` CLI       │
-│  - cli → fetch syncany-api  │
+│  - uses `raltic` CLI       │
+│  - cli → fetch raltic-api  │
 └──────────────────────────┘
 ```
 
@@ -51,7 +51,7 @@ Syncany is a chat platform where humans and AI agents share channels. Agents are
 apps/web/        Next.js 16 web UI (better-auth client, useChannelSocket hook)
 apps/api/        Hono Worker — REST + WS upgrade + auth + DO bindings
 apps/bridge/     Local Node daemon — spawns Claude Code, dispatches msgs
-packages/cli/    The `syncany` CLI agents call (HTTP fetch to syncany-api)
+packages/cli/    The `raltic` CLI agents call (HTTP fetch to raltic-api)
 packages/db/     Drizzle schema + generated SQL migrations
 packages/protocol/  Shared zod schemas (WS + REST)
 packages/chat-room/ ChatRoom + UserGateway Durable Object classes
@@ -67,14 +67,14 @@ packages/shared/    Cross-package types
 - **Realtime**: `packages/chat-room/src/chat-room.ts` (per-channel DO; allocates `seq`, fans out to WS clients, alarm-syncs to D1). `user-gateway.ts` (per-user DO; cross-channel notifications + RPC).
 - **API surface**: `apps/api/src/index.ts` — every endpoint resolves a `Subject` (cookie session OR machine-key bearer) and runs through `policy`.
 - **Bridge entry**: `apps/bridge/src/index.ts` → `bridge.ts`. Connects via POST `/api/v1/bridge/connect`, opens one WS per channel + one to UserGateway DO.
-- **Agent system prompt**: `apps/bridge/src/system-prompt.ts` — read this to understand how agents are expected to behave inside Syncany.
-- **CLI commands**: `packages/cli/src/index.ts` — `syncany message send / check / read`, `syncany server info`. Other commands stub-fail with `NOT_IMPLEMENTED` until their `/api/v1/agent/*` endpoints land.
+- **Agent system prompt**: `apps/bridge/src/system-prompt.ts` — read this to understand how agents are expected to behave inside Raltic.
+- **CLI commands**: `packages/cli/src/index.ts` — `raltic message send / check / read`, `raltic server info`. Other commands stub-fail with `NOT_IMPLEMENTED` until their `/api/v1/agent/*` endpoints land.
 
 ## Conventions
 
 - TypeScript everywhere. Avoid `any`; comment when you must.
-- All authorization goes through `policy` from `@syncany/auth-core`.
-- All wire formats live in `@syncany/protocol`. If two packages need to agree on a shape, put it in protocol.
+- All authorization goes through `policy` from `@raltic/auth-core`.
+- All wire formats live in `@raltic/protocol`. If two packages need to agree on a shape, put it in protocol.
 - Per-request `AuthCtx`: build with `newAuthCtx(db, subject)`. Reuse for every check in that request — the cache prevents N+1.
 - DO `setAlarm`: always `getAlarm` first; only set if `null` or earlier than current.
 - DO sessions: never trust a `Map` that survived hibernation. Re-derive from `ws.deserializeAttachment()`.
@@ -93,8 +93,8 @@ packages/shared/    Cross-package types
 pnpm install
 pnpm dev:web                                # Next.js dev :3000
 pnpm dev:bridge                             # Bridge in watch mode
-pnpm --filter @syncany/api dev               # wrangler dev for the api worker
-pnpm --filter @syncany/db generate           # generate migrations from schema.ts
-cd apps/api && npx wrangler d1 migrations apply syncany-staging --remote
+pnpm --filter @raltic/api dev               # wrangler dev for the api worker
+pnpm --filter @raltic/db generate           # generate migrations from schema.ts
+cd apps/api && npx wrangler d1 migrations apply raltic-staging --remote
 cd apps/api && npx wrangler deploy          # deploy api
 ```

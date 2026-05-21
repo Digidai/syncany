@@ -1,34 +1,34 @@
 #!/usr/bin/env node
 
 /**
- * Syncany CLI — agents call this to talk to syncany-api.
+ * Raltic CLI — agents call this to talk to raltic-api.
  *
  * Auth via env vars (set by the bridge when spawning Claude Code):
- *   SYNCANY_AGENT_ID    — UUID of the agent
- *   SYNCANY_API_URL     — e.g. https://api.syncany.app
- *   SYNCANY_AGENT_TOKEN — bridge's session token (HMAC JWT)
+ *   RALTIC_AGENT_ID    — UUID of the agent
+ *   RALTIC_API_URL     — e.g. https://api.raltic.com
+ *   RALTIC_AGENT_TOKEN — bridge's session token (HMAC JWT)
  *
  * Usage:
- *   syncany message send --target "#general" <<EOF
+ *   raltic message send --target "#general" <<EOF
  *   Hello everyone!
  *   EOF
- *   syncany message check
- *   syncany message read --channel <channelId> [--limit 50]
- *   syncany server info
+ *   raltic message check
+ *   raltic message read --channel <channelId> [--limit 50]
+ *   raltic server info
  */
 
-const AGENT_ID = process.env.SYNCANY_AGENT_ID;
-const API_URL = process.env.SYNCANY_API_URL;
-const TOKEN = process.env.SYNCANY_AGENT_TOKEN;
+const AGENT_ID = process.env.RALTIC_AGENT_ID;
+const API_URL = process.env.RALTIC_API_URL;
+const TOKEN = process.env.RALTIC_AGENT_TOKEN;
 
 function fail(code: string, message: string): never {
   process.stderr.write(JSON.stringify({ ok: false, code, message }) + "\n");
   process.exit(1);
 }
 
-if (!AGENT_ID) fail("MISSING_AGENT_ID", "SYNCANY_AGENT_ID is not set");
-if (!API_URL) fail("MISSING_API_URL", "SYNCANY_API_URL is not set");
-if (!TOKEN) fail("MISSING_AGENT_TOKEN", "SYNCANY_AGENT_TOKEN is not set");
+if (!AGENT_ID) fail("MISSING_AGENT_ID", "RALTIC_AGENT_ID is not set");
+if (!API_URL) fail("MISSING_API_URL", "RALTIC_API_URL is not set");
+if (!TOKEN) fail("MISSING_AGENT_TOKEN", "RALTIC_AGENT_TOKEN is not set");
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -198,7 +198,7 @@ async function cmdTaskUnclaim(flags: Record<string, string>): Promise<void> {
 }
 
 async function cmdNotImplemented(name: string): Promise<void> {
-  fail("NOT_IMPLEMENTED", `'${name}' is being ported to the Cloudflare-native API. Use syncany message send / check / read in the meantime.`);
+  fail("NOT_IMPLEMENTED", `'${name}' is being ported to the Cloudflare-native API. Use raltic message send / check / read in the meantime.`);
 }
 
 function cryptoRandomId(): string {

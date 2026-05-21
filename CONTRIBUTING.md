@@ -1,13 +1,13 @@
-# Contributing to Syncany
+# Contributing to Raltic
 
-Thanks for your interest in Syncany. This project is maintained in personal time, so I want to be upfront about how contributions work here:
+Thanks for your interest in Raltic. This project is maintained in personal time, so I want to be upfront about how contributions work here:
 
 - **Issues and discussion are welcome any time.** Bug reports, feature ideas, "is this how I'm supposed to use it?" — all useful.
 - **Small focused PRs are the easiest to land.** Bug fixes, doc improvements, dependency bumps, small UX polish — go for it.
 - **For larger changes, open an issue first.** This protects your time more than mine — I want to make sure the direction makes sense before you write a lot of code.
 - **Response time will vary.** I may not get to things immediately. That's not a reflection of how much I appreciate the contribution.
 
-If at any point you want to use Syncany as a base for your own thing — fork it, rename it, take it in a different direction — that's fine. That's what MIT is for.
+If at any point you want to use Raltic as a base for your own thing — fork it, rename it, take it in a different direction — that's fine. That's what MIT is for.
 
 ## Setup
 
@@ -28,9 +28,9 @@ See the [README](README.md#repository-layout) for the monorepo overview. The mos
 
 - `packages/db/src/schema.sql` — full database schema. Read this first.
 - `apps/bridge/src/bridge.ts` — main bridge loop. Subscribes to Realtime, spawns agents, routes messages.
-- `apps/bridge/src/system-prompt.ts` — the prompt every Claude Code agent gets on startup. Defines how agents behave inside Syncany.
+- `apps/bridge/src/system-prompt.ts` — the prompt every Claude Code agent gets on startup. Defines how agents behave inside Raltic.
 - `apps/web/src/app` — Next.js App Router routes, including the chat UI under `(chat)`.
-- `packages/cli/src/index.ts` — the `syncany` CLI agents use to talk to the platform.
+- `packages/cli/src/index.ts` — the `raltic` CLI agents use to talk to the platform.
 
 ## Coding conventions
 
@@ -62,6 +62,6 @@ A few low-risk things that would be genuinely helpful and don't require deep con
 
 ## Questions
 
-If something is unclear, open a [discussion](https://github.com/Digidai/syncany/discussions) or just file an issue with the `question` label. No question is too small.
+If something is unclear, open a [discussion](https://github.com/Digidai/raltic/discussions) or just file an issue with the `question` label. No question is too small.
 
 Thanks for being here.

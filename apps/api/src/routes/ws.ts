@@ -1,16 +1,31 @@
 import { Hono } from "hono";
-import { requirePolicy, policy, signWsToken } from "@syncany/auth-core";
+import { z } from "zod";
+import { requirePolicy, policy, signWsToken } from "@raltic/auth-core";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
+import { rateLimit } from "../lib/rate-limit";
 
 export const wsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Strict body schema — replaces an unchecked JSON cast that accepted
+// unknown scopes (anything not literally "channel" silently became
+// "gateway", which let machine subjects mint user-identity gateway
+// tokens via this route).
+const wsTokenBody = z.object({
+  channelId: z.string().min(1).max(128).optional(),
+  scope: z.enum(["channel", "gateway"]).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // WS token mint — short-lived JWT for channel WS upgrade
 // ---------------------------------------------------------------------------
 wsRoutes.post("/api/v1/ws/token", requireAuth, async (c) => {
-  const body = await c.req.json() as { channelId?: string; scope?: "channel" | "gateway" };
   const subject = c.get("subject");
+  // 120 mints/min/user — normal SPA opens one per channel + one per
+  // gateway per page load; cap bounds token-grinding via leaked cookie.
+  const limited = await rateLimit(c, "ws_token", subject.userId, 120, 60);
+  if (limited) return limited;
+  const body = wsTokenBody.parse(await c.req.json().catch(() => ({})));
   const scope = body.scope ?? (body.channelId ? "channel" : "gateway");
 
   if (scope === "channel") {
@@ -23,7 +38,14 @@ wsRoutes.post("/api/v1/ws/token", requireAuth, async (c) => {
     return c.json({ token, wsUrl: new URL(c.req.url).origin.replace(/^http/, "ws") });
   }
 
-  // Gateway scope: no channel binding — just user identity for cross-channel events.
+  // Gateway scope: no channel binding — just user identity for cross-
+  // channel events (UserGateway DO). HUMAN SESSIONS ONLY: bridge tokens
+  // and machine keys must not be allowed to mint a gateway-scope token
+  // pretending to be the user, since that would let a compromised
+  // bridge subscribe to the user's cross-channel notifications stream.
+  if (subject.kind !== "user" || subject.via === "bridge_token") {
+    return c.json({ error: { code: "FORBIDDEN", message: "gateway tokens require a human session" } }, 403);
+  }
   const token = await signWsToken(c.env.CHAT_ROOM_AUTH_SECRET, {
     sub: subject.userId, agents: [], ttlSeconds: 60 * 10,
   });

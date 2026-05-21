@@ -4,15 +4,15 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
+import { Button } from "@raltic/ui/components/ui/button";
+import { Input } from "@raltic/ui/components/ui/input";
+import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+import { Alert, AlertDescription } from "@raltic/ui/components/ui/alert";
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">Loading…</div>}>
       <ResetForm />
     </Suspense>
   );

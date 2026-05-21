@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { requirePolicy, policy } from "@syncany/auth-core";
-import { createTaskRequest, updateTaskRequest, listTasksQuery } from "@syncany/protocol";
-import { channelMembers, channels, messages, tasks } from "@syncany/db";
+import { requirePolicy, policy } from "@raltic/auth-core";
+import { createTaskRequest, updateTaskRequest, listTasksQuery } from "@raltic/protocol";
+import { channelMembers, channels, messages, tasks } from "@raltic/db";
 import { and, desc, eq } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
+import { rateLimit } from "../lib/rate-limit";
 
 export const tasksRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -67,10 +68,20 @@ tasksRoutes.get("/api/v1/tasks", requireAuth, async (c) => {
 });
 
 tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
+  const subject = c.get("subject");
+  // 100/hour/user — task creation can be bursty (agent triages incoming
+  // messages into tasks), but anything beyond this is more likely a bug
+  // or abuse than legitimate human flow.
+  const limited = await rateLimit(c, "task_create", subject.userId, 100, 3600);
+  if (limited) return limited;
   const body = createTaskRequest.parse(await c.req.json());
   const ctx = ctxFor(c);
-  const subject = c.get("subject");
   await requirePolicy(policy.tasks.canManage(ctx, body.channelId));
+  // Per-channel cap — task creation is bursty per agent but a channel
+  // shouldn't legitimately accumulate >500 new tasks/hour from any combo
+  // of members. Caught after policy to avoid probing.
+  const chanLimited = await rateLimit(c, "task_create_chan", body.channelId, 500, 3600);
+  if (chanLimited) return chanLimited;
 
   const db = drizzle(c.env.DB);
 
@@ -140,6 +151,12 @@ tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
 
 tasksRoutes.patch("/api/v1/tasks/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
+  const subject = c.get("subject");
+  // 200 task-patches/min/user — Kanban drag/drop fires rapid status
+  // updates; agents bulk-triage in bursts. Cap protects D1 from a
+  // runaway script.
+  const limited = await rateLimit(c, "task_patch", subject.userId, 200, 60);
+  if (limited) return limited;
   const body = updateTaskRequest.parse(await c.req.json());
   const db = drizzle(c.env.DB);
   const existing = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);

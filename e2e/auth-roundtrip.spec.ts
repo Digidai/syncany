@@ -14,7 +14,7 @@ test.describe(RUN ? "auth round-trip" : "auth round-trip (skipped — set E2E_RU
 
   test("signup → redirected to verify-email page", async ({ page }) => {
     const stamp = Date.now();
-    const email = `e2e-${stamp}@syncany-test.local`;
+    const email = `e2e-${stamp}@raltic-test.local`;
     const password = "Test123!secure";
     const name = `e2e-user-${stamp}`;
 

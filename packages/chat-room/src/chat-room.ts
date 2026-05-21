@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
-import { messages, channelMembers, type Message } from "@syncany/db";
+import { messages, channelMembers, agents, channels, type Message } from "@raltic/db";
 import {
   type ClientMessage,
   type ServerMessage,
@@ -8,8 +8,8 @@ import {
   decodeClient,
   encode,
   PROTOCOL_VERSION,
-} from "@syncany/protocol";
-import { verifyWsToken, isTokenRevoked } from "@syncany/auth-core";
+} from "@raltic/protocol";
+import { verifyWsToken, isTokenRevoked } from "@raltic/auth-core";
 
 export interface ChatRoomEnv {
   DB: D1Database;
@@ -18,6 +18,10 @@ export interface ChatRoomEnv {
   USER_GATEWAY?: DurableObjectNamespace;
   /** KV deny-list for revoked tokens (jti + bridgeId). Optional in dev. */
   RATE_LIMITS?: KVNamespace;
+  /** RalticAgent DO binding — used to dispatch human messages to cloud
+   *  agents that are members of this channel. Optional so test envs
+   *  without the binding still boot. */
+  RALTIC_AGENT?: DurableObjectNamespace;
 }
 
 interface AttachedSession {
@@ -103,6 +107,10 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     if (url.pathname.endsWith("/internal/seed")) return this.handleSeed(req);
     if (url.pathname.endsWith("/internal/send")) return this.handleInternalSend(req);
     if (url.pathname.endsWith("/internal/notify")) return this.handleNotify(req);
+    // P0 W2: RalticAgent DO → ChatRoom DO streaming partial. Broadcasts
+    // an agent_text_delta WS frame WITHOUT persisting (final post goes
+    // through /internal/send with senderType=agent).
+    if (url.pathname.endsWith("/internal/agent-partial")) return this.handleAgentPartial(req);
     return new Response("not found", { status: 404 });
   }
 
@@ -187,6 +195,18 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       content: string; threadParentId: string | null;
       idempotencyKey: string;
     };
+    // Agent posts MUST be by an agent that is a member of this channel.
+    // The internal secret only proves the caller is our own Worker
+    // (or RalticAgent DO) — it doesn't prove the senderId is authorised.
+    // Without this, a compromised tool could set senderId to any agent.
+    if (body.senderType === "agent") {
+      if (!(await this.isCurrentMember(body.senderId, "agent"))) {
+        return new Response(
+          JSON.stringify({ error: { code: "FORBIDDEN", message: "agent not in this channel" } }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        );
+      }
+    }
     this.channelId = body.channelId;
     const sql = this.ctx.storage.sql;
 
@@ -258,6 +278,35 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     }
   }
 
+  /**
+   * Partial-text streaming from RalticAgent DO. The agent loop emits
+   * tokens as they come in; we forward to all connected WS clients as
+   * `agent_text_delta` frames with REPLACE semantics (each frame holds
+   * the full text so far). No persistence — only the final
+   * /internal/send call writes to D1.
+   *
+   * We throttle nothing here — the DO upstream is the rate limiter.
+   * Worst case agent emits 100 tokens/s, fanout to ~10 clients = 1k
+   * msg/s which is well below CF Workers / DO budgets.
+   */
+  private async handleAgentPartial(req: Request): Promise<Response> {
+    if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
+      return new Response("forbidden", { status: 403 });
+    }
+    const body = await req.json() as { agentId: string; text: string };
+    if (!body.agentId || typeof body.text !== "string") {
+      return new Response("bad request", { status: 400 });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.broadcast({
+      v: PROTOCOL_VERSION,
+      t: "agent_text_delta" as never,
+      agentId: body.agentId,
+      text: body.text,
+    } as any);
+    return Response.json({ ok: true });
+  }
+
   private async handleSeed(req: Request): Promise<Response> {
     // Internal-only endpoint used by onboarding / system flows.
     if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
@@ -323,13 +372,22 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       case "send":
         return this.handleSend(ws, sess, msg);
       case "typing":
-        this.broadcast({ v: PROTOCOL_VERSION, t: "typing", userId: sess.userId, on: msg.on }, ws);
+      case "presence": {
+        // Same removal-after-connect concern as send/history: a removed
+        // member must not keep broadcasting typing/presence. Single
+        // membership probe; if it fails, drop the message and ack-fail.
+        if (!(await this.isCurrentMember(sess.userId, "human"))) {
+          this.sendErr(ws, msg.id, "FORBIDDEN", "not a member of this channel");
+          return;
+        }
+        if (msg.t === "typing") {
+          this.broadcast({ v: PROTOCOL_VERSION, t: "typing", userId: sess.userId, on: msg.on }, ws);
+        } else {
+          this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: msg.status }, ws);
+        }
         this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
         return;
-      case "presence":
-        this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: msg.status }, ws);
-        this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
-        return;
+      }
       case "history":
         return this.handleHistory(ws, sess, msg);
       case "heartbeat":
@@ -360,6 +418,28 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   // -------------------------------------------------------------------------
   // Send / receive
   // -------------------------------------------------------------------------
+  /**
+   * Single source of truth for "is this (sender, kind) currently in this
+   * channel?" — called from send, history, typing, and presence so token
+   * TTL never grants stale access. The lookup hits D1 every time (no
+   * in-DO cache) because membership churn is rare relative to messages
+   * and any cache would need invalidation on the same path that drives
+   * the bug we're closing.
+   */
+  private async isCurrentMember(memberId: string, memberType: "human" | "agent"): Promise<boolean> {
+    const db = drizzle(this.env.DB);
+    const row = await db
+      .select({ id: channelMembers.memberId })
+      .from(channelMembers)
+      .where(and(
+        eq(channelMembers.channelId, this.channelId),
+        eq(channelMembers.memberId, memberId),
+        eq(channelMembers.memberType, memberType),
+      ))
+      .limit(1);
+    return row.length > 0;
+  }
+
   private async handleSend(ws: WebSocket, sess: AttachedSession, msg: Extract<ClientMessage, { t: "send" }>): Promise<void> {
     const sql = this.ctx.storage.sql;
 
@@ -372,20 +452,11 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
     // Membership recheck. Token TTL can be up to 7d (bridge); a user removed
     // from the channel mid-session must not keep posting. (P1 from diag.)
-    const db = drizzle(this.env.DB);
-    const member = await db
-      .select({ id: channelMembers.memberId })
-      .from(channelMembers)
-      .where(and(
-        eq(channelMembers.channelId, this.channelId),
-        eq(channelMembers.memberId, senderId),
-        eq(channelMembers.memberType, senderType),
-      ))
-      .limit(1);
-    if (member.length === 0) {
+    if (!(await this.isCurrentMember(senderId, senderType))) {
       this.sendErr(ws, msg.id, "FORBIDDEN", "not a member of this channel");
       return;
     }
+    const db = drizzle(this.env.DB);
 
     // Idempotency keyed on actual sender, not session user.
     const dup = sql.exec(`SELECT seq FROM idem WHERE user_id=? AND key=?`, senderId, msg.idempotencyKey).toArray()[0];
@@ -422,13 +493,129 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
     // Broadcast then ack (durability is from DO SQLite buffer, not D1 write)
     this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
+    this.ctx.waitUntil(this.fanoutToGateways(this.channelId, seq, senderId).catch(() => {}));
     this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id, seq, messageId });
+
+    // Dispatch to cloud agents (runtime_mode='raltic') after ack — humans
+    // only. The web client sends messages over WS, so dispatch MUST be
+    // wired here (not just in /api/v1/messages REST handler) for cloud
+    // agents to receive @-mentions and DM auto-dispatch. Best-effort:
+    // waitUntil keeps the DO alive until the agent reply posts back.
+    if (senderType === "human") {
+      this.ctx.waitUntil(this.dispatchToCloudAgents({
+        channelId: this.channelId,
+        messageId,
+        text: msg.content,
+        callerId: senderId,
+      }).catch((e) => {
+        console.error("[ChatRoom dispatch] failed:", e);
+      }));
+    }
+  }
+
+  /**
+   * Find cloud agents (runtime_mode='raltic') that should reply to this
+   * channel message. Dispatch via RALTIC_AGENT DO binding.
+   *
+   * Triggers:
+   *   1. Explicit @-mention (UUID or agent name) in content
+   *   2. DM channel with exactly one agent member — auto-dispatch every
+   *      human message in that DM, no @-mention needed.
+   */
+  private async dispatchToCloudAgents(input: {
+    channelId: string;
+    messageId: string;
+    text: string;
+    callerId: string;
+  }): Promise<void> {
+    if (!this.env.RALTIC_AGENT) return;
+    const db = drizzle(this.env.DB);
+    // Channel-member agents (id + name + runtime_mode + serverId + ownerId).
+    const memberAgents = await db.select({
+      id: agents.id,
+      name: agents.name,
+      serverId: agents.serverId,
+      ownerId: agents.ownerId,
+      runtimeMode: agents.runtimeMode,
+    })
+      .from(channelMembers)
+      .innerJoin(agents, eq(agents.id, channelMembers.memberId))
+      .where(and(
+        eq(channelMembers.channelId, input.channelId),
+        eq(channelMembers.memberType, "agent"),
+      ));
+    if (memberAgents.length === 0) return;
+
+    // Mention extraction — same as apps/api lib/agent-dispatch.
+    const byId = new Map(memberAgents.map(a => [a.id, a.id] as const));
+    const byName = new Map(memberAgents.map(a => [a.name.toLowerCase(), a.id] as const));
+    const mentioned = new Set<string>();
+    const uuidRe = /@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/g;
+    let m: RegExpExecArray | null;
+    while ((m = uuidRe.exec(input.text)) !== null) {
+      const id = m[1];
+      if (id && byId.has(id)) mentioned.add(id);
+    }
+    const nameRe = /(^|[^A-Za-z0-9_])@([a-z0-9_-]{1,64})\b/g;
+    while ((m = nameRe.exec(input.text)) !== null) {
+      const name = m[2]?.toLowerCase();
+      if (!name) continue;
+      const id = byName.get(name);
+      if (id) mentioned.add(id);
+    }
+    // DM fallback: single agent member, no explicit mention → auto-dispatch.
+    if (mentioned.size === 0) {
+      const ch = await db.select({ type: channels.type })
+        .from(channels)
+        .where(eq(channels.id, input.channelId))
+        .limit(1);
+      if (ch[0]?.type === "dm" && memberAgents.length === 1) {
+        const onlyId = memberAgents[0]?.id;
+        if (onlyId) mentioned.add(onlyId);
+      }
+    }
+    if (mentioned.size === 0) return;
+
+    // Route to cloud-mode agents only. Bridge-mode agents will receive
+    // this message via their own WS subscription to ChatRoom.
+    for (const a of memberAgents) {
+      if (!mentioned.has(a.id)) continue;
+      if (a.runtimeMode !== "raltic") continue;
+      // Use loose typing — chat-room can't import @raltic/agent without a
+      // circular dep (agent → db, chat-room → db, both → protocol).
+      // The contract is enforced at the call site in api/lib/agent-dispatch.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stub: any = this.env.RALTIC_AGENT!.get(this.env.RALTIC_AGENT!.idFromName(a.id));
+      try {
+        await stub.bind({ agentId: a.id, workspaceId: a.serverId, ownerId: a.ownerId });
+        const result = await stub.onInvoke({
+          source: "channel_mention",
+          channelId: input.channelId,
+          messageId: input.messageId,
+          text: input.text,
+          callerId: input.callerId,
+          callerType: "human",
+        });
+        if (!result.ok) {
+          console.error(`[ChatRoom dispatch] agent=${a.id} onInvoke error: ${result.error}`);
+        }
+      } catch (e) {
+        console.error(`[ChatRoom dispatch] agent=${a.id} threw:`, e);
+      }
+    }
   }
 
   private async handleHistory(ws: WebSocket, sess: AttachedSession, msg: Extract<ClientMessage, { t: "history" }>): Promise<void> {
     const db = drizzle(this.env.DB);
-    // Note: we do NOT re-check membership here because the DO upgrade already
-    // verified the token's channelId. Token expiry is the only revocation.
+    // Membership recheck — codex review caught the original "trust the
+    // connect-time token" comment as a security gap. ws tokens TTL up
+    // to 7d; a user removed from the channel mid-session could still
+    // pull full message history (including content posted AFTER their
+    // removal) until socket close. Treat history identically to send.
+    if (!(await this.isCurrentMember(sess.userId, "human"))) {
+      this.sendErr(ws, msg.id, "FORBIDDEN", "not a member of this channel");
+      return;
+    }
     const limit = msg.limit ?? 50;
     const rows = await db
       .select()
@@ -514,13 +701,25 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
           channelId: this.channelId, seq: r.seq, attempts: MAX_FLUSH_ATTEMPTS,
         });
       }
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_BACKOFF_MS);
+      await this.scheduleAlarm(Date.now() + ALARM_BACKOFF_MS);
       return;
     }
 
     if (sql.exec(`SELECT 1 FROM pending_writes WHERE attempts < ? LIMIT 1`, MAX_FLUSH_ATTEMPTS).toArray().length > 0) {
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_DELAY_MS);
+      await this.scheduleAlarm(Date.now() + ALARM_DELAY_MS);
     }
+  }
+
+  /**
+   * Idempotent alarm scheduler — never overwrites an earlier-firing alarm.
+   * Naked storage.setAlarm pushes the next fire-time out even if one's
+   * already imminent, which can stall pending-write flushes indefinitely
+   * if alarms re-set on a tight loop. Always check current first.
+   */
+  private async scheduleAlarm(atMs: number): Promise<void> {
+    const cur = await this.ctx.storage.getAlarm();
+    if (cur != null && cur <= atMs) return;
+    await this.ctx.storage.setAlarm(atMs);
   }
 
   // -------------------------------------------------------------------------
@@ -613,6 +812,8 @@ function toMessageRow(m: Message): MessageRow {
     threadParentId: m.threadParentId,
     createdAt: m.createdAt instanceof Date ? m.createdAt.getTime() : Number(m.createdAt),
     updatedAt: m.updatedAt instanceof Date ? m.updatedAt.getTime() : Number(m.updatedAt),
+    editedAt: m.editedAt instanceof Date ? m.editedAt.getTime() : (m.editedAt == null ? null : Number(m.editedAt)),
+    deletedAt: m.deletedAt instanceof Date ? m.deletedAt.getTime() : (m.deletedAt == null ? null : Number(m.deletedAt)),
   };
 }
 

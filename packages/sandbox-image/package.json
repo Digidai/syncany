@@ -1,0 +1,12 @@
+{
+  "name": "@raltic/sandbox-image",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Dockerfile and build scripts for the per-Agent sandbox container",
+  "scripts": {
+    "build": "docker build -f Dockerfile -t raltic-sandbox:dev ../..",
+    "build:tag": "docker build -f Dockerfile -t raltic-sandbox:$npm_package_version ../..",
+    "size": "docker images raltic-sandbox --format '{{.Tag}}\\t{{.Size}}'",
+    "run:dev": "docker run --rm -e RALTIC_SANDBOX_TOKEN=dev-token -p 8080:8080 raltic-sandbox:dev"
+  }
+}

@@ -1,12 +1,15 @@
 import { DurableObject } from "cloudflare:workers";
+import { drizzle } from "drizzle-orm/d1";
+import { inArray } from "drizzle-orm";
+import { agents } from "@raltic/db";
 import {
   type ClientMessage,
   type ServerMessage,
   decodeClient,
   encode,
   PROTOCOL_VERSION,
-} from "@syncany/protocol";
-import { verifyWsToken } from "@syncany/auth-core";
+} from "@raltic/protocol";
+import { verifyWsToken } from "@raltic/auth-core";
 
 export interface UserGatewayEnv {
   DB: D1Database;
@@ -69,12 +72,19 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       return new Response("unauthorized", { status: 401 });
     }
 
-    // Cross-user subscription guard: the api Worker forwarded the URL userId
-    // as expectedUserId. The token's `sub` claim MUST match. Without this an
-    // attacker could open wss://.../ws/user/<victim> with their own token and
-    // join the victim's DO.
+    // Cross-user subscription guard: the api Worker forwards the URL
+    // userId as expectedUserId. The token's `sub` claim MUST match.
+    // expectedUserId is REQUIRED — codex review caught the prior
+    // conditional check, which let an attacker reach this DO by
+    // omitting the query param and present any valid token they could
+    // mint (e.g. for a workspace they DO own) into another user's
+    // gateway instance. Treat the omitted param as a routing bug, not
+    // permission to elide the check.
     const expected = new URL(req.url).searchParams.get("expectedUserId");
-    if (expected && expected !== claims.userId) {
+    if (!expected) {
+      return new Response("forbidden: expectedUserId required", { status: 403 });
+    }
+    if (expected !== claims.userId) {
       return new Response("forbidden: token does not match path userId", { status: 403 });
     }
 
@@ -181,6 +191,11 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       sess.lastHeartbeatAt = now;
       this.sessions.set(ws, sess);
       ws.serializeAttachment(sess);
+      if (sess.isBridge && sess.agentIds.length > 0) {
+        this.ctx.waitUntil(this.persistBridgeHeartbeat(sess.agentIds).catch((e) => {
+          console.warn("[UserGateway] agent heartbeat persist failed", { error: String(e) });
+        }));
+      }
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
       return;
     }
@@ -213,6 +228,15 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       agentIds: Array.isArray(payload.agents) ? payload.agents : [],
       bridgeId: payload.bridgeId,
     };
+  }
+
+  private async persistBridgeHeartbeat(agentIds: string[]): Promise<void> {
+    const unique = Array.from(new Set(agentIds));
+    if (unique.length === 0) return;
+    const db = drizzle(this.env.DB);
+    await db.update(agents)
+      .set({ status: "online", updatedAt: new Date() })
+      .where(inArray(agents.id, unique));
   }
 
   /** UserGateway DO is per-user (id from name = userId). Every socket here

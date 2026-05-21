@@ -22,7 +22,7 @@ assignees: ''
 
 ## Environment
 
-- Component: <!-- e.g. apps/web, @syncany/bridge v0.1.5, hosted at syncany.example.com -->
+- Component: <!-- e.g. apps/web, @raltic/bridge v0.1.5, hosted at raltic.example.com -->
 - OS: <!-- macOS 14.5, Ubuntu 22.04, etc. -->
 - Node version: <!-- output of `node -v`, only if relevant -->
 - Browser (if web): <!-- Chrome 130, Safari 17, etc. -->

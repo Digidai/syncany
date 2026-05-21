@@ -5,6 +5,15 @@
 @import 'tailwindcss-radix-colors/dist/sand.css';
 @import 'tailwindcss-radix-colors/dist/sanda.css';
 
+/* Tailwind v4 auto-scans the importing app's source. After D2 moved
+ * 53 ui primitives from apps/web/src/components/ui to @raltic/ui,
+ * any class used ONLY inside those files (e.g. <Button>'s
+ * `text-primary-foreground`, the size-lg `h-11`, the inset-shadow
+ * arbitrary-value utilities) stopped being generated — producing the
+ * "Get started" button rendering with bg-primary but invisible text.
+ * Point Tailwind at the package source so all variants get emitted. */
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -292,6 +301,17 @@
   box-shadow: 0 0 1px rgba(85, 81, 74, 0.32), 0 1px 6px rgba(0, 0, 0, 0.035);
 }
 
+/* ── Marketing hero aurora — opacity only.
+   Anything that touches `filter` clobbers Tailwind's `blur-3xl` on the
+   blobs, making them throb (radius shifts 48↔56px = visible breathing
+   of a 1000px element). Pure opacity drift is calm enough to read as
+   ambient motion without distracting. `transform` also avoided so we
+   don't clobber the blobs' `-translate-x-1/2` centering. */
+@keyframes aurora {
+  0%, 100% { opacity: 0.82; }
+  50%      { opacity: 1; }
+}
+
 /* ── Panel slide-in animation ── */
 @keyframes slide-in-right {
   from {
@@ -319,6 +339,37 @@
 }
 .animate-status-pulse {
   animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Chrome / Safari autofill override ──
+   Chrome repaints the autofill yellow background on every focus/blur
+   cycle — the Input's `transition: bg-color 5000000s` only suppresses
+   the *initial* paint, not subsequent state changes. So we DO need
+   the inset-shadow trick to defeat the yellow flash.
+   `-webkit-text-fill-color` overrides Chrome's private text color
+   (plain `color` can't reach it). Both are scoped to the inner
+   `<input>` element — the Input component's wrapper hairline lives
+   on the outer `<span>`, so this doesn't clobber it. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground) !important;
+  caret-color: var(--foreground) !important;
+  /* `--autofill-bg` defaults to the page bg. Cards / Dialogs that paint
+     their own surface override it via `--autofill-bg: var(--card)` so
+     autofilled inputs match their container, not the page underneath. */
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg, var(--background)) inset !important;
+  box-shadow: 0 0 0 1000px var(--autofill-bg, var(--background)) inset !important;
+  transition: background-color 99999s ease-in-out 0s;
+}
+/* Card surfaces — match autofill bg to the card's own background so
+   autofilled inputs don't render a different shade than empty ones. */
+[data-slot="card"],
+[data-slot="dialog-popup"],
+[data-slot="alert-dialog-popup"] {
+  --autofill-bg: var(--card);
 }
 
 /* ── Markdown message styling (aligned with Minttr .markdown-card) ── */

@@ -18,8 +18,42 @@ export const bridgeConnectRequest = z.object({
   hostname: z.string().optional(),
   platform: z.string().optional(),
   arch: z.string().optional(),
+  /** Stable per-machine hash (hostname + first MAC), so a single key
+   *  used on multiple laptops doesn't overwrite each other's snapshot.
+   *  Falls back to "default" if bridge can't compute one. */
+  machineFingerprint: z.string().max(64).optional(),
+  /** Runtimes detected on the bridge host at boot. API zod-validates
+   *  this against `bridgeConnectRuntimes` before persisting. */
+  runtimes: z.array(z.object({
+    id: z.enum(["claude", "codex", "gemini", "copilot"]),
+    detected: z.boolean(),
+    version: z.string().max(64).regex(/^[\w.\-+ ()/]+$/).nullable(),
+    authed: z.boolean().nullable(),
+    authMethod: z.enum(["oauth", "env", "none"]).nullable(),
+    error: z.string().max(512).nullable(),
+  })).max(8).optional(),
 });
 export type BridgeConnectRequest = z.infer<typeof bridgeConnectRequest>;
+
+/** Runtime detection snapshot — written by bridge per `/connect`, persisted
+ *  on machineKeys row, surfaced to the UI via /api/v1/me/machine-keys/runtimes.
+ *  Server-side zod-validated BEFORE persistence to defend against bridge
+ *  sending arbitrary JSON (XSS surface via `error` field). */
+export const detectedRuntimeSnapshot = z.object({
+  id: z.enum(["claude", "codex", "gemini", "copilot"]),
+  detected: z.boolean(),
+  // CLI version strings vary wildly — `claude --version` returns
+  // "2.1.143 (Claude Code)", `codex --version` returns "codex-cli 0.130.0".
+  // Allow word chars + common punctuation. Length cap is the real
+  // safety; the regex just bars control chars / HTML.
+  version: z.string().max(64).regex(/^[\w.\-+ ()/]+$/).nullable(),
+  authed: z.boolean().nullable(),
+  authMethod: z.enum(["oauth", "env", "none"]).nullable(),
+  error: z.string().max(512).nullable(),
+});
+export type DetectedRuntimeSnapshot = z.infer<typeof detectedRuntimeSnapshot>;
+
+export const bridgeConnectRuntimes = z.array(detectedRuntimeSnapshot).max(8);
 
 export const bridgeConnectResponse = z.object({
   wsUrl: z.string().url(),
@@ -31,7 +65,12 @@ export const bridgeConnectResponse = z.object({
     name: z.string(),
     displayName: z.string(),
     systemPrompt: z.string().nullable(),
-    model: z.enum(["opus", "sonnet", "haiku"]),
+    // Free-form text (was z.enum) — each runtime has its own model namespace.
+    // Cross-validated against runtime.capabilities.models at the API boundary.
+    model: z.string().min(1).max(64),
+    // NEW: which AI runtime backs this agent. Default "claude" for agents
+    // created before multi-runtime shipped.
+    runtime: z.enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
   })),
   channels: z.array(z.object({
     id: z.string(),
@@ -63,13 +102,39 @@ export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
 
 // ---- POST /api/v1/agents ----
 
+/** Model whitelists per runtime — kept in sync with `RuntimeCapabilities.models`
+ *  in `@raltic/agent-runtime`. Listed here too because zod cross-validation
+ *  in `createAgentRequest.superRefine` needs them at the API boundary. */
+export const RUNTIME_MODELS: Record<"claude" | "codex" | "gemini" | "copilot", readonly string[]> = {
+  claude:  ["sonnet", "opus", "haiku"],
+  codex:   ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
+  // gemini + copilot are scaffolds in @raltic/agent-runtime; their
+  // model lists here let the validator accept agent creates without
+  // crashing, but the agent-create UI hides them from the picker.
+  gemini:  ["gemini-2.5-pro", "gemini-2.5-flash"],
+  copilot: ["default"],
+};
+
 export const createAgentRequest = z.object({
   serverId: z.string(),
   name: z.string().regex(/^[a-z0-9_-]+$/i).min(1).max(64),
   displayName: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
   systemPrompt: z.string().max(50_000).optional(),
-  model: z.enum(["opus", "sonnet", "haiku"]).default("sonnet"),
+  runtime: z.enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+  // Free-form text — model namespace differs per runtime. Validated
+  // against RUNTIME_MODELS[runtime] below so user can't post a Codex
+  // model with runtime=claude and get a silent failure at spawn time.
+  model: z.string().min(1).max(64),
+}).superRefine((data, ctx) => {
+  const allowed = RUNTIME_MODELS[data.runtime];
+  if (!allowed.includes(data.model)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["model"],
+      message: `Model "${data.model}" is not valid for runtime "${data.runtime}". Valid: ${allowed.join(", ")}`,
+    });
+  }
 });
 export type CreateAgentRequest = z.infer<typeof createAgentRequest>;
 
@@ -158,9 +223,15 @@ export const searchQuery = z.object({
 export type SearchQuery = z.infer<typeof searchQuery>;
 
 // ---- POST /api/v1/uploads/avatar (returns presigned PUT URL) ----
-
+// `purpose` distinguishes namespaces:
+//   • "avatar" (default) → personal user avatar; PUT handler updates user.image
+//   • "server_icon"      → workspace icon; PUT handler skips user.image side
+//     effect (was a critical bug: uploading a workspace icon used to
+//     clobber the uploader's personal avatar because both flows pointed
+//     at the same handler that always wrote user.image).
 export const uploadAvatarRequest = z.object({
   contentType: z.string().regex(/^image\/(png|jpe?g|gif|webp)$/),
+  purpose: z.enum(["avatar", "server_icon"]).default("avatar"),
 });
 export type UploadAvatarRequest = z.infer<typeof uploadAvatarRequest>;
 
@@ -170,6 +241,38 @@ export const uploadAvatarResponse = z.object({
   key: z.string(),
 });
 export type UploadAvatarResponse = z.infer<typeof uploadAvatarResponse>;
+
+// ---- PATCH /api/v1/servers/:id ----
+// Day-to-day workspace edits (rename, description, icon). Slug is
+// intentionally not in this surface — link-breaking and warrants a
+// dedicated UI with a redirect-old-slug story. Add a separate endpoint
+// when we tackle that.
+// Slug must be URL-safe + reasonably memorable. min(6) avoids collisions
+// with reserved single-word routes (login, signup, settings, etc.) and
+// matches what we ask of new workspace names; max(48) keeps URLs human.
+// Lowercase enforced at the schema layer so two workspaces don't differ
+// only in case ("acme" vs "Acme") — confusing for links and uniqueness.
+export const SERVER_SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]{4,46}[a-z0-9])$/;
+
+export const updateServerRequest = z.object({
+  // Trim + require non-empty after trim. zod's min(1) only catches "" — a
+  // body of "   " would otherwise pass and write a whitespace-only name.
+  name: z.string().min(1).max(120).transform((s) => s.trim()).refine((s) => s.length > 0, "name cannot be empty").optional(),
+  description: z.string().max(2000).nullable().optional(),
+  // iconUrl is host-validated at the API layer (must match the same-origin
+  // upload URL we issued). We can't validate origin here without knowing
+  // the env URL, so the schema just enforces shape; route handler does
+  // the host check.
+  iconUrl: z.string().url().max(2048).nullable().optional(),
+  // Slug change is risky — old links die. Route handler returns the new
+  // slug so the UI can re-route after a successful change. UNIQUE
+  // constraint at the DB layer catches collisions; route maps to 409.
+  slug: z.string().regex(SERVER_SLUG_REGEX, "slug must be 6-48 chars, lowercase letters/digits/hyphens, no leading/trailing hyphen").optional(),
+}).strict().refine(
+  (v) => v.name !== undefined || v.description !== undefined || v.iconUrl !== undefined || v.slug !== undefined,
+  { message: "at least one field is required" },
+);
+export type UpdateServerRequest = z.infer<typeof updateServerRequest>;
 
 // ---- POST /api/v1/machine-keys ----
 

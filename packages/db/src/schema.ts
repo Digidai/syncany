@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, primaryKey, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { desc } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // better-auth tables (user / session / account / verification)
@@ -12,8 +13,19 @@ export const user = sqliteTable("user", {
   image: text("image"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  // The workspace `/` redirects to and that the setup wizard targets.
+  // Set by runOnboarding to the personal workspace it auto-creates;
+  // user can change in Settings → Account. Nullable so users from
+  // before this column existed still work — read paths must fall back
+  // (see /api/v1/me).
+  // FK with ON DELETE SET NULL — declared here so Drizzle's introspection
+  // and the runtime schema match what migration 0008 actually applied. The
+  // lazy `() => servers.id` arrow defers resolution past the forward
+  // reference (servers is declared further down this file).
+  defaultServerId: text("default_server_id").references((): import("drizzle-orm/sqlite-core").AnySQLiteColumn => servers.id, { onDelete: "set null" }),
 }, (t) => [
   index("ix_user_email").on(t.email),
+  index("ix_user_default_server").on(t.defaultServerId),
 ]);
 
 export const session = sqliteTable("session", {
@@ -62,7 +74,7 @@ export const verification = sqliteTable("verification", {
 ]);
 
 // ---------------------------------------------------------------------------
-// Syncany domain tables
+// Raltic domain tables
 // ---------------------------------------------------------------------------
 
 export const servers = sqliteTable("servers", {
@@ -70,8 +82,16 @@ export const servers = sqliteTable("servers", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  iconUrl: text("icon_url"),
   ownerId: text("owner_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  // Lazy-seed flag for personal workspaces created via the invite-
+  // flow signup path. 1 = onboarding agent + welcome channels +
+  // welcome messages are present (or were always present, for pre-
+  // 0009 rows). 0 = bare workspace; first owner GET or explicit
+  // POST /api/v1/servers/:id/seed runs seedPersonalDefaults and flips
+  // to 1 via a conditional UPDATE (WHERE seeded=0) — race-safe.
+  seeded: integer("seeded", { mode: "boolean" }).notNull().default(true),
 }, (t) => [
   index("ix_servers_owner").on(t.ownerId),
   index("ix_servers_slug").on(t.slug),
@@ -99,8 +119,47 @@ export const agents = sqliteTable("agents", {
   displayName: text("display_name").notNull(),
   description: text("description"),
   systemPrompt: text("system_prompt"),
-  model: text("model", { enum: ["opus", "sonnet", "haiku"] }).notNull().default("sonnet"),
+  // Model identifier — free-form string because each runtime has its own
+  // namespace ("sonnet"/"opus"/"haiku" for Claude, "gpt-5.5"/etc for
+  // Codex). Cross-validated against runtime.capabilities.models at the
+  // API boundary (see protocol/rest.ts createAgentRequest.superRefine).
+  model: text("model").notNull().default("sonnet"),
+  // Which AI runtime backs this agent. Each runtime has its own model
+  // list, permission semantics, and CLI. Defaults to "claude" so
+  // existing pre-multi-runtime rows are stable.
+  // runtime: the AI CLI that backs this agent. claude + codex are
+  // fully implemented; gemini + copilot are scaffolds (detect-only)
+  // until the spawn() paths in packages/agent-runtime land. SQLite
+  // accepts the wider enum here; the web agent-create UI gates
+  // visibility separately so users can't pick scaffold runtimes yet.
+  runtime: text("runtime", { enum: ["claude", "codex", "gemini", "copilot"] }).notNull().default("claude"),
+  // P0 W2: where this agent's runtime executes.
+  //   'bridge'  → user's local bridge process (existing path, default for
+  //                back-compat with pre-cloud agents).
+  //   'raltic'  → RalticAgent DO in our Worker + sandbox container (cloud).
+  //   'claude' | 'codex' | 'gemini' | 'copilot' → reserved for sidecar
+  //                runtimes (P2): cloud sandbox with the respective CLI
+  //                pre-attached. Same DO routes them; sandbox composition
+  //                differs.
+  //
+  // 'bridge' is the only mode that does NOT use a DO — the local bridge
+  // subscribes to ChatRoom WS directly. AgentDispatcher (apps/api/lib/
+  // agent-dispatch.ts) skips dispatch for bridge agents because the
+  // bridge sees the message via its own WS subscription.
+  runtimeMode: text("runtime_mode", {
+    enum: ["bridge", "raltic", "claude", "codex", "gemini", "copilot"],
+  }).notNull().default("bridge"),
+  /** Migration safety (D6): exactly one runtime per agent at a time.
+   *  When user clicks "Move to Cloud", we set 'in_progress' before the
+   *  bridge snapshot, then 'completed' when DO is ready. Dispatcher
+   *  drops messages for 'in_progress' agents to avoid races. */
+  migrationStatus: text("migration_status", {
+    enum: ["stable", "in_progress", "archived"],
+  }).notNull().default("stable"),
   status: text("status", { enum: ["online", "sleeping", "offline"] }).notNull().default("offline"),
+  // Optional override for the deterministic gradient avatar. Null → derive
+  // from `id`. Set via the "shuffle" UI in agent settings.
+  avatarSeed: text("avatar_seed"),
   isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
@@ -188,7 +247,14 @@ export const tasks = sqliteTable("tasks", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 }, (t) => [
   uniqueIndex("ux_tasks_channel_num").on(t.channelId, t.taskNumber),
-  index("ix_tasks_assignee").on(t.assigneeId, t.status),
+  // Composite index added by 0007_task_inbox_index.sql and confirmed in
+  // remote D1. The 4-column composite (assignee_id, assignee_type,
+  // status, created_at DESC) strictly dominates the prior 2-column
+  // (assignee_id, status) — the planner uses this for the per-assignee
+  // task-inbox query in inbox.ts. Drizzle's snapshot for 0006 still
+  // references the old index; this entry reconciles src/schema.ts to
+  // the actually-applied DB state.
+  index("ix_tasks_assignee_kind_status_created").on(t.assigneeId, t.assigneeType, t.status, desc(t.createdAt)),
   index("ix_tasks_status").on(t.channelId, t.status),
 ]);
 
@@ -218,6 +284,15 @@ export const machineKeys = sqliteTable("machine_keys", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
   revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  // Per-machine-fingerprint snapshot of runtimes detected on the bridge
+  // that holds this key. Written on every POST /api/v1/bridge/connect.
+  // Read for Settings → Machine API keys + Setup Wizard step 3 — also
+  // works offline (last-known state preserved across bridge restarts).
+  // Shape: Record<machineFingerprint, { runtimes, detectedAt, hostname? }>.
+  // Read code MUST safeParse — older bridge versions may have written
+  // older shapes.
+  lastDetectedRuntimes: text("last_detected_runtimes", { mode: "json" }),
+  lastDetectedAt: integer("last_detected_at", { mode: "timestamp_ms" }),
 }, (t) => [
   index("ix_mk_user").on(t.userId),
   index("ix_mk_server").on(t.serverId),

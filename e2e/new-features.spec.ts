@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const API_URL = process.env.E2E_API_URL ?? "https://api.syncany.app";
+const API_URL = process.env.E2E_API_URL ?? "https://api.raltic.com";
 
 /**
  * Coverage for the audit-fix + collab batch (commit 6609b5e):

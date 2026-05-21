@@ -1,5 +1,5 @@
 {
-  "name": "@syncany/auth-core",
+  "name": "@raltic/auth-core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@syncany/db": "workspace:*",
-    "better-auth": "^1.2.7",
+    "@raltic/db": "workspace:*",
+    "better-auth": "1.6.9",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {

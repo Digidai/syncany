@@ -1,5 +1,5 @@
 export { createAuth, type Auth, type AuthEnv } from "./auth";
-export { runOnboarding, type OnboardingEnv } from "./onboarding";
+export { runOnboarding, seedPersonalDefaults, type OnboardingEnv } from "./onboarding";
 export {
   policy, newAuthCtx, requirePolicy, AuthorizationError,
   type Subject, type AuthCtx,

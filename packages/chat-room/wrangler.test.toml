@@ -20,5 +20,5 @@ new_sqlite_classes = ["ChatRoom", "UserGateway"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "syncany-test"
+database_name = "raltic-test"
 database_id = "00000000-0000-0000-0000-000000000000"

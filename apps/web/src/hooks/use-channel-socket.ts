@@ -7,7 +7,7 @@ import {
   decodeServer,
   encode,
   PROTOCOL_VERSION,
-} from "@syncany/protocol";
+} from "@raltic/protocol";
 import { apiOrigin } from "@/lib/auth-client";
 
 const wsOrigin = apiOrigin.replace(/^http/, "ws");
@@ -44,6 +44,7 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
   const [connected, setConnected] = useState(false);
   const reconnectAttempt = useRef(0);
   const initialTokenRef = useRef(token);
+  const pendingSends = useRef(new Map<string, { resolve: (ok: boolean) => void; timer: ReturnType<typeof setTimeout> }>());
 
   useEffect(() => { initialTokenRef.current = token; }, [token]);
 
@@ -81,7 +82,21 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
         let msg: ServerMessage;
         try { msg = decodeServer(e.data as string); }
         catch { return; }
-        if (msg.t === "message" && onMessage) onMessage(msg.message);
+        if (msg.t === "ack") {
+          const pending = pendingSends.current.get(msg.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingSends.current.delete(msg.id);
+            pending.resolve(true);
+          }
+        } else if (msg.t === "err") {
+          const pending = pendingSends.current.get(msg.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingSends.current.delete(msg.id);
+            pending.resolve(false);
+          }
+        } else if (msg.t === "message" && onMessage) onMessage(msg.message);
         else if (msg.t === "message_update" && onMessageUpdate) onMessageUpdate(msg.message);
         else if (msg.t === "reaction" && onReaction) onReaction({ messageId: msg.messageId, emoji: msg.emoji, reactorId: msg.reactorId, added: msg.added });
         else if (msg.t === "presence" && onPresence) onPresence(msg.userId, msg.status);
@@ -89,6 +104,11 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
       };
       ws.onclose = () => {
         setConnected(false);
+        for (const [id, pending] of pendingSends.current) {
+          clearTimeout(pending.timer);
+          pending.resolve(false);
+          pendingSends.current.delete(id);
+        }
         if (cancelled) return;
         const delay = Math.min(30_000, 500 * Math.pow(2, reconnectAttempt.current++));
         // Clear the cached token if we've been disconnected long enough that
@@ -105,19 +125,33 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
     };
   }, [channelId, onMessage, onMessageUpdate, onReaction, onPresence, onTyping]);
 
-  function send(content: string, opts?: { threadParentId?: string; as?: string }) {
+  function send(content: string, opts?: { threadParentId?: string; as?: string }): Promise<boolean> {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(encode({
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.resolve(false);
+    const id = crypto.randomUUID();
+    const payload = encode({
       v: PROTOCOL_VERSION,
       t: "send",
-      id: crypto.randomUUID(),
+      id,
       content,
       threadParentId: opts?.threadParentId ?? null,
       as: opts?.as,
       idempotencyKey: crypto.randomUUID(),
-    }));
-    return true;
+    });
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingSends.current.delete(id);
+        resolve(false);
+      }, 10_000);
+      pendingSends.current.set(id, { resolve, timer });
+      try {
+        ws.send(payload);
+      } catch {
+        clearTimeout(timer);
+        pendingSends.current.delete(id);
+        resolve(false);
+      }
+    });
   }
 
   return { connected, send };

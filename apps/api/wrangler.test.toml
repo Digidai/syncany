@@ -1,0 +1,53 @@
+# wrangler config used ONLY by `vitest` runs via @cloudflare/vitest-pool-workers.
+# Mirrors apps/api/wrangler.jsonc minus the production-specific bits
+# (no custom domain, no real D1 id, no real R2 bucket, no Sentry).
+#
+# vitest-pool-workers spawns an isolated miniflare instance per run; bindings
+# below are in-memory shims by default. We give them friendly names so
+# debugging output matches what you'd see in production.
+name = "raltic-api-test"
+main = "src/index.ts"
+compatibility_date = "2026-04-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "raltic-test"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "../../packages/db/migrations"
+
+[[kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "test-rate-limits"
+
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "raltic-test-uploads"
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "raltic-test-backups"
+
+[durable_objects]
+bindings = [
+  { name = "CHAT_ROOM",    class_name = "ChatRoom" },
+  { name = "USER_GATEWAY", class_name = "UserGateway" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom", "UserGateway"]
+
+# Tests expect these vars; values are placeholders. Note the secret-like
+# ones are set as plaintext here — vitest-pool-workers can't read real
+# wrangler secrets, but the values just need to be present + stable so
+# sign+verify round-trip works inside one test boot.
+[vars]
+WEB_ORIGIN = "http://localhost:3000"
+GOOGLE_CLIENT_ID = ""
+CF_ACCOUNT_ID = ""
+D1_DATABASE_ID = ""
+# Secrets-as-vars for testing only. NEVER do this in production wrangler.jsonc.
+BETTER_AUTH_SECRET = "test-better-auth-secret-must-be-at-least-16-chars"
+CHAT_ROOM_AUTH_SECRET = "test-chat-room-auth-secret-32-bytes-stable-please"
+MACHINE_KEY_PEPPER = "test-machine-key-pepper-stable-for-hash-roundtrip"

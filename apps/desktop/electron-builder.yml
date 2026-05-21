@@ -1,0 +1,56 @@
+# electron-builder config — produces installers + the latest.yml / latest-mac.yml
+# manifest that electron-updater consumes.
+#
+# Code signing intentionally NOT configured here. To enable for production:
+#   1. macOS: set CSC_LINK + CSC_KEY_PASSWORD env vars (or load via keychain),
+#      add `notarize` section with appleId + ASC API key. Skipping for now
+#      because publishing unsigned + notarized binaries triggers Gatekeeper
+#      warnings; we ship signed in a follow-up.
+#   2. Windows: same idea via WIN_CSC_LINK + WIN_CSC_KEY_PASSWORD.
+#
+# Publish target: GitHub Releases. Tag a release on Digidai/raltic, push the
+# built artifacts + latest.yml, and electron-updater finds them via the
+# `publish` block below. R2 is an option for self-hosting in future — the
+# updater accepts an arbitrary feed URL.
+
+appId: com.raltic.desktop
+productName: Raltic
+copyright: Copyright © 2026 Raltic
+asar: true
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - "out/**/*"
+  - "package.json"
+
+mac:
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development
+
+publish:
+  provider: github
+  owner: Digidai
+  repo: raltic
+  releaseType: release

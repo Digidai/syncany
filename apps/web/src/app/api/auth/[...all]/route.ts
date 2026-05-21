@@ -1,11 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createAuth } from "@syncany/auth-core";
+import { createAuth } from "@raltic/auth-core";
 
 /**
  * Better-auth catchall handler. Lives on the web origin so cookies and
  * verification email links share a single domain with the UI.
  *
- * The syncany-api Worker no longer serves /api/auth/*; it just trusts
+ * The raltic-api Worker no longer serves /api/auth/*; it just trusts
  * Bearer sy_session_<token> headers, looking up sessions in the same D1.
  */
 async function handler(req: Request): Promise<Response> {

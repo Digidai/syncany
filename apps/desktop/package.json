@@ -1,0 +1,32 @@
+{
+  "name": "@raltic/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Raltic desktop app — embeds the bridge daemon and the web UI in a single tray-resident Electron shell.",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "package": "electron-vite build && electron-builder --dir",
+    "release": "node scripts/release-preflight.mjs && electron-vite build && electron-builder --publish always",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@raltic/bridge-core": "workspace:*",
+    "@openai/codex-sdk": "0.130.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/node": "^20.19.39",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.5",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.8.0",
+    "vite": "^5.4.10"
+  }
+}

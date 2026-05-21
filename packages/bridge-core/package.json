@@ -1,0 +1,27 @@
+{
+  "name": "@raltic/bridge-core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bridge": "./src/bridge.ts",
+    "./agent-manager": "./src/agent-manager.ts",
+    "./system-prompt": "./src/system-prompt.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@raltic/agent-runtime": "workspace:*",
+    "@raltic/protocol": "workspace:*",
+    "@raltic/cli": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  }
+}

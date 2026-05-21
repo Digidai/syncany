@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { requirePolicy, policy, sendEmail } from "@syncany/auth-core";
-import { createInviteRequest } from "@syncany/protocol";
-import { servers, serverMembers, invites, user } from "@syncany/db";
-import { and, eq } from "drizzle-orm";
+import { requirePolicy, policy, sendEmail } from "@raltic/auth-core";
+import { createInviteRequest } from "@raltic/protocol";
+import { servers, serverMembers, invites, user } from "@raltic/db";
+import { and, eq, sql as sqlFn } from "drizzle-orm";
 import { z } from "zod";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
@@ -22,12 +22,18 @@ const emailInviteRequest = z.object({
 // /api/v1/invites — create / accept / list / revoke
 // ---------------------------------------------------------------------------
 invitesRoutes.post("/api/v1/invites", requireAuth, async (c) => {
-  const body = createInviteRequest.parse(await c.req.json());
   const subject = c.get("subject");
+  // 30/day/user for invite-link creation. Email invites have a stricter
+  // per-recipient limit; link creation is the looser cousin since each
+  // link can host many uses. 30/day still catches accidental loops.
+  const linkLimited = await rateLimit(c, "invite_link_create", subject.userId, 30, 24 * 3600);
+  if (linkLimited) return linkLimited;
+  const body = createInviteRequest.parse(await c.req.json());
   const ctx = ctxFor(c);
   await requirePolicy(policy.servers.canRead(ctx, body.serverId));
-  // Only the server owner can create invites for now (admin role TBD).
-  await requirePolicy(policy.servers.canUpdate(ctx, body.serverId));
+  // Admins and owners can create invites — keep parity with the UI which
+  // already enables invite controls for both roles.
+  await requirePolicy(policy.servers.canEdit(ctx, body.serverId));
   const id = "inv_" + crypto.randomUUID().replace(/-/g, "").slice(0, 24);
   const expiresAt = body.ttlHours ? new Date(Date.now() + body.ttlHours * 3600_000) : null;
   const db = drizzle(c.env.DB);
@@ -44,7 +50,7 @@ invitesRoutes.get("/api/v1/invites", requireAuth, async (c) => {
   const serverId = c.req.query("serverId");
   if (!serverId) return c.json({ error: { code: "BAD_REQ", message: "serverId required" } }, 400);
   const ctx = ctxFor(c);
-  await requirePolicy(policy.servers.canUpdate(ctx, serverId));
+  await requirePolicy(policy.servers.canEdit(ctx, serverId));
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(invites).where(eq(invites.serverId, serverId));
   return c.json({ invites: rows });
@@ -57,7 +63,7 @@ invitesRoutes.delete("/api/v1/invites/:id", requireAuth, async (c) => {
   const rows = await db.select({ serverId: invites.serverId }).from(invites).where(eq(invites.id, id)).limit(1);
   if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such invite" } }, 404);
   const ctx = ctxFor(c);
-  await requirePolicy(policy.servers.canUpdate(ctx, rows[0].serverId));
+  await requirePolicy(policy.servers.canEdit(ctx, rows[0].serverId));
   await db.update(invites).set({ revokedAt: new Date() }).where(eq(invites.id, id));
   return c.json({ ok: true });
 });
@@ -94,10 +100,10 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
   const body = emailInviteRequest.parse(await c.req.json());
   const subject = c.get("subject");
   const ctx = ctxFor(c);
-  await requirePolicy(policy.servers.canUpdate(ctx, body.serverId));
+  await requirePolicy(policy.servers.canEdit(ctx, body.serverId));
 
   // Rate-limit: cap at 50 sent invites per server per day to stop a
-  // compromised owner cookie from turning Syncany into a spam relay
+  // compromised owner cookie from turning Raltic into a spam relay
   // (CF Email Sending will throttle/suspend the binding otherwise).
   const dayKey = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const limited = await rateLimit(c, "invite_email_server", `${body.serverId}:${dayKey}`, 50, 24 * 3600);
@@ -128,9 +134,9 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
   const inviterName = inv?.name ?? inv?.email ?? "A teammate";
   await sendEmail(c.env, {
     to: body.email,
-    subject: `${inviterName} invited you to ${serverName} on Syncany`,
+    subject: `${inviterName} invited you to ${serverName} on Raltic`,
     html: `<p><strong>${escapeHtml(inviterName)}</strong> invited you to join
-        <strong>${escapeHtml(serverName)}</strong> on Syncany — a chat workspace
+        <strong>${escapeHtml(serverName)}</strong> on Raltic — a chat workspace
         where humans and AI agents work in the same channels.</p>
       <p style="margin-top:24px"><a href="${url}"
         style="background:#0e7490;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Accept invite</a></p>
@@ -165,13 +171,34 @@ invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, async (c) => {
       eq(serverMembers.memberType, "human"),
     )).limit(1);
   if (existing.length === 0) {
-    await db.batch([
-      db.insert(serverMembers).values({
+    // Race-safe: claim a slot via a conditional UPDATE that increments
+    // ONLY if max_uses=0 (unlimited) OR uses < max_uses. SQLite returns
+    // the changed row count via `meta.changes`; if 0, someone else used
+    // the last slot between our read and our write — refuse this accept.
+    // Otherwise, commit the membership in a batch alongside the increment.
+    const claim = await c.env.DB
+      .prepare("UPDATE invites SET uses = uses + 1 WHERE id = ? AND (max_uses = 0 OR uses < max_uses)")
+      .bind(id)
+      .run();
+    if (!claim.meta.changes) {
+      return c.json({ error: { code: "EXHAUSTED", message: "invite just used up" } }, 410);
+    }
+    try {
+      await db.insert(serverMembers).values({
         serverId: inv.serverId, memberId: subject.userId,
         memberType: "human", role: inv.role, joinedAt: new Date(),
-      }),
-      db.update(invites).set({ uses: inv.uses + 1 }).where(eq(invites.id, id)),
-    ]);
+      });
+    } catch (e) {
+      // Rollback the slot we just claimed. Best-effort — if this fails the
+      // counter is one ahead of reality (the invite "looks" more-used than
+      // it is). Acceptable failure mode vs. the prior race where the
+      // counter under-counts and the cap is breached.
+      await db.update(invites)
+        .set({ uses: sqlFn`${invites.uses} - 1` })
+        .where(eq(invites.id, id))
+        .catch(() => { /* swallow — see comment above */ });
+      throw e;
+    }
   }
 
   const srv = await db.select({ slug: servers.slug }).from(servers).where(eq(servers.id, inv.serverId)).limit(1);

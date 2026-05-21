@@ -1,0 +1,36 @@
+{
+  "name": "@raltic/sandbox-daemon",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Per-Agent sandbox container HTTP RPC daemon. Runs inside CF Containers, exposes file/bash/git ops to RalticAgent DO over authenticated HTTP.",
+  "type": "module",
+  "bin": {
+    "raltic-sandbox-daemon": "dist/server.js"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

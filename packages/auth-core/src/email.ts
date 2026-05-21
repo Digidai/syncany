@@ -3,7 +3,7 @@
  *
  * The `EMAIL` binding is provisioned in apps/web/wrangler.jsonc and uses
  * the public-beta Email Sending API. Set `EMAIL_FROM` to a verified sender
- * on the syncany.app domain.
+ * on the raltic.com domain.
  */
 export interface EmailEnv {
   EMAIL?: { send: (msg: { from: string; to: string; subject: string; html: string; text?: string }) => Promise<{ messageId: string }> };

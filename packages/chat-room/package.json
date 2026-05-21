@@ -1,5 +1,5 @@
 {
-  "name": "@syncany/chat-room",
+  "name": "@raltic/chat-room",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@syncany/auth-core": "workspace:*",
-    "@syncany/db": "workspace:*",
-    "@syncany/protocol": "workspace:*",
+    "@raltic/auth-core": "workspace:*",
+    "@raltic/db": "workspace:*",
+    "@raltic/protocol": "workspace:*",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {

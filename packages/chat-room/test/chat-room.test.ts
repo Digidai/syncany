@@ -4,7 +4,7 @@ import {
   runInDurableObject,
   runDurableObjectAlarm,
 } from "cloudflare:test";
-import { signWsToken } from "@syncany/auth-core";
+import { signWsToken } from "@raltic/auth-core";
 import type { ChatRoom } from "../src/chat-room";
 import { applySchema, seedParents } from "./setup";
 
