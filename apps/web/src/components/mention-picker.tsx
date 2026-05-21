@@ -25,7 +25,7 @@
  *   - Doesn't fuzzy-match — strict prefix/contains. Good enough until
  *     members grow > 50.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AtSign, Bot } from "lucide-react";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,16 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
   // jitter while the user is typing whitespace inside the same `@token`.
   const queryRef = useRef("");
   queryRef.current = query;
+  // Modality tracker — last input the user gave the picker. While in
+  // "keyboard" mode we ignore mouse hover so a small mouse drift doesn't
+  // hijack the user's keyboard-navigated active option (codex LOW finding).
+  const [mode, setMode] = useState<"keyboard" | "mouse">("mouse");
+  // Stable ids for aria-activedescendant + listbox association so screen
+  // readers can follow the visual active state.
+  const listboxId = useId();
+  const optionId = useCallback((idx: number) => `${listboxId}-opt-${idx}`, [listboxId]);
+  // Panel ref for click-outside dismissal.
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Detect: cursor is somewhere inside an active `@<word>` token.
   // The trigger is the LAST '@' before the cursor that is preceded by
@@ -106,9 +116,33 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
   }, [open, members, query]);
 
   // Keep activeIdx within bounds when filtered set shrinks.
-  if (activeIdx >= filtered.length && filtered.length > 0) {
-    setActiveIdx(0);
-  }
+  // Previous version called setActiveIdx during render — React 19 treats
+  // that as an anti-pattern; useEffect after commit is safe.
+  useEffect(() => {
+    if (filtered.length > 0 && activeIdx >= filtered.length) {
+      setActiveIdx(0);
+    }
+  }, [filtered.length, activeIdx]);
+
+  // Click-outside / focus-out dismissal. Without this, an open picker
+  // sticks around when the user clicks elsewhere on the page (e.g. the
+  // sidebar). pointerdown fires before focus shifts so it's the right
+  // event for "the user is interacting with something else".
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node | null;
+      if (panelRef.current && target && panelRef.current.contains(target)) return;
+      // ProseMirror editor swallows pointerdown inside the editor itself;
+      // we only want to dismiss when the user clicks OUTSIDE the editor.
+      // The composer wraps the editor in `.tiptap-input` — check that too.
+      const editorRoot = (target as Element | null)?.closest?.(".tiptap-input");
+      if (editorRoot) return;
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [open]);
 
   const pick = useCallback((idx: number) => {
     const choice = filtered[idx];
@@ -122,11 +156,13 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
     if (!open || filtered.length === 0) return false;
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      setMode("keyboard");
       setActiveIdx((i) => (i + 1) % filtered.length);
       return true;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      setMode("keyboard");
       setActiveIdx((i) => (i - 1 + filtered.length) % filtered.length);
       return true;
     }
@@ -147,17 +183,24 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
     if (!open || filtered.length === 0) return null;
     return (
       <div
+        ref={panelRef}
+        id={listboxId}
         role="listbox"
         aria-label="Mention picker"
         className="pointer-events-auto mb-2 max-h-72 w-72 overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+        // pointerdown puts us in mouse mode so the next hover applies;
+        // when navigating by keyboard the mouse pointer over the panel
+        // doesn't steal the active option.
+        onPointerMove={() => { if (mode !== "mouse") setMode("mouse"); }}
       >
         {filtered.map((m, idx) => (
           <button
             key={`${m.kind}:${m.id}`}
+            id={optionId(idx)}
             role="option"
             aria-selected={idx === activeIdx}
             onMouseDown={(e) => { e.preventDefault(); pick(idx); }}
-            onMouseEnter={() => setActiveIdx(idx)}
+            onMouseEnter={() => { if (mode === "mouse") setActiveIdx(idx); }}
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
               idx === activeIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
@@ -190,5 +233,12 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
     );
   }, [open, filtered, activeIdx, pick]);
 
-  return { onTextUpdate, onKeyDown, render, open };
+  // Expose ids so the composer can wire aria-controls / activedescendant
+  // on the editor's underlying element. Consumer can ignore if not using.
+  const aria = {
+    controls: open && filtered.length > 0 ? listboxId : undefined,
+    activeDescendant: open && filtered.length > 0 ? optionId(activeIdx) : undefined,
+  };
+
+  return { onTextUpdate, onKeyDown, render, open, aria };
 }

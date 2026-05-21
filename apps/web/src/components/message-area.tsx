@@ -177,48 +177,16 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     return "Send a message…";
   }, [dmAgent, channel?.type, channel?.name]);
 
-  if (!channelId) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Select a conversation to start chatting.
-      </div>
-    );
-  }
-
-  // Reply state — when set, next send goes as a thread reply to this
-  // message id. Chip above the composer shows what's being replied to;
-  // click X (or send) clears.
+  // ── Hooks must all run before the early-return below to satisfy
+  // React's Rules of Hooks. The chain: replyTo + edit state, then
+  // mentionMembers memo, then useMentionPicker (which itself calls hooks).
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
-  const replyToLabel = replyTo ? memberLabel.get(replyTo.senderId) ?? "someone" : "";
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState("");
+  // Reset reply target when channel changes — otherwise switching mid-reply
+  // leaks the parent reference into the next channel's send.
+  useEffect(() => { setReplyTo(null); }, [channelId]);
 
-  async function handleSend(content: string): Promise<boolean> {
-    if (!content.trim() || !channelId || sendInFlightRef.current) return false;
-    sendInFlightRef.current = true;
-    try {
-      const ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
-      if (ok) setReplyTo(null);
-      if (!ok) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
-      return ok;
-    } finally {
-      sendInFlightRef.current = false;
-    }
-  }
-
-  async function handleCopy(m: MessageRow) {
-    try {
-      await navigator.clipboard.writeText(m.content);
-      notifySuccess("Copied", "Message text copied to clipboard");
-    } catch (e) {
-      notifyThrown("Copy failed", e);
-    }
-  }
-
-  // ── @-mention picker wiring ────────────────────────────────────────────
-  // Candidates = AGENT members of this channel. Human-mention support
-  // requires the workspace members list (separate /servers/:id/members
-  // call) — that lands as a P1 polish. Agents are the primary mention
-  // target in Raltic anyway (humans + AI sharing channels is the
-  // product's whole point).
   const mentionMembers = useMemo<MentionMember[]>(() => {
     const out: MentionMember[] = [];
     const seen = new Set<string>();
@@ -242,9 +210,65 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     },
   });
 
-  // Inline-edit state — no more window.prompt().
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState("");
+  if (!channelId) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        Select a conversation to start chatting.
+      </div>
+    );
+  }
+
+  // Derived only after early-return is past — safe to read state here.
+  const replyToLabel = replyTo ? memberLabel.get(replyTo.senderId) ?? "someone" : "";
+
+  async function handleSend(content: string): Promise<boolean> {
+    if (!content.trim() || !channelId || sendInFlightRef.current) return false;
+    sendInFlightRef.current = true;
+    try {
+      const ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
+      if (ok) setReplyTo(null);
+      if (!ok) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
+      return ok;
+    } finally {
+      sendInFlightRef.current = false;
+    }
+  }
+
+  async function handleCopy(m: MessageRow) {
+    const text = m.content ?? "";
+    // Modern path: Clipboard API. Requires secure context (HTTPS or
+    // localhost) AND user gesture. Worth attempting first because it
+    // works on virtually all current browsers in prod.
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notifySuccess("Copied", "Message text copied to clipboard");
+        return;
+      }
+    } catch {
+      // Fall through to legacy path. Permission denied / insecure context
+      // both throw; both are recoverable via execCommand.
+    }
+    // Legacy fallback: hidden textarea + execCommand("copy"). Deprecated
+    // but still works in HTTP contexts and older browsers. Wrapped in a
+    // try so a failure here surfaces a clean error instead of throwing.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (!ok) throw new Error("execCommand returned false");
+      notifySuccess("Copied", "Message text copied to clipboard");
+    } catch (e) {
+      notifyThrown("Copy failed", e);
+    }
+  }
+
   function startEdit(m: MessageRow) {
     setEditingId(m.id);
     setEditingDraft(m.content);

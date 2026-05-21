@@ -130,12 +130,39 @@ const TiptapMessageInput = forwardRef<
       if (!editor) return;
       const { from } = editor.state.selection;
       const $from = editor.state.doc.resolve(from);
-      const textBefore = $from.parent.textBetween(0, $from.parentOffset);
-      const searchStr = `@${query}`;
-      const idx = textBefore.lastIndexOf(searchStr);
-      if (idx === -1) return;
-      const start = $from.start() + idx;
-      const end = start + searchStr.length;
+      const parentText = $from.parent.textContent;
+      const cursorOffset = $from.parentOffset;
+      // Find the `@` that started THIS mention by scanning back from the
+      // cursor — same logic the picker's onTextUpdate uses to detect a
+      // live mention token. We can't just lastIndexOf("@" + query): if
+      // the cursor was MID-token (e.g. `@al|ice` and user picked alice
+      // from the dropdown), the query is "al" but the user expects the
+      // FULL `@alice` to be replaced — not just `@al`, which would
+      // leave the suffix `ice` glued to the inserted mention.
+      const textBefore = parentText.slice(0, cursorOffset);
+      const atIdx = textBefore.lastIndexOf("@");
+      if (atIdx === -1) return;
+      // The mention token ends at the FIRST whitespace after the @, or
+      // at the end of the parent text. The user might have cursor
+      // before that end (mid-token pick); we still consume the full
+      // unbroken token so no orphan letters remain.
+      const tail = parentText.slice(atIdx + 1);
+      const wsMatch = tail.search(/\s/);
+      const tokenLen = wsMatch === -1 ? tail.length : wsMatch;
+      // Sanity: token must include the query we matched against; if it
+      // doesn't (text shifted from under us), bail rather than corrupt.
+      if (!parentText.slice(atIdx + 1, atIdx + 1 + tokenLen).startsWith(query)) {
+        // Fall back to the legacy lastIndexOf-on-@query strategy.
+        const searchStr = `@${query}`;
+        const idx = textBefore.lastIndexOf(searchStr);
+        if (idx === -1) return;
+        const start = $from.start() + idx;
+        const end = start + searchStr.length;
+        editor.chain().deleteRange({ from: start, to: end }).insertContent(replacement).run();
+        return;
+      }
+      const start = $from.start() + atIdx;
+      const end = start + 1 + tokenLen;
       editor
         .chain()
         .deleteRange({ from: start, to: end })
