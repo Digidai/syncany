@@ -50,27 +50,27 @@
       // RalticAgent — one DO instance per Agent record (P0 W2).
       // Class implements CF Agents SDK Agent base; per-agent state,
       // history, todoList, sandbox container id live in DO storage.
-      { "name": "RALTIC_AGENT", "class_name": "RalticAgent" },
-      // P1 W4: per-Agent sandbox container wrapper. Lifecycle (start,
-      // sleep, route fetch) lives in SandboxContainer DO. The agent
-      // calls SANDBOX.get(idFromName(containerId)).fetch(...) — that
-      // wakes the container if asleep + proxies to sandbox-daemon :8080.
-      { "name": "SANDBOX",      "class_name": "SandboxContainer" }
+      { "name": "RALTIC_AGENT", "class_name": "RalticAgent" }
+      // P1 W4 disabled in this deploy — CF Containers requires Docker
+      // running locally at `wrangler deploy` time to build the image.
+      // To enable: start Docker Desktop, uncomment the SANDBOX binding
+      // here AND the containers block below, then re-run wrangler deploy.
+      //
+      // { "name": "SANDBOX",      "class_name": "SandboxContainer" }
     ]
   },
 
-  // P1 W4: container image used by SandboxContainer DO. Image lives in
-  // packages/sandbox-image (Dockerfile + supporting daemon source).
-  // CF Containers builds + caches per deploy; instance_type "basic" =
-  // 1 vCPU, 1 GB RAM per running instance.
-  "containers": [
-    {
-      "class_name": "SandboxContainer",
-      "image": "../../packages/sandbox-image/Dockerfile",
-      "max_instances": 1000,
-      "instance_type": "basic"
-    }
-  ],
+  // P1 W4 — container image used by SandboxContainer DO. Commented out
+  // until Docker is available at deploy time. Image source lives in
+  // packages/sandbox-image (Dockerfile + supporting daemon).
+  // "containers": [
+  //   {
+  //     "class_name": "SandboxContainer",
+  //     "image": "../../packages/sandbox-image/Dockerfile",
+  //     "max_instances": 1000,
+  //     "instance_type": "basic"
+  //   }
+  // ],
 
   // AI binding (Workers AI for embeddings, Llama for local inference).
   "ai": {
@@ -96,11 +96,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["RalticAgent"]
-    },
-    {
-      "tag": "v3",
-      "new_sqlite_classes": ["SandboxContainer"]
     }
+    // v3 (SandboxContainer) — see notes above. Enable when Docker is
+    // available at deploy time.
+    // ,{ "tag": "v3", "new_sqlite_classes": ["SandboxContainer"] }
   ],
 
   "vars": {

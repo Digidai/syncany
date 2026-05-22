@@ -24,7 +24,10 @@ export { ChatRoom, UserGateway } from "@raltic/chat-room";
 // P0 W2: cloud-native agent runtime DO (per docs/DESIGN_agent_platform_v2.md §4.1).
 // Wrangler binding: RALTIC_AGENT — one DO instance per Agent row.
 export { RalticAgent } from "@raltic/agent";
-// P1 W4: per-Agent sandbox container DO. Wrangler binding: SANDBOX.
+// P1 W4: SandboxContainer DO export — class is defined and ready, but
+// wrangler binding is commented out in wrangler.jsonc until Docker is
+// running locally at deploy time. The export is harmless without a
+// binding (CF only instantiates the class when bound).
 export { SandboxContainer } from "@raltic/sandbox-container";
 export type { Env };
 
