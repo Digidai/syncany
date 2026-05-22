@@ -24,8 +24,35 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  // P1 W7: top-level runtime-mode choice. 'raltic' = cloud-native
+  // (default, zero local install); 'bridge' = legacy local daemon path.
+  // The runtime+model picker beneath only matters when mode === 'bridge'
+  // (each CLI has its own model namespace). In cloud mode we use
+  // the platform's managed router and the user picks model separately
+  // in a single dropdown.
+  const [runtimeMode, setRuntimeMode] = useState<"raltic" | "bridge">("raltic");
   const [runtime, setRuntime] = useState<RuntimeId>("claude");
-  const [model, setModel] = useState<string>(RUNTIME_MODELS.claude[0]);
+  // Cloud (raltic) router supports a different model namespace than any
+  // individual bridge CLI. When the user toggles modes we MUST reset
+  // model to a valid option for the target mode — otherwise a cloud-only
+  // model name leaks into a bridge submission and the API rejects it on
+  // RUNTIME_MODELS validation (codex MED).
+  const CLOUD_MODELS = [
+    "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7",
+    "gpt-5.4", "gpt-5.5",
+    "gemini-2.5-flash", "gemini-2.5-pro",
+  ];
+  const [model, setModel] = useState<string>(CLOUD_MODELS[0]);
+
+  function pickRuntimeMode(next: "raltic" | "bridge") {
+    setRuntimeMode(next);
+    // Normalize model to the new mode's namespace.
+    if (next === "raltic") {
+      if (!CLOUD_MODELS.includes(model)) setModel(CLOUD_MODELS[0]);
+    } else {
+      if (!RUNTIME_MODELS[runtime].includes(model)) setModel(RUNTIME_MODELS[runtime][0]);
+    }
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Detected runtime availability across all of the user's machine keys.
@@ -84,12 +111,18 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
         description: description || undefined,
         systemPrompt: systemPrompt || undefined,
         runtime,
+        runtimeMode,
         model,
       });
       onCreated?.(res.id);
       onOpenChange(false);
       setName(""); setDisplayName(""); setDescription(""); setSystemPrompt("");
-      setRuntime("claude"); setModel(RUNTIME_MODELS.claude[0]);
+      // Codex HIGH (round 3): reset model to the CLOUD default because we
+      // reset runtimeMode to "raltic" — otherwise the NEXT create-agent
+      // submission would carry a bridge-only model name (e.g. "sonnet")
+      // into cloud mode and the API would reject it on RUNTIME_MODELS
+      // validation.
+      setRuntimeMode("raltic"); setRuntime("claude"); setModel(CLOUD_MODELS[0]);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
     } finally {
@@ -108,6 +141,56 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
           <form onSubmit={handleSubmit}>
             <DialogPanel>
               <div className="space-y-4">
+                {/* Top-level: where does the agent live? Defaults to
+                    "Cloud (Raltic)" — zero-install, lazy sandbox container.
+                    "My machine (Bridge)" keeps the original spawn-into-
+                    local-daemon flow for users who care about privacy /
+                    using their own API quota. */}
+                <Field>
+                  <FieldLabel>Where does this agent live?</FieldLabel>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => pickRuntimeMode("raltic")}
+                      aria-pressed={runtimeMode === "raltic"}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                        runtimeMode === "raltic"
+                          ? "border-cyan-500 bg-cyan-500/10"
+                          : "border-border hover:border-foreground/20",
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Cloud (Raltic)</span>
+                        <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">recommended</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Zero install. Runs in our cloud sandbox — files, bash, git all work. Mobile-friendly.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pickRuntimeMode("bridge")}
+                      aria-pressed={runtimeMode === "bridge"}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                        runtimeMode === "bridge"
+                          ? "border-cyan-500 bg-cyan-500/10"
+                          : "border-border hover:border-foreground/20",
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">My machine (Bridge)</span>
+                        <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">advanced</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Spawns on your local bridge. Use your own API key + repo on disk.
+                      </p>
+                    </button>
+                  </div>
+                </Field>
+
+                {runtimeMode === "bridge" && (
                 <Field>
                   <FieldLabel>Runtime</FieldLabel>
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -116,6 +199,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                         key={r}
                         type="button"
                         onClick={() => pickRuntime(r)}
+                        aria-pressed={runtime === r}
                         className={cn(
                           "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
                           runtime === r
@@ -147,6 +231,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     ))}
                   </div>
                 </Field>
+                )}
 
                 <Field>
                   <FieldLabel>Identifier</FieldLabel>
@@ -173,10 +258,21 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     placeholder="You are an expert in…" />
                 </Field>
                 <Field>
-                  <FieldLabel>Model</FieldLabel>
+                  <FieldLabel>
+                    Model
+                    {runtimeMode === "raltic" && (
+                      <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                        — routed via easyrouter (Claude / GPT / Gemini)
+                      </span>
+                    )}
+                  </FieldLabel>
                   <div className="flex flex-wrap gap-2">
-                    {RUNTIME_MODELS[runtime].map((m) => (
+                    {/* Cloud mode: any modern model from any provider, since
+                        easyrouter handles routing. Bridge mode: only the
+                        models the selected runtime's CLI knows about. */}
+                    {(runtimeMode === "raltic" ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
                       <button key={m} type="button" onClick={() => setModel(m)}
+                        aria-pressed={model === m}
                         className={cn(
                           "rounded border px-3 py-1 text-sm transition-colors",
                           model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",

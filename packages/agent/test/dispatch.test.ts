@@ -67,4 +67,35 @@ describe("extractAgentMentions", () => {
   it("returns empty for content with no mentions", () => {
     expect(extractAgentMentions("just a normal message", AGENTS)).toEqual([]);
   });
+
+  it("matches mention at line start", () => {
+    expect(extractAgentMentions("@code-reviewer hi", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
+
+  it("matches mention after newline", () => {
+    expect(extractAgentMentions("hello\n@code-reviewer", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
+
+  it("name matching is case-insensitive", () => {
+    expect(extractAgentMentions("ping @Code-Reviewer", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
+
+  // Unicode adjacency — CJK / emoji before the @-token.
+  it("matches @<name> after CJK char (no whitespace required)", () => {
+    expect(extractAgentMentions("你好@code-reviewer", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
+
+  it("matches @<name> after CJK + space", () => {
+    expect(extractAgentMentions("你好 @code-reviewer", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
+
+  it("matches @<name> after emoji", () => {
+    expect(extractAgentMentions("🙂@code-reviewer", AGENTS))
+      .toEqual(["11111111-2222-3333-4444-555555555555"]);
+  });
 });

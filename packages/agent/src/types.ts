@@ -85,6 +85,28 @@ export interface AgentState {
   taskStartedAt: number | null;
   /** Last user-visible activity, for UX "Last active 3m ago" labels. */
   lastActiveAt: number;
+  /** Scheduled self-invocations queued via schedule_self tool. The DO's
+   *  alarm() handler pops due entries and invokes the agent loop with the
+   *  saved prompt. */
+  schedules?: ScheduledJob[];
+  /** Ring buffer of recent bash output (most-recent ~4 KiB). Written
+   *  to by the bash_exec tool wrapper; rendered by the Workspace pane's
+   *  "Recent terminal output" surface. Separate from `history` because
+   *  the streamText loop emits tool turns that aren't persisted to
+   *  history (we keep history as user/assistant only). */
+  terminalRing?: string;
+}
+
+export interface ScheduledJob {
+  id: string;
+  /** Wall-clock ms when the alarm should fire. */
+  fireAt: number;
+  /** What the agent should do (treated as a user message). */
+  prompt: string;
+  /** Channel id where the resulting reply gets posted. */
+  channelId: string;
+  /** Optional UI label for "agent has scheduled this" indicator. */
+  label: string;
 }
 
 export interface ChatTurn {

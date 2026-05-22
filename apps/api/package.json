@@ -17,6 +17,7 @@
     "@raltic/chat-room": "workspace:*",
     "@raltic/db": "workspace:*",
     "@raltic/protocol": "workspace:*",
+    "@raltic/sandbox-container": "workspace:*",
     "@sentry/cloudflare": "^10.53.1",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.6.13",

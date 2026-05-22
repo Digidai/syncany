@@ -67,11 +67,23 @@ export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
         cwd: z.string().min(1).max(4096).optional(),
         timeoutMs: z.number().int().positive().max(600_000).optional(),
       }),
-      execute: async ({ command, cwd, timeoutMs }) =>
-        (await need(ctx)).bashExec(command, {
+      execute: async ({ command, cwd, timeoutMs }) => {
+        const client = await need(ctx);
+        const result = await client.bashExec(command, {
           ...(cwd ? { cwd } : {}),
           ...(timeoutMs ? { timeoutMs } : {}),
-        }),
+        });
+        // Mirror output into the agent's terminal ring buffer so the
+        // Workspace pane has something to render. Best-effort — a ring
+        // write failure must NOT mask the actual bash result.
+        const frame = [
+          `$ ${command}`,
+          result.stdout ?? "",
+          result.stderr ? `[stderr] ${result.stderr}` : "",
+        ].filter(Boolean).join("\n") + "\n";
+        try { await ctx.appendTerminal(frame); } catch { /* swallow */ }
+        return result;
+      },
     }),
 
     grep: tool({

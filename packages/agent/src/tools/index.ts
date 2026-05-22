@@ -12,5 +12,8 @@
 
 export type { ToolDispatchCtx, ToolRegistry } from "./registry.js";
 export { buildToolRegistry } from "./registry.js";
-export { ralticTools }    from "./raltic.js";
-export { sandboxTools }   from "./sandbox.js";
+export { ralticTools }       from "./raltic.js";
+export { sandboxTools }      from "./sandbox.js";
+export { webTools }          from "./web.js";
+export { channelFilesTools } from "./channel-files.js";
+export { schedulingTools }   from "./scheduling.js";

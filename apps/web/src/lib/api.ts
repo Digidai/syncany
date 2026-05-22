@@ -241,6 +241,11 @@ export interface Agent {
   model: string;
   /** Which AI runtime backs this agent. */
   runtime: RuntimeId;
+  /** Where the agent's runtime executes (P1 W7).
+   *  'bridge'  = user's local bridge daemon (legacy default)
+   *  'raltic'  = our cloud Worker DO + sandbox container
+   *  others    = reserved for sidecar runtimes (P2+) */
+  runtimeMode?: "bridge" | "raltic" | "claude" | "codex" | "gemini" | "copilot";
   status: "online" | "sleeping" | "offline";
   /** Optional override seed for the gradient avatar. Null → derive from `id`. */
   avatarSeed?: string | null;
@@ -377,6 +382,21 @@ export const api = {
   // ---- agents ----
   createAgent: (req: CreateAgentRequest) =>
     call<{ id: string }>("/api/v1/agents", { method: "POST", body: JSON.stringify(req) }),
+
+  // ---- agent workspace (P1 W6 — cloud-mode only) ----
+  listAgentWorkspace: (agentId: string, path: string) =>
+    call<{ path: string; entries: Array<{ name: string; kind: "dir" | "file" | "symlink" | "other" }> }>(
+      `/api/v1/agents/${encodeURIComponent(agentId)}/workspace/list?path=${encodeURIComponent(path)}`,
+    ),
+  readAgentFile: (agentId: string, path: string, encoding?: "utf-8" | "base64") => {
+    const q = new URLSearchParams({ path });
+    if (encoding) q.set("encoding", encoding);
+    return call<{ path: string; content: string; encoding: "utf-8" | "base64"; bytes: number; truncated: boolean }>(
+      `/api/v1/agents/${encodeURIComponent(agentId)}/workspace/read?${q}`,
+    );
+  },
+  getAgentTerminal: (agentId: string) =>
+    call<{ tail: string }>(`/api/v1/agents/${encodeURIComponent(agentId)}/workspace/terminal`),
 
   // ---- channels ----
   createChannel: (req: CreateChannelRequest) =>

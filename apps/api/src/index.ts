@@ -18,11 +18,14 @@ import { uploadsRoutes } from "./routes/uploads";
 import { machineKeysRoutes } from "./routes/machine-keys";
 import { wsRoutes } from "./routes/ws";
 import { inboxRoutes } from "./routes/inbox";
+import { agentWorkspaceRoutes } from "./routes/agent-workspace";
 
 export { ChatRoom, UserGateway } from "@raltic/chat-room";
 // P0 W2: cloud-native agent runtime DO (per docs/DESIGN_agent_platform_v2.md §4.1).
 // Wrangler binding: RALTIC_AGENT — one DO instance per Agent row.
 export { RalticAgent } from "@raltic/agent";
+// P1 W4: per-Agent sandbox container DO. Wrangler binding: SANDBOX.
+export { SandboxContainer } from "@raltic/sandbox-container";
 export type { Env };
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -83,6 +86,8 @@ app.route("/", uploadsRoutes);
 app.route("/", machineKeysRoutes);
 app.route("/", wsRoutes);
 app.route("/", inboxRoutes);
+// P1 W6: cloud-agent workspace browser endpoints.
+app.route("/", agentWorkspaceRoutes);
 
 // Cron handlers exported alongside fetch. `scheduled` is invoked by CF
 // for every cron pattern in wrangler.jsonc — see src/scheduled.ts.

@@ -122,6 +122,12 @@ export const createAgentRequest = z.object({
   description: z.string().max(2000).optional(),
   systemPrompt: z.string().max(50_000).optional(),
   runtime: z.enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+  // P1 W7: cloud-native runtime mode. 'raltic' runs the agent on our
+  // Worker DO + sandbox container (zero local install for the user).
+  // 'bridge' is the legacy path: agent runs as a spawned process on the
+  // user's local bridge daemon. Defaults to 'raltic' so new agents are
+  // cloud-native; users can still pick 'bridge' for privacy / quota.
+  runtimeMode: z.enum(["raltic", "bridge"]).default("raltic"),
   // Free-form text — model namespace differs per runtime. Validated
   // against RUNTIME_MODELS[runtime] below so user can't post a Codex
   // model with runtime=claude and get a silent failure at spawn time.

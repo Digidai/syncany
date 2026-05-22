@@ -45,6 +45,9 @@ importers:
       '@raltic/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@raltic/sandbox-container':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-container
       '@sentry/cloudflare':
         specifier: ^10.53.1
         version: 10.53.1(@cloudflare/workers-types@4.20260508.1)
@@ -455,6 +458,19 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.13)(@types/node@25.6.2)(jiti@2.7.0)(jsdom@16.7.0)(lightningcss@1.32.0)(msw@2.14.5(@types/node@25.6.2)(typescript@5.9.3))(terser@5.47.1)(tsx@4.21.0)(yaml@2.8.4)
+
+  packages/sandbox-container:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.3.0
+        version: 0.3.4
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250108.0
+        version: 4.20260508.1
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
 
   packages/sandbox-daemon:
     dependencies:
@@ -1664,6 +1680,9 @@ packages:
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+
+  '@cloudflare/containers@0.3.4':
+    resolution: {integrity: sha512-6kWodmgBSug/rr9fjcWrZcKhxmWTEc1BTKC6nVv7yvYaRRvV3rZPZjq9R17eN0l9cl2LNc03wp/Z6OV+0uDwXA==}
 
   '@cloudflare/kv-asset-handler@0.4.2':
     resolution: {integrity: sha512-SIOD2DxrRRwQ+jgzlXCqoEFiKOFqaPjhnNTGKXSRLvp1HiOvapLaFG2kEr9dYQTYe8rKrd9uvDUzmAITeNyaHQ==}
@@ -13911,6 +13930,8 @@ snapshots:
   '@better-fetch/fetch@1.1.21': {}
 
   '@cfworker/json-schema@4.1.1': {}
+
+  '@cloudflare/containers@0.3.4': {}
 
   '@cloudflare/kv-asset-handler@0.4.2': {}
 

@@ -1,0 +1,21 @@
+{
+  "name": "@raltic/sandbox-container",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SandboxContainer Durable Object — per-Agent CF Container lifecycle (start, sleep, route fetch).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250108.0",
+    "typescript": "^5.8.0"
+  }
+}

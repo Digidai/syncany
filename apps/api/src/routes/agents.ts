@@ -176,6 +176,9 @@ agentsRoutes.post("/api/v1/agents", requireAuth, async (c) => {
       systemPrompt: body.systemPrompt ?? null,
       model: body.model,
       runtime: body.runtime,
+      // P1 W7: persist user's runtime-mode choice. Defaults to 'raltic'
+      // (cloud) on the protocol layer; users can still pick 'bridge'.
+      runtimeMode: body.runtimeMode,
       status: "offline",
       createdAt: now, updatedAt: now,
     }),

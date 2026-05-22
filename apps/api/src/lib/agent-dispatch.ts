@@ -115,7 +115,9 @@ export function extractAgentMentions(content: string, candidates: ReadonlyArray<
   }
   // @<name> form — narrower charset to avoid swallowing punctuation.
   // Agent names follow ^[a-z0-9_-]{1,64}$ per existing schema convention.
-  const nameRe = /(^|[^A-Za-z0-9_])@([a-z0-9_-]{1,64})\b/g;
+  // Accept upper-case input though (users type @Code-Reviewer often);
+  // we lower-case the captured name before the byName lookup.
+  const nameRe = /(^|[^A-Za-z0-9_])@([A-Za-z0-9_-]{1,64})\b/g;
   while ((m = nameRe.exec(content)) !== null) {
     const name = m[2]?.toLowerCase();
     if (!name) continue;
