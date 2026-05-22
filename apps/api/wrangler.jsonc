@@ -50,27 +50,31 @@
       // RalticAgent — one DO instance per Agent record (P0 W2).
       // Class implements CF Agents SDK Agent base; per-agent state,
       // history, todoList, sandbox container id live in DO storage.
-      { "name": "RALTIC_AGENT", "class_name": "RalticAgent" }
-      // P1 W4 disabled in this deploy — CF Containers requires Docker
-      // running locally at `wrangler deploy` time to build the image.
-      // To enable: start Docker Desktop, uncomment the SANDBOX binding
-      // here AND the containers block below, then re-run wrangler deploy.
-      //
-      // { "name": "SANDBOX",      "class_name": "SandboxContainer" }
+      { "name": "RALTIC_AGENT", "class_name": "RalticAgent" },
+      // P1 W4: per-Agent sandbox container wrapper. CF builds the image
+      // from packages/sandbox-image/Dockerfile at deploy time (Docker
+      // CLI / OrbStack must be running locally), then SANDBOX.get(
+      // idFromName(containerId)).fetch(...) routes through this DO,
+      // wakes the container if asleep, proxies to sandbox-daemon :8080.
+      { "name": "SANDBOX",      "class_name": "SandboxContainer" }
     ]
   },
 
-  // P1 W4 — container image used by SandboxContainer DO. Commented out
-  // until Docker is available at deploy time. Image source lives in
-  // packages/sandbox-image (Dockerfile + supporting daemon).
-  // "containers": [
-  //   {
-  //     "class_name": "SandboxContainer",
-  //     "image": "../../packages/sandbox-image/Dockerfile",
-  //     "max_instances": 1000,
-  //     "instance_type": "basic"
-  //   }
-  // ],
+  // P1 W4 — container image used by SandboxContainer DO. We push the image
+  // out-of-band with `wrangler containers push raltic-sandbox:<tag>` (built
+  // for linux/amd64) and reference it here by `image_uri`. Bumping the tag
+  // is what rolls forward — wrangler does NOT rebuild on deploy.
+  //   Build:  docker build --platform linux/amd64 -f packages/sandbox-image/Dockerfile -t raltic-sandbox:<tag> .
+  //   Push:   npx wrangler containers push raltic-sandbox:<tag>
+  //   Bump:   update image_uri tag below and `wrangler deploy`.
+  "containers": [
+    {
+      "class_name": "SandboxContainer",
+      "image": "registry.cloudflare.com/48d9ccaf5ee7914c803b5d0656462848/raltic-sandbox:0.1.0",
+      "max_instances": 1000,
+      "instance_type": "basic"
+    }
+  ],
 
   // AI binding (Workers AI for embeddings, Llama for local inference).
   "ai": {
@@ -96,10 +100,11 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["RalticAgent"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["SandboxContainer"]
     }
-    // v3 (SandboxContainer) — see notes above. Enable when Docker is
-    // available at deploy time.
-    // ,{ "tag": "v3", "new_sqlite_classes": ["SandboxContainer"] }
   ],
 
   "vars": {

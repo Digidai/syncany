@@ -29,18 +29,20 @@ FROM node:20-alpine
 # tini handles PID-1 signal forwarding so SIGTERM from CF Containers
 # actually kills the daemon (and its bash children). Without tini, node
 # becomes PID 1 and signals get silently ignored.
+# Trimmed apk set — no build-base (gcc + g++ + make ~400 MiB; pull on demand
+# via `apk add build-base` from inside the agent if a python package needs
+# native compilation). github-cli is also opt-in — most agents use git over
+# https directly. This keeps the base image close to the ~350 MB target.
 RUN apk add --no-cache \
       tini \
       bash \
       git \
-      github-cli \
       curl \
       ca-certificates \
       jq \
       ripgrep \
       python3 \
       py3-pip \
-      build-base \
   && rm -rf /var/cache/apk/*
 
 # Non-root user — agents shouldn't run as root even inside a container.
