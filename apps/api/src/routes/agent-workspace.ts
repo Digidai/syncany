@@ -42,6 +42,13 @@ agentWorkspaceRoutes.get("/api/v1/agents/:id/workspace/list", requireAuth, requi
   if ("error" in agent) return c.json({ error: agent.error }, agent.status);
 
   const result = await proxyToSandbox(c.env, agentId, "/file/list", { path });
+  if (result && typeof result === "object" && "error" in result) {
+    // Proxy failure (sandbox not yet provisioned, RPC threw, etc.) —
+    // surface as a 502 so the web client's `.catch` runs and the
+    // pane shows its dedicated error state instead of crashing on
+    // `.entries.map` of a missing field.
+    return c.json(result, 502);
+  }
   return c.json(result);
 });
 
@@ -64,6 +71,9 @@ agentWorkspaceRoutes.get("/api/v1/agents/:id/workspace/read", requireAuth, requi
     path,
     encoding: encoding ?? "utf-8",
   });
+  if (result && typeof result === "object" && "error" in result) {
+    return c.json(result, 502);
+  }
   return c.json(result);
 });
 

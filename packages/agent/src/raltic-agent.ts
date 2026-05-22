@@ -325,6 +325,16 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
       throw new Error("ensureSandbox called before bind() — agent identity unknown");
     }
     if (this.state.workspaceContainerId && this.state.workspaceContainerBearer) {
+      // Self-heal: push the bearer down to the SandboxContainer DO on
+      // every cached return. Cheap (idempotent storage write) and
+      // makes agents created before the persisted-bearer fix able to
+      // exercise the sandbox without manual re-provisioning. Once all
+      // pre-fix agents have hit this path at least once, we could
+      // gate this behind a one-shot flag.
+      await this.pushBearerToContainer(
+        this.state.workspaceContainerId,
+        this.state.workspaceContainerBearer,
+      );
       return {
         containerId: this.state.workspaceContainerId,
         bearer: this.state.workspaceContainerBearer,
@@ -348,33 +358,15 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
         crypto.getRandomValues(bytes);
         const bearer = btoa(String.fromCharCode(...bytes))
           .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-        // Start the container with the bearer injected. SandboxContainer
-        // class exposes `start({ envVars })` from @cloudflare/containers.
-        // Narrow type local to this call so we don't sprinkle `any`
-        // across the file — refactor of @cloudflare/containers API
-        // would surface here (codex round 3 LOW).
-        if (this.env.SANDBOX) {
-          type StartCapable = {
-            start?: (opts: { envVars?: Record<string, string> }) => Promise<unknown>;
-          };
-          const stub = this.env.SANDBOX.get(this.env.SANDBOX.idFromName(containerId)) as unknown as StartCapable;
-          if (typeof stub.start === "function") {
-            try {
-              await stub.start({
-                envVars: {
-                  RALTIC_SANDBOX_TOKEN: bearer,
-                  RALTIC_SANDBOX_WORKSPACE: "/workspace",
-                  RALTIC_SANDBOX_PORT: "8080",
-                },
-              });
-            } catch (e) {
-              // Start is idempotent in CF Containers; failures here are
-              // logged but not fatal (the first containerFetch will
-              // retry-start as needed).
-              console.warn("[raltic-agent] container start hint failed:", e);
-            }
-          }
-        }
+        // Persist the bearer on the SandboxContainer DO. The DO
+        // overrides `envVars` from storage, so every container start
+        // (including lazy wakes after `sleepAfter`) sees the bearer.
+        // Passing envVars to start() per-call doesn't persist past
+        // hibernation — the JS instance is dropped and the next wake
+        // restarts WITHOUT env, causing the daemon to exit because
+        // RALTIC_SANDBOX_TOKEN is missing → all subsequent fetches
+        // return 500.
+        await this.pushBearerToContainer(containerId, bearer);
         await this.setState({
           ...this.state,
           workspaceContainerId: containerId,
@@ -386,6 +378,23 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
       }
     })();
     return this.sandboxProvisioning;
+  }
+
+  /** Idempotent: persist the bearer in the SandboxContainer DO so its
+   *  overridden `envVars` getter has fresh data on every container
+   *  start (including lazy wakes after `sleepAfter`). Best-effort —
+   *  failure is logged but doesn't block the caller, because the
+   *  cached state path still has a usable bearer for `currentSandboxClient`
+   *  even though the container will reject it until env catches up. */
+  private async pushBearerToContainer(containerId: string, bearer: string): Promise<void> {
+    if (!this.env.SANDBOX) return;
+    type SetBearer = { setBearer: (bearer: string) => Promise<void> };
+    const stub = this.env.SANDBOX.get(this.env.SANDBOX.idFromName(containerId)) as unknown as SetBearer;
+    try {
+      await stub.setBearer(bearer);
+    } catch (e) {
+      console.error("[raltic-agent] setBearer failed:", e);
+    }
   }
 
   private async ensureSandboxClient(): Promise<SandboxClient> {
