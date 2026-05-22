@@ -75,7 +75,13 @@ async function resolveGithubConnector(ctx: ToolDispatchCtx): Promise<ConnectorTo
 }
 
 async function ghFetch<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
-  const url = path.startsWith("http") ? path : `${GITHUB_API}${path}`;
+  // Restrict outbound to api.github.com. The earlier `startsWith("http")
+  // → use as-is` shortcut was an SSRF / token-leak hazard if anyone
+  // ever passed a caller-controlled path here (codex P2 SSRF MED).
+  if (!path.startsWith("/")) {
+    throw new Error(`ghFetch: path must start with '/' (got: ${path.slice(0, 40)})`);
+  }
+  const url = `${GITHUB_API}${path}`;
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Accept", "application/vnd.github+json");
@@ -151,17 +157,29 @@ export function githubTools(ctx: ToolDispatchCtx): ToolRegistry {
       execute: async ({ repo, path, ref }) => {
         const c = await resolveGithubConnector(ctx);
         if (!c) return { error: "no GitHub connector enabled for this agent" };
+        // Validate: no leading slash, no dot segments. Without this,
+        // `path="../../something"` after slash restoration could
+        // escape /repos/owner/repo/contents/ into another endpoint
+        // entirely (codex P2 HIGH finding). zod's regex would also
+        // work; explicit check gives a clearer error.
+        const segments = path.split("/");
+        if (path.startsWith("/") || segments.some(s => s === "" || s === "." || s === "..")) {
+          return { error: "invalid path: must be a workspace-relative file path with no dot segments" };
+        }
         const q = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+        // Per-segment encodeURIComponent → join with literal slashes.
+        // Safer than encodeURIComponent + replace(%2F→/), which makes
+        // it harder to reason about edge cases.
+        const encodedPath = segments.map(encodeURIComponent).join("/");
         const res = await ghFetch<{
           type: string; encoding: string; content: string; sha: string; size: number;
-        }>(c.token, `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}${q}`);
+        }>(c.token, `/repos/${repo}/contents/${encodedPath}${q}`);
         if (res.type !== "file") {
           return { error: `path is not a file (type=${res.type})` };
         }
         if (res.encoding !== "base64") {
           return { error: `unsupported encoding ${res.encoding}` };
         }
-        // GitHub returns base64 with embedded newlines; atob handles that.
         const content = atob(res.content);
         return { content, sha: res.sha, size: res.size };
       },

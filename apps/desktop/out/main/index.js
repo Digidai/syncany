@@ -1,15 +1,15 @@
 import require$$1$3, { Tray, Menu, app, nativeImage, dialog, ipcMain, BrowserWindow, shell } from "electron";
 import { join as join$1, dirname as dirname$1 } from "node:path";
 import { fileURLToPath as fileURLToPath$1 } from "node:url";
-import { homedir } from "node:os";
+import { homedir as homedir$1 } from "node:os";
 import { existsSync as existsSync$1, lstatSync, readFileSync as readFileSync$2, mkdirSync as mkdirSync$1, chmodSync, writeFileSync as writeFileSync$2, renameSync, unlinkSync } from "node:fs";
-import require$$1, { existsSync, writeFileSync as writeFileSync$1, mkdirSync, readFileSync as readFileSync$1 } from "fs";
+import require$$1, { existsSync, writeFileSync as writeFileSync$1, mkdirSync, readFileSync as readFileSync$1, readdirSync, statSync, rmSync } from "fs";
 import require$$1$1, { join, dirname, resolve } from "path";
 import require$$2$1, { fileURLToPath } from "url";
 import { createRequire } from "node:module";
-import require$$1$4, { execFile, spawn } from "child_process";
+import require$$1$4, { execFile, spawn, spawnSync } from "child_process";
 import require$$4, { promisify } from "util";
-import require$$2, { networkInterfaces, hostname } from "os";
+import require$$2, { homedir, networkInterfaces, hostname } from "os";
 import require$$0$3, { createHash } from "crypto";
 import { randomUUID } from "node:crypto";
 import require$$0 from "constants";
@@ -4719,7 +4719,7 @@ object({
   /** Runtimes detected on the bridge host at boot. API zod-validates
    *  this against `bridgeConnectRuntimes` before persisting. */
   runtimes: array(object({
-    id: _enum(["claude", "codex"]),
+    id: _enum(["claude", "codex", "gemini", "copilot"]),
     detected: boolean(),
     version: string().max(64).regex(/^[\w.\-+ ()/]+$/).nullable(),
     authed: boolean().nullable(),
@@ -4728,7 +4728,7 @@ object({
   })).max(8).optional()
 });
 const detectedRuntimeSnapshot = object({
-  id: _enum(["claude", "codex"]),
+  id: _enum(["claude", "codex", "gemini", "copilot"]),
   detected: boolean(),
   // CLI version strings vary wildly — `claude --version` returns
   // "2.1.143 (Claude Code)", `codex --version` returns "codex-cli 0.130.0".
@@ -4755,7 +4755,7 @@ object({
     model: string().min(1).max(64),
     // NEW: which AI runtime backs this agent. Default "claude" for agents
     // created before multi-runtime shipped.
-    runtime: _enum(["claude", "codex"]).default("claude")
+    runtime: _enum(["claude", "codex", "gemini", "copilot"]).default("claude")
   })),
   channels: array(object({
     id: string(),
@@ -4778,7 +4778,12 @@ object({
 });
 const RUNTIME_MODELS = {
   claude: ["sonnet", "opus", "haiku"],
-  codex: ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"]
+  codex: ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
+  // gemini + copilot are scaffolds in @raltic/agent-runtime; their
+  // model lists here let the validator accept agent creates without
+  // crashing, but the agent-create UI hides them from the picker.
+  gemini: ["gemini-2.5-pro", "gemini-2.5-flash"],
+  copilot: ["default"]
 };
 object({
   serverId: string(),
@@ -4786,7 +4791,13 @@ object({
   displayName: string().min(1).max(120),
   description: string().max(2e3).optional(),
   systemPrompt: string().max(5e4).optional(),
-  runtime: _enum(["claude", "codex"]).default("claude"),
+  runtime: _enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+  // P1 W7: cloud-native runtime mode. 'raltic' runs the agent on our
+  // Worker DO + sandbox container (zero local install for the user).
+  // 'bridge' is the legacy path: agent runs as a spawned process on the
+  // user's local bridge daemon. Defaults to 'raltic' so new agents are
+  // cloud-native; users can still pick 'bridge' for privacy / quota.
+  runtimeMode: _enum(["raltic", "bridge"]).default("raltic"),
   // Free-form text — model namespace differs per runtime. Validated
   // against RUNTIME_MODELS[runtime] below so user can't post a Codex
   // model with runtime=claude and get a silent failure at spawn time.
@@ -4891,6 +4902,70 @@ object({
   name: string(),
   createdAt: number$1().int()
 });
+const RESERVED_SLUGS = [
+  // Auth + identity
+  "login",
+  "signup",
+  "logout",
+  "verify",
+  "forgot",
+  "reset",
+  // Old hyphenated forms — kept reserved as belt-and-suspenders during
+  // the 30-day deprecation window where /verify-email etc still redirect.
+  "verify-email",
+  "forgot-password",
+  "reset-password",
+  // Top-level app destinations
+  "settings",
+  "account",
+  "invite",
+  "api",
+  "admin",
+  // Domain top-levels (reserve the noun, never the verb)
+  "tasks",
+  "agents",
+  "channels",
+  "people",
+  "skills",
+  "squads",
+  // App-internal short prefixes
+  "s",
+  "u",
+  "agent",
+  "channel",
+  "dm",
+  // Marketing / static
+  "help",
+  "support",
+  "docs",
+  "about",
+  "pricing",
+  "legal",
+  "terms",
+  "privacy",
+  // Infrastructure hostnames
+  "www",
+  "app",
+  "mail",
+  "static",
+  "assets",
+  "uploads",
+  "static-assets",
+  // Next.js metadata routes — Next intercepts these slugs as file convention
+  // routes (apple-icon.{ext}, opengraph-image.{ext}) and serves the
+  // generated metadata image. A workspace at /apple-icon would silently be
+  // shadowed by the metadata handler.
+  "apple-icon",
+  "opengraph-image",
+  "twitter-image",
+  "icon",
+  "favicon",
+  "robots",
+  "sitemap",
+  "manifest",
+  "browserconfig"
+];
+new Set(RESERVED_SLUGS);
 function buildSystemPrompt(agent, memoryContext) {
   const agentInstructions = agent.system_prompt || `You are ${agent.display_name}.`;
   return `${agentInstructions}
@@ -5282,7 +5357,15 @@ class ClaudeSession {
       console.error(`[claude-runtime] stderr: ${text.substring(0, 200)}`);
     });
     this.proc.on("error", (err) => {
-      this._emit({ kind: "error", message: err.message, reason: "other" });
+      const reason = err.code === "ENOENT" ? "not_installed" : err.code === "EACCES" || err.code === "EPERM" ? "permission_denied" : "spawn_failed";
+      const message = err.code === "ENOENT" ? "claude-code CLI not found on PATH. Install with `npm i -g @anthropic-ai/claude-code` or set CLAUDE_PATH." : err.code === "EACCES" || err.code === "EPERM" ? `claude binary not executable (${err.code}): ${err.message}` : `claude spawn failed: ${err.message}`;
+      this._emit({ kind: "error", message, reason });
+      for (const cb of this.listeners.exit) {
+        try {
+          cb(null);
+        } catch {
+        }
+      }
     });
     this.proc.on("close", (code) => {
       for (const cb of this.listeners.exit) {
@@ -5323,11 +5406,26 @@ class ClaudeSession {
     return this.sessionId;
   }
   async shutdown() {
-    if (this.proc.killed) return;
+    if (this.proc.killed || this.proc.exitCode !== null) return;
     try {
-      this.proc.kill();
+      this.proc.kill("SIGTERM");
     } catch {
     }
+    await new Promise((resolve2) => {
+      const onClose = () => {
+        clearTimeout(timer);
+        resolve2();
+      };
+      const timer = setTimeout(() => {
+        this.proc.off("close", onClose);
+        try {
+          this.proc.kill("SIGKILL");
+        } catch {
+        }
+        resolve2();
+      }, 2e3);
+      this.proc.once("close", onClose);
+    });
   }
   // ── Event mapper — single source of truth for Claude NDJSON → ActivityEvent ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -5640,10 +5738,87 @@ function writeAgentsRootSentinel(agentsRootDir) {
   } catch {
   }
 }
+class GeminiRuntime {
+  id = "gemini";
+  displayName = "Gemini";
+  // Scaffold capabilities — refine with the actual SDK options when
+  // spawn() lands. Conservative defaults so the agent-create UI shows
+  // something sensible if a user ever picks this runtime.
+  capabilities = {
+    models: ["gemini-2.5-pro", "gemini-2.5-flash"],
+    defaultModel: "gemini-2.5-pro",
+    permissionModes: ["default"],
+    conversational: true,
+    resumable: false,
+    // scaffold — Gemini CLI session resume not wired
+    supportsShellTools: false
+  };
+  async detect() {
+    try {
+      const res = spawnSync("gemini", ["--version"], { encoding: "utf-8", timeout: 3e3 });
+      if (res.status !== 0) {
+        return { error: "gemini CLI not installed (or --version failed)" };
+      }
+      const version2 = (res.stdout || res.stderr).trim().split("\n")[0] ?? null;
+      return { version: version2, authed: null, authMethod: "none" };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  /**
+   * Spawn a Gemini session. STUB — throws so the bridge surfaces a
+   * loud error rather than silently swallowing dispatch when an agent
+   * with runtime=gemini gets a message before this is implemented.
+   * The A2 mismatch check (bridge-core/bridge.ts:broadcastLifecycle)
+   * should already prevent this codepath in practice by reporting the
+   * agent as error before the first dispatch, but defense in depth.
+   */
+  spawn(_opts) {
+    throw new Error(
+      "[gemini] runtime spawn not implemented yet — agents with runtime=gemini cannot be dispatched. Track: packages/agent-runtime/src/gemini.ts"
+    );
+  }
+}
+class CopilotRuntime {
+  id = "copilot";
+  displayName = "GitHub Copilot";
+  // Copilot's CLI doesn't surface a model list — the user's GitHub
+  // entitlement decides at request time. We expose a single nominal
+  // "default" so the UI agent-create flow has something to display.
+  capabilities = {
+    models: ["default"],
+    defaultModel: "default",
+    permissionModes: ["default"],
+    conversational: true,
+    resumable: false,
+    supportsShellTools: false
+  };
+  async detect() {
+    try {
+      const res = spawnSync("copilot", ["--version"], { encoding: "utf-8", timeout: 3e3 });
+      if (res.status !== 0) {
+        return { error: "GitHub Copilot CLI not installed" };
+      }
+      const version2 = (res.stdout || res.stderr).trim().split("\n")[0] ?? null;
+      const authPath = join(homedir(), ".config", "github-copilot");
+      const authed = existsSync(authPath);
+      return { version: version2, authed, authMethod: authed ? "oauth" : "none" };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  spawn(_opts) {
+    throw new Error(
+      "[copilot] runtime spawn not implemented yet — agents with runtime=copilot cannot be dispatched. Track: packages/agent-runtime/src/copilot.ts"
+    );
+  }
+}
 function buildRuntimeRegistry() {
   return {
     claude: new ClaudeRuntime(),
-    codex: new CodexRuntime()
+    codex: new CodexRuntime(),
+    gemini: new GeminiRuntime(),
+    copilot: new CopilotRuntime()
   };
 }
 const __filename$1 = fileURLToPath(import.meta.url);
@@ -5691,6 +5866,12 @@ function buildAgentEnv(opts) {
 class AgentManager {
   sessions = /* @__PURE__ */ new Map();
   entries = /* @__PURE__ */ new Map();
+  /** In-flight spawn promises, keyed by agentId. Concurrent
+   *  sendToAgent() calls for an agent with no entry yet share the
+   *  same spawn — without this they each race spawnForAgent() and
+   *  the second .set() orphans the first session (child process kept
+   *  alive but unreachable; messages queued onto the wrong entry). */
+  spawning = /* @__PURE__ */ new Map();
   /** channelId → list of agentIds that should respond to messages in this channel */
   channelToAgents = /* @__PURE__ */ new Map();
   apiUrl;
@@ -5773,8 +5954,20 @@ ${a.displayName}
     if (!session) throw new Error(`agent ${agentId} not initialized`);
     let entry = this.entries.get(agentId);
     if (!entry) {
-      entry = await this.spawnForAgent(agentId, session);
-      this.entries.set(agentId, entry);
+      let pending = this.spawning.get(agentId);
+      if (!pending) {
+        pending = (async () => {
+          try {
+            const fresh = await this.spawnForAgent(agentId, session);
+            this.entries.set(agentId, fresh);
+            return fresh;
+          } finally {
+            this.spawning.delete(agentId);
+          }
+        })();
+        this.spawning.set(agentId, pending);
+      }
+      entry = await pending;
     }
     if (entry.busy) {
       console.log(`  [${session.displayName}] busy, queueing (${userMessage.length} chars; queue ${entry.messageQueue.length + 1})`);
@@ -5935,20 +6128,27 @@ ${a.displayName}
     const session = this.sessions.get(agentId);
     const old = this.entries.get(agentId);
     if (!session || !old) return;
-    const pending = [...old.messageQueue];
-    old.messageQueue = [];
+    this.entries.delete(agentId);
     for (const unsub of old.unsubs) try {
       unsub();
     } catch {
     }
-    try {
-      await old.session.shutdown();
-    } catch {
-    }
-    this.entries.delete(agentId);
-    const fresh = await this.spawnForAgent(agentId, session);
-    fresh.messageQueue = pending;
-    this.entries.set(agentId, fresh);
+    const pending = [...old.messageQueue];
+    old.messageQueue = [];
+    const spawnFresh = (async () => {
+      try {
+        await old.session.shutdown();
+      } catch {
+      }
+      const fresh = await this.spawnForAgent(agentId, session);
+      fresh.messageQueue = [...pending, ...fresh.messageQueue];
+      this.entries.set(agentId, fresh);
+      return fresh;
+    })().finally(() => {
+      this.spawning.delete(agentId);
+    });
+    this.spawning.set(agentId, spawnFresh);
+    await spawnFresh;
     console.log(`  [${session.displayName}] restart complete`);
   }
   /**
@@ -5998,17 +6198,60 @@ exec '${shq(process.execPath)}' '${shq(cliEntry.tsxPath)}' '${shq(cliEntry.entry
       if (process.env.RALTIC_BRIDGE_VERBOSE) console.warn("activity POST failed:", e);
     }
   }
-  /** Broadcast lifecycle for every tracked agent (called from bridge start/stop). */
+  /** Broadcast lifecycle for every tracked agent (called from bridge start/stop).
+   *  When status="idle" (boot path), per-agent reconcile against the
+   *  runtime snapshot: an agent declaring runtime=codex on a host with
+   *  only Claude installed gets status=error + a label telling the user
+   *  exactly what's missing. status="error" forces all agents offline
+   *  (called from Bridge.stop). */
   async broadcastLifecycle(status) {
     if (!this.boot) return;
-    await Promise.all(this.boot.agents.map(
-      (a) => this.broadcastActivity(a.id, status, status === "idle" ? "Online" : "Offline", "").catch((e) => {
+    await Promise.all(this.boot.agents.map((a) => {
+      if (status === "error") {
+        return this.broadcastActivity(a.id, "error", "Offline", "").catch((e) => {
+          if (process.env.RALTIC_BRIDGE_VERBOSE) console.warn("activity POST failed:", e);
+        });
+      }
+      const rt = this.detectedRuntimes?.find((r) => r.id === a.runtime);
+      if (!rt || !rt.detected) {
+        return this.broadcastActivity(
+          a.id,
+          "error",
+          `${a.runtime} CLI not installed on this laptop`,
+          `Install ${a.runtime} on this machine, then restart the bridge.`
+        ).catch((e) => {
+          if (process.env.RALTIC_BRIDGE_VERBOSE) console.warn("activity POST failed:", e);
+        });
+      }
+      if (rt.authed === false) {
+        return this.broadcastActivity(
+          a.id,
+          "error",
+          `${a.runtime} CLI not signed in`,
+          `Run \`${a.runtime} login\` on this laptop, then restart the bridge.`
+        ).catch((e) => {
+          if (process.env.RALTIC_BRIDGE_VERBOSE) console.warn("activity POST failed:", e);
+        });
+      }
+      return this.broadcastActivity(a.id, "idle", "Online", "").catch((e) => {
         if (process.env.RALTIC_BRIDGE_VERBOSE) console.warn("activity POST failed:", e);
-      })
-    ));
+      });
+    }));
+  }
+  /** Cached runtime detection snapshot from boot — read by
+   *  broadcastLifecycle. Bridge.start passes this in via
+   *  setDetectedRuntimes after calling detectRuntimes(). */
+  detectedRuntimes = null;
+  setDetectedRuntimes(snap) {
+    this.detectedRuntimes = snap;
   }
   // ── Session id persistence ──
   sessionIdPath(session) {
+    return join(session.workDir, ".raltic", `session_id.${session.runtime}`);
+  }
+  /** Legacy path (pre-runtime-isolation). Read at load time as a
+   *  fallback so existing bridges don't lose their threads on upgrade. */
+  legacySessionIdPath(session) {
     return join(session.workDir, ".raltic", "session_id");
   }
   async saveSessionId(session, sessionId) {
@@ -6023,14 +6266,67 @@ exec '${shq(process.execPath)}' '${shq(cliEntry.tsxPath)}' '${shq(cliEntry.entry
   async loadSessionId(session) {
     try {
       const p = this.sessionIdPath(session);
-      if (!existsSync(p)) return null;
-      return readFileSync$1(p, "utf-8").trim() || null;
+      if (existsSync(p)) return readFileSync$1(p, "utf-8").trim() || null;
+      const legacy2 = this.legacySessionIdPath(session);
+      if (existsSync(legacy2)) return readFileSync$1(legacy2, "utf-8").trim() || null;
+      return null;
     } catch {
       return null;
     }
   }
   getWorkspaceDir(agentId) {
     return this.sessions.get(agentId)?.workDir ?? null;
+  }
+  /**
+   * Orphan workdir cleanup. Looks for directories under agentsDir whose
+   * name isn't an active agent id AND whose mtime is older than the TTL.
+   * Conservative — only removes orphans, never live agent dirs. Safe to
+   * call periodically from a setInterval in Bridge.start.
+   *
+   * Why this matters:
+   *   Bridge has been writing into `~/.raltic/agents/<agentId>/` since
+   *   day one with no GC. Deleted agents leave behind their workdir
+   *   forever — including any node_modules / .next / .turbo build
+   *   outputs that Claude Code's "edit my repo" runs created. Real
+   *   users have seen tens of GB accumulate.
+   *
+   * Default 72h TTL — generous enough that a temporarily-deleted agent
+   * recreated under the same id would still find its workdir (covers
+   * the "I deleted it by mistake" recovery window).
+   */
+  async gcOrphanWorkdirs(opts) {
+    const ttl = opts?.ttlMs ?? 72 * 60 * 60 * 1e3;
+    const liveAgentIds = new Set(this.boot?.agents.map((a) => a.id) ?? []);
+    const removed = [];
+    let entries;
+    try {
+      entries = readdirSync(this.agentsDir);
+    } catch {
+      return { removed };
+    }
+    for (const name of entries) {
+      if (liveAgentIds.has(name)) continue;
+      const p = join(this.agentsDir, name);
+      let st;
+      try {
+        st = statSync(p);
+      } catch {
+        continue;
+      }
+      if (!st.isDirectory()) continue;
+      const ageMs = Date.now() - st.mtimeMs;
+      if (ageMs < ttl) continue;
+      try {
+        rmSync(p, { recursive: true, force: true });
+        removed.push(name);
+      } catch (e) {
+        console.warn(`[gc] failed to remove orphan workdir ${name}:`, e instanceof Error ? e.message : e);
+      }
+    }
+    if (removed.length > 0) {
+      console.log(`[gc] removed ${removed.length} orphan workdir(s) from ${this.agentsDir}`);
+    }
+    return { removed };
   }
   async shutdown() {
     for (const [, entry] of this.entries) {
@@ -6117,6 +6413,7 @@ function machineFingerprint() {
 }
 const TOKEN_REFRESH_MS = 1e3 * 60 * 60 * 6;
 const HEARTBEAT_MS = 3e4;
+const BRIDGE_HEARTBEAT_MS = 6e4;
 function isHibernationNoise(e) {
   const ev = e;
   const err = ev.error ?? e;
@@ -6163,6 +6460,8 @@ class Bridge {
   agentManager;
   heartbeats = /* @__PURE__ */ new Map();
   refreshTimer = null;
+  heartbeatTimer = null;
+  gcTimer = null;
   stopped = false;
   /**
    * Set by the UserGateway DO via leader_status events. When false, this
@@ -6187,16 +6486,30 @@ class Bridge {
     console.log(`[bridge] connected as user=${this.boot.userId} server=${this.boot.serverId}`);
     console.log(`[bridge] tracking ${this.boot.agents.length} agents in ${this.boot.channels.length} channels`);
     this.agentManager.setBootContext(this.boot);
+    this.agentManager.setDetectedRuntimes(runtimes);
     await this.agentManager.initAllAgents(this.boot.agents);
     this.openGatewayWs();
     for (const ch of this.boot.channels) this.openChannelWs(ch.id);
     await this.agentManager.broadcastLifecycle("idle");
     this.refreshTimer = setInterval(() => this.refreshToken().catch(console.error), TOKEN_REFRESH_MS);
+    this.heartbeatTimer = setInterval(() => {
+      void this.sendHeartbeat().catch(() => {
+      });
+    }, BRIDGE_HEARTBEAT_MS);
+    void this.agentManager.gcOrphanWorkdirs().catch((e) => {
+      console.warn("[gc] initial sweep failed:", e instanceof Error ? e.message : e);
+    });
+    this.gcTimer = setInterval(() => {
+      void this.agentManager.gcOrphanWorkdirs().catch(() => {
+      });
+    }, 60 * 60 * 1e3);
   }
   async stop() {
     this.stopped = true;
     await this.agentManager.broadcastLifecycle("error");
     if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.gcTimer) clearInterval(this.gcTimer);
     for (const t2 of this.heartbeats.values()) clearInterval(t2);
     for (const ws of this.channelSockets.values()) try {
       ws.close();
@@ -6226,6 +6539,24 @@ class Bridge {
       throw new Error(`bridge connect failed: ${res.status} ${text}`);
     }
     return res.json();
+  }
+  /** Best-effort heartbeat — keeps the Settings → Keys "Active" badge
+   *  truthful without re-running the full /connect cost. Errors are
+   *  swallowed: a transient network blip shouldn't churn logs every
+   *  minute; the user will see staleness in the badge if the bridge
+   *  really is down. */
+  async sendHeartbeat() {
+    if (this.stopped) return;
+    try {
+      await fetch(`${this.opts.serverUrl}/api/v1/bridge/heartbeat`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.opts.apiKey}`
+        }
+      });
+    } catch {
+    }
   }
   async refreshToken() {
     if (this.stopped) return;
@@ -6385,7 +6716,7 @@ class Bridge {
     }
   }
 }
-const CONFIG_DIR = join$1(homedir(), ".raltic", "desktop");
+const CONFIG_DIR = join$1(homedir$1(), ".raltic", "desktop");
 const CONFIG_PATH = join$1(CONFIG_DIR, "config.json");
 function loadConfig() {
   if (!existsSync$1(CONFIG_PATH)) return {};
@@ -6468,11 +6799,11 @@ async function startBridge() {
       console.log("[desktop] no API key configured — bridge idle. Open Settings to add one.");
       return;
     }
-    mkdirSync$1(join$1(homedir(), ".raltic", "agents"), { recursive: true });
+    mkdirSync$1(join$1(homedir$1(), ".raltic", "agents"), { recursive: true });
     const opts = {
       serverUrl: cfg.serverUrl ?? "https://api.raltic.com",
       apiKey: cfg.apiKey,
-      agentsDir: join$1(homedir(), ".raltic", "agents")
+      agentsDir: join$1(homedir$1(), ".raltic", "agents")
     };
     const b = new Bridge(opts);
     try {
@@ -7861,8 +8192,8 @@ function startCopy(destStat, src2, dest, opts) {
   return getStats(destStat, src2, dest, opts);
 }
 function getStats(destStat, src2, dest, opts) {
-  const statSync = opts.dereference ? fs$b.statSync : fs$b.lstatSync;
-  const srcStat = statSync(src2);
+  const statSync2 = opts.dereference ? fs$b.statSync : fs$b.lstatSync;
+  const srcStat = statSync2(src2);
   if (srcStat.isDirectory()) return onDir(srcStat, destStat, src2, dest, opts);
   else if (srcStat.isFile() || srcStat.isCharacterDevice() || srcStat.isBlockDevice()) return onFile(srcStat, destStat, src2, dest, opts);
   else if (srcStat.isSymbolicLink()) return onLink(destStat, src2, dest, opts);

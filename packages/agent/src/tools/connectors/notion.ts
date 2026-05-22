@@ -91,7 +91,10 @@ export function notionTools(ctx: ToolDispatchCtx): ToolRegistry {
       description:
         "Fetch the contents of a Notion page as plain markdown-ish text. Returns top-level block text concatenated; nested children are noted but not expanded (use repeated calls for deep pages).",
       inputSchema: z.object({
-        pageId: z.string().min(8).max(128),
+        // Notion ids are UUIDs — accept both hyphenated and stripped
+        // forms. Restrict character set so the value can't escape into
+        // another path segment (codex P2 SSRF HIGH finding).
+        pageId: z.string().regex(/^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$/, "expected Notion UUID"),
       }),
       execute: async ({ pageId }) => {
         const c = await resolveNotionConnector(ctx);
@@ -132,7 +135,7 @@ export function notionTools(ctx: ToolDispatchCtx): ToolRegistry {
       description:
         "Create a new Notion page under a parent page. Body is plain text — split into paragraph blocks at newlines.",
       inputSchema: z.object({
-        parentPageId: z.string().min(8).max(128),
+        parentPageId: z.string().regex(/^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$/, "expected Notion UUID"),
         title: z.string().min(1).max(256),
         body: z.string().max(64_000).optional(),
       }),

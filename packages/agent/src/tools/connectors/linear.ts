@@ -60,20 +60,32 @@ export function linearTools(ctx: ToolDispatchCtx): ToolRegistry {
       description:
         "List recent Linear issues you have access to. Filter by team key, state, or assignee. Returns id, identifier, title, state.",
       inputSchema: z.object({
-        teamKey: z.string().min(1).max(20).optional(),    // e.g. "ENG"
+        // Linear team keys are 1-5 chars, uppercase + digits — restricting
+        // to that set keeps the value out of any GraphQL injection
+        // surface area entirely (codex P2 MED finding).
+        teamKey: z.string().regex(/^[A-Z][A-Z0-9_-]{0,19}$/, "team key must be uppercase identifier").optional(),
         state: z.enum(["backlog", "unstarted", "started", "completed", "canceled"]).optional(),
         limit: z.number().int().positive().max(50).optional(),
       }),
       execute: async ({ teamKey, state, limit }) => {
         const c = await resolveLinearConnector(ctx);
         if (!c) return { error: "no Linear connector enabled for this agent" };
-        const filterParts: string[] = [];
-        if (teamKey) filterParts.push(`team: { key: { eq: "${teamKey.replace(/"/g, "")}" } }`);
-        if (state) filterParts.push(`state: { type: { eq: "${state}" } }`);
-        const filter = filterParts.length > 0 ? `filter: { ${filterParts.join(", ")} },` : "";
-        const q = `query Issues { issues(${filter} first: ${Math.min(limit ?? 20, 50)}) { nodes { id identifier title state { name type } } } }`;
+        // Pass user-controlled values as GraphQL variables, NOT as
+        // string interpolation into the query body. Linear's
+        // IssueFilter accepts nested input objects through $filter
+        // (codex P2 MED finding).
+        const filter: Record<string, unknown> = {};
+        if (teamKey) filter.team = { key: { eq: teamKey } };
+        if (state) filter.state = { type: { eq: state } };
+        const q = `query Issues($filter: IssueFilter, $first: Int!) {
+          issues(filter: $filter, first: $first) {
+            nodes { id identifier title state { name type } }
+          }
+        }`;
         const data = await linearGraphql<{ issues: { nodes: Array<{ id: string; identifier: string; title: string; state: { name: string; type: string } }> } }>(
-          c.token, q,
+          c.token,
+          q,
+          { filter, first: Math.min(limit ?? 20, 50) },
         );
         return { issues: data.issues.nodes };
       },

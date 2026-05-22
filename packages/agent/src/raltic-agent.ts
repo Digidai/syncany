@@ -276,8 +276,17 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     // Failures are non-fatal — agent works fine without reflection,
     // just doesn't accumulate long-term knowledge as fast.
     if (shouldReflect) {
+      const agentId = this.state.agentId;
       this.ctx.waitUntil(this.runReflection().catch(e => {
-        console.error("[raltic-agent] reflection failed:", e);
+        // Structured log so reflection failures are greppable per
+        // agent (codex Final observability LOW).
+        console.error(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: "error",
+          msg: "raltic_agent.reflection_failed",
+          agent_id: agentId,
+          error: e instanceof Error ? { name: e.name, message: e.message } : String(e),
+        }));
       }));
     }
 

@@ -15,6 +15,41 @@ async function need(ctx: ToolDispatchCtx) {
   return ctx.ensureSandbox();
 }
 
+/**
+ * Detect whether a path touches /workspace/.memory/ in any form a
+ * prompt-injected agent could craft. The string-level guard for the
+ * memory reserved area, in addition to the daemon's path-resolution
+ * check (defense in depth). Codex final-review HIGH: the prior naive
+ * `startsWith("/workspace/.memory/")` was bypassable via:
+ *   - traversal:  /workspace/x/../.memory/foo
+ *   - case-fold:  /workspace/.Memory/foo (Daemon FS may be case-
+ *                 insensitive on macOS dev hosts; container Alpine FS
+ *                 is case-sensitive but we don't want to depend on that.)
+ *   - double slash: /workspace//.memory/foo
+ *
+ * Strategy: normalize via segment-walking (resolve ".." stack-style,
+ * drop "." and empty segments), then case-insensitive scan for any
+ * segment named ".memory".
+ */
+function touchesMemoryDir(rawPath: string): boolean {
+  if (!rawPath) return false;
+  const segments: string[] = [];
+  for (const seg of rawPath.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (segments.length > 0) segments.pop();
+      continue;
+    }
+    segments.push(seg);
+  }
+  // Match `.memory` case-insensitively as a path component anywhere
+  // under workspace. The agent-side check is intentionally strict —
+  // the daemon will still reject paths that escape /workspace via
+  // resolveSafeForFs, so we don't have to be paranoid about absolute
+  // paths to other locations (those just hit the daemon's guard).
+  return segments.some(s => s.toLowerCase() === ".memory");
+}
+
 export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
   return {
     file_read: tool({
@@ -38,14 +73,7 @@ export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
         encoding: z.enum(["utf-8", "base64"]).optional(),
       }),
       execute: async ({ path, content, encoding }) => {
-        // /workspace/.memory/ is auto-injected into every system
-        // prompt (CLAUDE.md bootstrap). Writing arbitrary content here
-        // via file_write would let a prompt-injected agent poison its
-        // own future invocations. Force memory writes through
-        // memory_remember which enforces front-matter + category
-        // routing. (codex P3-W1 security HIGH finding.)
-        const normalized = path.replace(/\/+/g, "/");
-        if (normalized.startsWith("/workspace/.memory/") || normalized === "/workspace/.memory") {
+        if (touchesMemoryDir(path)) {
           throw new Error(
             "file_write refused: /workspace/.memory/ is reserved — use memory_remember instead",
           );
@@ -64,10 +92,7 @@ export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
         replaceAll: z.boolean().optional(),
       }),
       execute: async ({ path, oldStr, newStr, replaceAll }) => {
-        // Same .memory/ protection boundary as file_write — see comment
-        // above.
-        const normalized = path.replace(/\/+/g, "/");
-        if (normalized.startsWith("/workspace/.memory/") || normalized === "/workspace/.memory") {
+        if (touchesMemoryDir(path)) {
           throw new Error(
             "file_edit refused: /workspace/.memory/ is reserved — use memory_remember/forget instead",
           );

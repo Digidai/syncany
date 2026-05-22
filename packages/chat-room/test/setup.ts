@@ -1,21 +1,51 @@
 // Schema/migration application + parent-row seeding for tests.
 // Migrations are imported as raw text via vite's `?raw` query so they're
 // embedded into the worker bundle (fs is sandboxed inside the test runtime).
-import migration0 from "../../db/migrations/0000_initial.sql?raw";
-import migration1 from "../../db/migrations/0001_add_reactions_unread_edits.sql?raw";
-import migration2 from "../../db/migrations/0002_add_invites.sql?raw";
+// Add new migration files here as they land — without all of them the
+// drizzle-generated INSERTs will reference columns the test DB doesn't
+// have (codex Final review: alarm flush test was failing because
+// `messages.vector_indexed_at` was in the ORM model but missing from
+// the test schema).
+import migration0  from "../../db/migrations/0000_initial.sql?raw";
+import migration1  from "../../db/migrations/0001_add_reactions_unread_edits.sql?raw";
+import migration2  from "../../db/migrations/0002_add_invites.sql?raw";
+import migration3  from "../../db/migrations/0003_quick_plazm.sql?raw";
+import migration4  from "../../db/migrations/0004_great_rattler.sql?raw";
+import migration5  from "../../db/migrations/0005_stale_beyonder.sql?raw";
+import migration6  from "../../db/migrations/0006_easy_lady_bullseye.sql?raw";
+import migration7  from "../../db/migrations/0007_task_inbox_index.sql?raw";
+import migration8  from "../../db/migrations/0008_default_server.sql?raw";
+import migration9  from "../../db/migrations/0009_servers_seeded.sql?raw";
+import migration10 from "../../db/migrations/0010_friendly_mac_gargan.sql?raw";
+import migration11 from "../../db/migrations/0011_greedy_night_thrasher.sql?raw";
+import migration12 from "../../db/migrations/0012_keen_iron_fist.sql?raw";
+import migration13 from "../../db/migrations/0013_polite_charles_xavier.sql?raw";
+import migration14 from "../../db/migrations/0014_connector_constraints.sql?raw";
 
-const ALL_SQL = [migration0, migration1, migration2].join("\n");
+const MIGRATIONS = [
+  migration0, migration1, migration2, migration3, migration4,
+  migration5, migration6, migration7, migration8, migration9,
+  migration10, migration11, migration12, migration13, migration14,
+];
 
 export async function applySchema(db: D1Database): Promise<void> {
-  // Drizzle marks per-statement boundaries with this sentinel.
-  const statements = ALL_SQL
-    .split("--> statement-breakpoint")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  for (const stmt of statements) {
-    // exec() runs a single statement; collapse internal newlines first.
-    await db.exec(stmt.replace(/\n+/g, " "));
+  for (const m of MIGRATIONS) {
+    // Strip line + block comments first, then split. Some migrations
+    // (hand-written 0007/0008/0010) have no `--> statement-breakpoint`
+    // markers and rely on bare semicolons; comment-stripping makes that
+    // safe (no statement contains string literals with embedded `;`).
+    const noComments = m
+      .replace(/\/\*[\s\S]*?\*\//g, "")     // block comments
+      .replace(/--[^\n]*/g, "");             // line comments
+    const fragments = noComments.includes("--> statement-breakpoint")
+      ? noComments.split("--> statement-breakpoint")
+      : noComments.split(";");
+    const statements = fragments
+      .map(s => s.replace(/\s+/g, " ").trim())
+      .filter(s => s.length > 0);
+    for (const stmt of statements) {
+      await db.exec(stmt);
+    }
   }
 }
 
