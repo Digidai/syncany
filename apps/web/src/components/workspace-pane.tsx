@@ -21,7 +21,7 @@
  *     would need a picker — defer to P1+.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Folder, FileText, ChevronRight, ChevronDown, Loader2, FolderTree, Terminal, RefreshCw } from "lucide-react";
+import { Folder, FileText, ChevronRight, ChevronDown, Loader2, FolderTree, Terminal, RefreshCw, Brain } from "lucide-react";
 import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,12 @@ export function WorkspacePane({ agent }: Props) {
   const [loadingFile, setLoadingFile] = useState(false);
   const [terminalTail, setTerminalTail] = useState<string>("");
   const [refreshKey, setRefreshKey] = useState(0);
+  // 'files' shows /workspace tree; 'memory' shows .memory/ entries
+  // flattened across categories with click-to-view. Two-tab nav keeps
+  // memory discoverable without burying it inside a dotfile folder.
+  const [view, setView] = useState<"files" | "memory">("files");
+  const [memoryEntries, setMemoryEntries] = useState<Array<{ category: string; name: string; path: string }> | null>(null);
+  const [memoryError, setMemoryError] = useState<Error | null>(null);
   const lastAgentIdRef = useRef<string | null>(null);
 
   // Reset when agent changes.
@@ -65,9 +71,52 @@ export function WorkspacePane({ agent }: Props) {
       setActiveFile(null);
       setExpanded(new Set([""]));
       setTerminalTail("");
+      setMemoryEntries(null);
+      setMemoryError(null);
       lastAgentIdRef.current = agent?.id ?? null;
     }
   }, [agent?.id]);
+
+  // Load memory entries when the Memory tab is active. Cheap (one
+  // listAgentWorkspace call per category) and we don't auto-poll
+  // (memory changes are agent-driven; refresh button handles it).
+  useEffect(() => {
+    if (!isCloud || !agent || view !== "memory") return;
+    let cancelled = false;
+    setMemoryError(null);
+    (async () => {
+      const cats = ["people", "projects", "decisions", "scratch"] as const;
+      const out: Array<{ category: string; name: string; path: string }> = [];
+      const realErrors: Error[] = [];
+      for (const c of cats) {
+        try {
+          const { entries } = await api.listAgentWorkspace(agent.id, `.memory/${c}`);
+          for (const e of entries) {
+            if (e.kind !== "file") continue;
+            out.push({ category: c, name: e.name, path: `.memory/${c}/${e.name}` });
+          }
+        } catch (e) {
+          // Distinguish "directory doesn't exist yet" (expected for a
+          // new agent) from real errors. The api returns ENOENT-like
+          // shapes from the sandbox daemon — surface anything else as
+          // a real error so users see auth / network failures instead
+          // of an incorrect "empty memory" state (codex P3-W1 LOW).
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/not\s*found|ENOENT|404/i.test(msg)) continue;
+          realErrors.push(e instanceof Error ? e : new Error(msg));
+        }
+      }
+      if (cancelled) return;
+      if (realErrors.length > 0 && out.length === 0) {
+        // All categories failed for a non-missing-dir reason — surface
+        // the first error so the user sees it.
+        setMemoryError(realErrors[0]!);
+        return;
+      }
+      setMemoryEntries(out);
+    })();
+    return () => { cancelled = true; };
+  }, [agent?.id, isCloud, view, refreshKey]);
 
   // Load root tree on mount + on agent change + on refresh.
   useEffect(() => {
@@ -208,10 +257,61 @@ export function WorkspacePane({ agent }: Props) {
         </button>
       </header>
 
+      <div role="tablist" aria-label="Workspace view" className="flex border-b text-[11px]">
+        <button
+          role="tab"
+          type="button"
+          aria-selected={view === "files"}
+          onClick={() => setView("files")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
+            view === "files"
+              ? "border-b-2 border-foreground font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <FolderTree className="h-3 w-3" /> Files
+        </button>
+        <button
+          role="tab"
+          type="button"
+          aria-selected={view === "memory"}
+          onClick={() => setView("memory")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
+            view === "memory"
+              ? "border-b-2 border-foreground font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Brain className="h-3 w-3" /> Memory
+        </button>
+      </div>
+
       <div className="flex-1 overflow-hidden">
         <div className="flex h-full flex-col">
           <div className="max-h-1/2 flex-1 overflow-auto px-2 py-2">
-            {tree ? (
+            {view === "memory" ? (
+              memoryEntries === null && !memoryError ? (
+                <p className="px-2 py-1 text-xs text-muted-foreground">Loading…</p>
+              ) : memoryError ? (
+                <div className="space-y-2 px-2 py-2 text-xs">
+                  <p className="text-destructive-foreground">Couldn&apos;t load memory.</p>
+                  <p className="break-words text-muted-foreground">{memoryError.message}</p>
+                </div>
+              ) : memoryEntries && memoryEntries.length === 0 ? (
+                <p className="px-2 py-2 text-xs text-muted-foreground">
+                  This agent hasn&apos;t written any long-term memory yet. As you chat, it&apos;ll
+                  start recording durable facts here automatically (or via its <code>memory_remember</code> tool).
+                </p>
+              ) : (
+                <MemoryList
+                  entries={memoryEntries ?? []}
+                  activePath={activeFile?.path ?? null}
+                  onOpen={openFile}
+                />
+              )
+            ) : tree ? (
               <TreeRow node={tree} depth={0} expanded={expanded} onToggle={toggle} onOpenFile={openFile} />
             ) : treeError ? (
               <div className="space-y-2 px-2 py-2 text-xs">
@@ -265,6 +365,54 @@ export function WorkspacePane({ agent }: Props) {
         </div>
       </div>
     </aside>
+  );
+}
+
+/** Flat memory listing grouped by category. Click a row to view the
+ *  same file viewer used by the Files tab. Memory tree is intentionally
+ *  shallow (4 categories × N files) so a list reads better than a tree. */
+function MemoryList({ entries, activePath, onOpen }: {
+  entries: Array<{ category: string; name: string; path: string }>;
+  activePath: string | null;
+  onOpen: (path: string) => void;
+}) {
+  const grouped = entries.reduce<Record<string, typeof entries>>((acc, e) => {
+    (acc[e.category] ||= []).push(e);
+    return acc;
+  }, {});
+  const order = ["people", "projects", "decisions", "scratch"] as const;
+  return (
+    <div className="space-y-3">
+      {order.map(cat => {
+        const items = grouped[cat];
+        if (!items?.length) return null;
+        return (
+          <section key={cat}>
+            <h4 className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {cat}
+            </h4>
+            <ul>
+              {items.map(item => (
+                <li key={item.path}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(item.path)}
+                    aria-current={activePath === item.path ? "true" : undefined}
+                    className={cn(
+                      "w-full truncate rounded px-2 py-1 text-left text-[12px] hover:bg-accent",
+                      activePath === item.path && "bg-accent font-medium",
+                    )}
+                    title={item.name}
+                  >
+                    {item.name.replace(/\.md$/, "")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

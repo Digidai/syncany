@@ -10,3 +10,4 @@ export {
 export { issueMachineKey, resolveMachineKey, revokeMachineKey, type MachineKeyEnv, type IssuedKey } from "./machine-keys";
 export { signWsToken, verifyWsToken, isTokenRevoked, revokeToken, type WsTokenPayload } from "./ws-token";
 export { sendEmail, type EmailEnv, type EmailMessage } from "./email";
+export { encryptToken, decryptToken, generateKekBase64 } from "./encrypt";

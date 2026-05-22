@@ -42,6 +42,11 @@ export interface AgentEnv {
    *  x-internal-secret header). Wrangler provides this as a secret;
    *  same value shared with apps/api. */
   CHAT_ROOM_AUTH_SECRET: string;
+  /** Envelope-encryption KEK for stored connector tokens (P2). 32-byte
+   *  AES-GCM key, base64. Used by connector tools to decrypt PATs at
+   *  call time. Missing = connector tools refuse to run with a clear
+   *  "not configured" error. */
+  CONNECTOR_TOKEN_KEY?: string;
 }
 
 /** Incoming dispatch from ChatRoom DO (or scheduler). */
@@ -95,6 +100,13 @@ export interface AgentState {
    *  the streamText loop emits tool turns that aren't persisted to
    *  history (we keep history as user/assistant only). */
   terminalRing?: string;
+  /** Counter of completed onInvoke calls since the last reflection
+   *  pass. When it crosses REFLECTION_THRESHOLD, the next invocation's
+   *  cleanup schedules a Haiku reflection that consolidates recent
+   *  history into long-term memory (memory_remember calls). Reset to 0
+   *  after each reflection. Optional + default 0 so pre-P3 state docs
+   *  hydrate cleanly. */
+  invocationsSinceReflection?: number;
 }
 
 export interface ScheduledJob {

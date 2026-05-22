@@ -398,6 +398,34 @@ export const api = {
   getAgentTerminal: (agentId: string) =>
     call<{ tail: string }>(`/api/v1/agents/${encodeURIComponent(agentId)}/workspace/terminal`),
 
+  // ---- connectors (P2) ----
+  listConnectors: () =>
+    call<{ connectors: Array<{
+      id: string; kind: "github" | "linear" | "notion"; label: string;
+      scopes: string[]; createdAt: string; lastUsedAt: string | null;
+    }> }>(`/api/v1/connectors`),
+  createConnector: (req: { kind: "github" | "linear" | "notion"; label: string; token: string; scopes?: string[] }) =>
+    call<{ id: string; kind: string; label: string; scopes: string[] }>(
+      `/api/v1/connectors`,
+      { method: "POST", body: JSON.stringify(req) },
+    ),
+  deleteConnector: (id: string) =>
+    call<{ ok: true }>(`/api/v1/connectors/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  listAgentConnectors: (agentId: string) =>
+    call<{ connectors: Array<{ id: string; kind: string; label: string; scopes: string[] }> }>(
+      `/api/v1/agents/${encodeURIComponent(agentId)}/connectors`,
+    ),
+  linkAgentConnector: (agentId: string, connectorId: string) =>
+    call<{ ok: true }>(
+      `/api/v1/agents/${encodeURIComponent(agentId)}/connectors`,
+      { method: "POST", body: JSON.stringify({ connectorId }) },
+    ),
+  unlinkAgentConnector: (agentId: string, connectorId: string) =>
+    call<{ ok: true }>(
+      `/api/v1/agents/${encodeURIComponent(agentId)}/connectors/${encodeURIComponent(connectorId)}`,
+      { method: "DELETE" },
+    ),
+
   // ---- channels ----
   createChannel: (req: CreateChannelRequest) =>
     call<{ id: string }>("/api/v1/channels", { method: "POST", body: JSON.stringify(req) }),

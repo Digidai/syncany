@@ -30,14 +30,28 @@ export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
 
     file_write: tool({
       description:
-        "Write (or overwrite) a file in the agent's workspace. Creates intermediate directories as needed. Max 5 MiB.",
+        "Write (or overwrite) a file in the agent's workspace. Creates intermediate directories as needed. Max 5 MiB. " +
+        "Note: paths under `/workspace/.memory/` are reserved for the memory_* tools; use memory_remember to store notes there.",
       inputSchema: z.object({
         path: z.string().min(1).max(4096),
         content: z.string(),
         encoding: z.enum(["utf-8", "base64"]).optional(),
       }),
-      execute: async ({ path, content, encoding }) =>
-        (await need(ctx)).fileWrite(path, content, encoding ?? "utf-8"),
+      execute: async ({ path, content, encoding }) => {
+        // /workspace/.memory/ is auto-injected into every system
+        // prompt (CLAUDE.md bootstrap). Writing arbitrary content here
+        // via file_write would let a prompt-injected agent poison its
+        // own future invocations. Force memory writes through
+        // memory_remember which enforces front-matter + category
+        // routing. (codex P3-W1 security HIGH finding.)
+        const normalized = path.replace(/\/+/g, "/");
+        if (normalized.startsWith("/workspace/.memory/") || normalized === "/workspace/.memory") {
+          throw new Error(
+            "file_write refused: /workspace/.memory/ is reserved — use memory_remember instead",
+          );
+        }
+        return (await need(ctx)).fileWrite(path, content, encoding ?? "utf-8");
+      },
     }),
 
     file_edit: tool({
@@ -49,8 +63,17 @@ export function sandboxTools(ctx: ToolDispatchCtx): ToolRegistry {
         newStr: z.string(),
         replaceAll: z.boolean().optional(),
       }),
-      execute: async ({ path, oldStr, newStr, replaceAll }) =>
-        (await need(ctx)).fileEdit(path, oldStr, newStr, replaceAll),
+      execute: async ({ path, oldStr, newStr, replaceAll }) => {
+        // Same .memory/ protection boundary as file_write — see comment
+        // above.
+        const normalized = path.replace(/\/+/g, "/");
+        if (normalized.startsWith("/workspace/.memory/") || normalized === "/workspace/.memory") {
+          throw new Error(
+            "file_edit refused: /workspace/.memory/ is reserved — use memory_remember/forget instead",
+          );
+        }
+        return (await need(ctx)).fileEdit(path, oldStr, newStr, replaceAll);
+      },
     }),
 
     file_list: tool({

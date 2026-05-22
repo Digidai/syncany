@@ -30,52 +30,98 @@ export function ralticTools(ctx: ToolDispatchCtx): ToolRegistry {
   return {
     search_messages: tool({
       description:
-        "Semantic search over message history of channels this agent is a member of. Returns top-K matches with content preview. Use when the user asks 'find that discussion about X' or 'what did we decide about Y'.",
+        "Semantic search over message history of channels this agent is a member of. Returns top-K matches with content preview, channel, sender, and timestamp. Use when the user references past discussion ('find that thread about X', 'what did we decide on Y'). Optional filters: channelId narrows to one channel; sinceTs/untilTs bound by createdAt (unix ms).",
       inputSchema: z.object({
         query: z.string().min(1).max(1024),
         limit: z.number().int().positive().max(50).default(10),
+        channelId: z.string().min(1).optional(),
+        sinceTs: z.number().int().nonnegative().optional(),
+        untilTs: z.number().int().nonnegative().optional(),
       }),
-      execute: async ({ query, limit }) => {
+      execute: async ({ query, limit, channelId, sinceTs, untilTs }) => {
         if (!ctx.env.AI || !ctx.env.VECTORIZE) {
           return { matches: [], error: "AI / Vectorize bindings not configured" };
         }
-        // D8 + agent ACL: workspaceId filter + per-channel membership.
-        // workspaceId filter goes through Vectorize metadata (cheap);
-        // channel-level filter is a post-pass in SQL since Vectorize
-        // doesn't support `IN` filters for arbitrary set membership.
+        // Permission: only channels this agent is a member of. Done
+        // FIRST as a hard gate — Vectorize metadata filter narrows the
+        // search to the same set, and the D1 hydration step re-checks
+        // (defense in depth). If a caller passes channelId, we
+        // intersect: an agent can only narrow within its own ACL.
         const allowed = await agentChannelIds(ctx);
         if (allowed.length === 0) return { matches: [] };
+        let searchScope = allowed;
+        if (channelId) {
+          if (!allowed.includes(channelId)) {
+            // Don't leak whether the channel exists — same response as
+            // "no matches" so a prompt-injected agent can't enumerate
+            // channels by binary-searching for non-empty results.
+            return { matches: [] };
+          }
+          searchScope = [channelId];
+        }
+        // bge-m3 — multilingual (CJK), 1024 dim. Matches raltic-messages-v2
+        // index dimensions. If this changes, also update:
+        //   - packages/chat-room/src/chat-room.ts indexMessageBatch
+        //   - apps/api/src/scheduled.ts runVectorizeBackfill
+        //   - apps/api/wrangler.jsonc vectorize binding index_name
         const emb = await ctx.env.AI.run(
-          "@cf/baai/bge-base-en-v1.5",
-          { text: [query] },
-        ) as { data: number[][] };
+          "@cf/baai/bge-m3" as never,
+          { text: [query] } as never,
+        ) as unknown as { data: number[][] };
         const vec = emb.data[0];
         if (!vec) return { matches: [] };
-        // Over-fetch (3x) since we filter to allowed channels in SQL.
+
+        // Vectorize metadata filter — pre-filter using $in on channelId
+        // and optional ts range. Cheaper than post-filtering thousands
+        // of irrelevant matches.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const filter: Record<string, any> = { channelId: { $in: searchScope } };
+        if (sinceTs !== undefined || untilTs !== undefined) {
+          const tsFilter: Record<string, number> = {};
+          if (sinceTs !== undefined) tsFilter.$gte = sinceTs;
+          if (untilTs !== undefined) tsFilter.$lte = untilTs;
+          filter.ts = tsFilter;
+        }
         const matches = await ctx.env.VECTORIZE.query(vec, {
-          topK: Math.min(limit * 3, 150),
-          filter: { workspaceId: ctx.state.workspaceId },
-          returnMetadata: "all",
+          topK: Math.min(limit, 50),
+          filter,
+          returnMetadata: "indexed",   // small payloads — we hydrate body from D1
         });
         if (matches.matches.length === 0) return { matches: [] };
+
+        // Hydrate from D1. Re-apply allowed-channel constraint as
+        // belt-and-suspenders: if Vectorize ever leaks across the
+        // metadata filter (bug, replication lag) we still don't return
+        // unauthorized rows.
         const db = drizzle(ctx.env.DB);
         const rows = await db.select({
           id: messages.id,
           channelId: messages.channelId,
           senderId: messages.senderId,
+          senderType: messages.senderType,
           content: messages.content,
           createdAt: messages.createdAt,
         }).from(messages).where(and(
           inArray(messages.id, matches.matches.map(m => m.id)),
-          inArray(messages.channelId, allowed),   // agent ACL
+          inArray(messages.channelId, allowed),
         ));
+
+        // Preserve Vectorize's relevance order, since D1 returns by
+        // insertion order. Map id -> score so we can sort.
+        const scoreById = new Map(matches.matches.map(m => [m.id, m.score]));
+        const ordered = rows
+          .map(r => ({ row: r, score: scoreById.get(r.id) ?? 0 }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, limit);
         return {
-          matches: rows.slice(0, limit).map(r => ({
-            messageId: r.id,
-            channelId: r.channelId,
-            senderId: r.senderId,
-            preview: r.content.slice(0, 200),
-            createdAt: r.createdAt,
+          matches: ordered.map(({ row, score }) => ({
+            messageId: row.id,
+            channelId: row.channelId,
+            senderId: row.senderId,
+            senderType: row.senderType,
+            score,
+            preview: row.content.slice(0, 240),
+            createdAt: row.createdAt,
           })),
         };
       },

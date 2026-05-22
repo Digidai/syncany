@@ -19,6 +19,9 @@
  *     • free off-site copy independent of CF account compromise
  */
 import * as Sentry from "@sentry/cloudflare";
+import { drizzle } from "drizzle-orm/d1";
+import { asc, inArray, isNull } from "drizzle-orm";
+import { messages as messagesTable } from "@raltic/db";
 import type { Env } from "./lib/env";
 
 const BACKUP_BUCKET = "raltic-backups"; // matches wrangler.jsonc R2 binding name
@@ -91,6 +94,30 @@ export async function scheduled(
           // transport actually flushing the HTTP POST. Without an explicit
           // flush, cron-failure events silently never reach Sentry. 2s
           // budget is generous on CF's hot-network path.
+          try { await Sentry.flush(2000); } catch { /* best-effort */ }
+        }),
+      );
+      break;
+    case "*/5 * * * *":
+      // Every 5 minutes — incremental Vectorize backfill for any
+      // messages whose channel's ChatRoom DO failed to index them
+      // inline (rate-limit, transient AI error). Cursor-based: KV
+      // remembers `last_indexed_createdat_ms`, we process the next
+      // batch after that. Cheap to no-op if everything's caught up.
+      ctx.waitUntil(
+        runVectorizeBackfill(env).catch(async (err) => {
+          Sentry.captureException(err, {
+            tags: { source: "scheduled", cron: event.cron, job: "vectorize-backfill" },
+          });
+          // eslint-disable-next-line no-console
+          console.error(JSON.stringify({
+            ts: new Date().toISOString(),
+            level: "error",
+            msg: "scheduled.job_failed",
+            cron: event.cron,
+            job: "vectorize-backfill",
+            error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+          }));
           try { await Sentry.flush(2000); } catch { /* best-effort */ }
         }),
       );
@@ -310,4 +337,134 @@ async function pruneOldBackups(env: Env): Promise<void> {
       cutoff: cutoffStr,
     }));
   }
+}
+
+// ─── Vectorize backfill ─────────────────────────────────────────────────────
+
+/**
+ * Incremental Vectorize backfill — runs every 5 minutes.
+ *
+ * Why we need it: the ChatRoom DO indexes messages inline on alarm
+ * flush (see packages/chat-room/src/chat-room.ts indexMessageBatch),
+ * but that path is best-effort — Workers AI rate limits, Vectorize
+ * quota, or DO eviction can drop a batch. This cron sweeps any rows
+ * D1 has that aren't in Vectorize yet, using a KV cursor of
+ * createdAt-ms (D1 has no global monotonic id, but createdAt is the
+ * sort key on the channel index and is server-assigned at write time
+ * so it's a safe progression key).
+ *
+ * Backfill semantics:
+ *   - Cursor stored at RATE_LIMITS["vector_backfill_cursor"] = ms_string
+ *   - Pull up to BACKFILL_BATCH messages with createdAt > cursor
+ *   - Embed all in one Workers AI call
+ *   - Upsert all in one Vectorize call
+ *   - Advance cursor to the max createdAt in the batch
+ *
+ * Worst case: a single bad batch (AI error, Vectorize error) blocks
+ * progress until next tick. Acceptable for a 5-min cadence. If we
+ * later need to recover from a "stuck" cursor we can manually delete
+ * the KV key to retry from the start (or set it back to a known good
+ * timestamp).
+ */
+const BACKFILL_BATCH = 50;
+const BACKFILL_WALLCLOCK_BUDGET_MS = 20_000;     // leave headroom in CF's 30s cron budget
+const BACKFILL_MAX_CONTENT_CHARS = 6_000;        // chars (not bytes) — bge-m3 8k tokens; CJK ≈ 1 char/token so still safe
+
+/**
+ * Incremental backfill. Replaces the prior KV-cursor design (codex
+ * P3-W2 HIGH findings):
+ *   - Double-indexing: source-of-truth is now `messages.vectorIndexedAt`
+ *     stamped by both inline indexer + this cron. We query
+ *     `WHERE vectorIndexedAt IS NULL` so the inline-indexed rows are
+ *     skipped — no duplicate AI spend.
+ *   - Cursor durability: KV eviction could re-scan history. With a
+ *     D1 column we don't need a cursor at all — we just keep
+ *     processing the un-indexed tail.
+ */
+async function runVectorizeBackfill(env: Env): Promise<void> {
+  if (!env.AI || !env.VECTORIZE) {
+    // eslint-disable-next-line no-console
+    console.warn(JSON.stringify({
+      ts: new Date().toISOString(),
+      level: "warn",
+      msg: "vector_backfill.disabled",
+      reason: !env.AI ? "no AI binding" : "no VECTORIZE binding",
+    }));
+    return;
+  }
+  const started = Date.now();
+  const drizzleDb = drizzle(env.DB);
+
+  let processedBatches = 0;
+  let totalIndexed = 0;
+  let totalSkipped = 0;
+  while (Date.now() - started < BACKFILL_WALLCLOCK_BUDGET_MS) {
+    const rows = await drizzleDb
+      .select({
+        id: messagesTable.id,
+        channelId: messagesTable.channelId,
+        senderId: messagesTable.senderId,
+        senderType: messagesTable.senderType,
+        content: messagesTable.content,
+        createdAt: messagesTable.createdAt,
+      })
+      .from(messagesTable)
+      .where(isNull(messagesTable.vectorIndexedAt))
+      .orderBy(asc(messagesTable.createdAt))
+      .limit(BACKFILL_BATCH);
+
+    if (rows.length === 0) break;
+
+    const indexable = rows
+      .filter(r => typeof r.content === "string" && r.content.trim().length > 0);
+    if (indexable.length === 0) {
+      // All non-text rows (system events etc). Stamp them as indexed
+      // so we don't keep re-scanning the same set.
+      await drizzleDb.update(messagesTable)
+        .set({ vectorIndexedAt: new Date() })
+        .where(inArray(messagesTable.id, rows.map(r => r.id)));
+      totalSkipped += rows.length;
+      if (rows.length < BACKFILL_BATCH) break;
+      continue;
+    }
+
+    const aiRes = await env.AI.run("@cf/baai/bge-m3" as never, {
+      text: indexable.map(r => r.content.slice(0, BACKFILL_MAX_CONTENT_CHARS)),
+    } as never) as unknown as { data: number[][] };
+    if (!aiRes?.data?.length) {
+      throw new Error("vector_backfill: bge-m3 returned no vectors");
+    }
+    const vectors = indexable.map((r, i) => ({
+      id: r.id,
+      values: aiRes.data[i]!,
+      metadata: {
+        channelId: r.channelId,
+        senderId: r.senderId,
+        senderType: r.senderType,
+        ts: r.createdAt.getTime(),
+      },
+    }));
+    await env.VECTORIZE.upsert(vectors);
+    // Stamp EVERY row in the batch (indexed + skipped non-text)
+    // atomically so retries see them as done.
+    await drizzleDb.update(messagesTable)
+      .set({ vectorIndexedAt: new Date() })
+      .where(inArray(messagesTable.id, rows.map(r => r.id)));
+
+    totalIndexed += vectors.length;
+    totalSkipped += rows.length - vectors.length;
+    processedBatches++;
+    if (rows.length < BACKFILL_BATCH) break;
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify({
+    ts: new Date().toISOString(),
+    level: "info",
+    msg: "vector_backfill.done",
+    batches: processedBatches,
+    indexed: totalIndexed,
+    skipped: totalSkipped,
+    elapsed_ms: Date.now() - started,
+  }));
 }

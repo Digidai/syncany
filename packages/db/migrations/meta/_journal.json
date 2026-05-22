@@ -78,6 +78,27 @@
       "when": 1779325415964,
       "tag": "0010_friendly_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1779461990755,
+      "tag": "0011_greedy_night_thrasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1779462203360,
+      "tag": "0012_keen_iron_fist",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1779462347725,
+      "tag": "0013_polite_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

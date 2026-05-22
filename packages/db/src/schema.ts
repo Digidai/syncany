@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, primaryKey, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { desc } from "drizzle-orm";
+import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { desc, sql as sqlFn } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // better-auth tables (user / session / account / verification)
@@ -210,11 +210,19 @@ export const messages = sqliteTable("messages", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   editedAt: integer("edited_at", { mode: "timestamp_ms" }),
   deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  // P3-W2: stamped by either the inline ChatRoom indexer or the
+  // backfill cron once the row's vector lands in Vectorize. Backfill
+  // gates on `vectorIndexedAt IS NULL` to avoid double-spend on
+  // embeddings (codex P3-W2 HIGH finding). Nullable + indexed for the
+  // partial-index scan pattern.
+  vectorIndexedAt: integer("vector_indexed_at", { mode: "timestamp_ms" }),
 }, (t) => [
   uniqueIndex("ux_messages_channel_seq").on(t.channelId, t.seq),
   index("ix_messages_channel_created").on(t.channelId, t.createdAt),
   index("ix_messages_thread").on(t.threadParentId, t.createdAt),
   index("ix_messages_sender").on(t.senderId, t.createdAt),
+  // Partial index — the only access pattern is "find un-indexed rows".
+  index("ix_messages_unindexed").on(t.createdAt).where(sqlFn`vector_indexed_at IS NULL`),
 ]);
 
 export const reactions = sqliteTable("reactions", {
@@ -297,6 +305,104 @@ export const machineKeys = sqliteTable("machine_keys", {
   index("ix_mk_user").on(t.userId),
   index("ix_mk_server").on(t.serverId),
   index("ix_mk_hash").on(t.keyHash),
+]);
+
+// ---------------------------------------------------------------------------
+// user_connectors — external-service credentials (P2).
+//
+// Per-user, not per-agent: a user pastes a PAT once, then can grant any
+// of their agents access via agent.enabled_connectors. Token stored
+// envelope-encrypted (AES-GCM with a Worker secret as KEK) so a D1
+// dump alone doesn't leak credentials. Encryption helpers live in
+// packages/auth-core/src/encrypt.ts.
+//
+// kind enum: limited to v1 services. Add a new kind requires:
+//   1. Append to enum here + migration
+//   2. Add a tool group under packages/agent/src/tools/connectors/<kind>.ts
+//   3. Wire it into buildToolRegistry conditionally on agent has this connector enabled
+// ---------------------------------------------------------------------------
+export const userConnectors = sqliteTable("user_connectors", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["github", "linear", "notion"] }).notNull(),
+  // User-chosen label so a person can have e.g. "personal" + "work"
+  // GitHub PATs without confusing them in the UI.
+  label: text("label").notNull(),
+  // Envelope-encrypted token blob. Format: base64(iv || ciphertext || authTag).
+  // Decrypted via the same Worker secret in env.CONNECTOR_TOKEN_KEY.
+  encryptedToken: text("encrypted_token").notNull(),
+  // JSON array of scopes the agent loop should treat as available.
+  // e.g. ["repo", "issues"] for GitHub. Honor system: if the underlying
+  // PAT was issued narrower than this claim, the connector tool will
+  // fail at the API call with 403 — we don't double-check at storage time.
+  scopes: text("scopes", { mode: "json" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+}, (t) => [
+  index("idx_uc_user").on(t.userId),
+  // Lookup pattern: "give me this user's GitHub connector(s)".
+  index("idx_uc_user_kind").on(t.userId, t.kind),
+]);
+
+// Junction: which connectors an agent is allowed to use. Distinct from
+// userConnectors because the same user can have multiple agents and
+// each may have different toolsets. Owner-only mutation gated at the
+// API layer.
+export const agentConnectors = sqliteTable("agent_connectors", {
+  agentId: text("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+  connectorId: text("connector_id").notNull().references(() => userConnectors.id, { onDelete: "cascade" }),
+  enabledAt: integer("enabled_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  primaryKey({ columns: [t.agentId, t.connectorId] }),
+  index("idx_ac_agent").on(t.agentId),
+]);
+
+// ---------------------------------------------------------------------------
+// agent_facts — semantic memory layer (P3-W2).
+//
+// Triple store of structured facts the agent has learned. Distinct from
+// /workspace/.memory/ filesystem notes (those are unstructured prose);
+// this table is for things the agent should be able to QUERY:
+//   "what timezone is Gene in?"
+//   → SELECT object FROM agent_facts WHERE agent_id=? AND subject_id='gene' AND predicate='timezone'
+//
+// Mutability: when a fact is updated, we INSERT a new row + set
+// superseded_by on the old row (rather than UPDATE in place) so we
+// keep a confidence/history trail. Query for active facts uses the
+// WHERE superseded_by IS NULL pattern (covered by idx_facts_active).
+// ---------------------------------------------------------------------------
+export const agentFacts = sqliteTable("agent_facts", {
+  id: text("id").primaryKey(),
+  agentId: text("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+  // What KIND of thing the subject is. Enum is enforced at the
+  // application layer (CHECK in migration) so we can grow it without
+  // a schema migration just to add a value.
+  subjectKind: text("subject_kind", {
+    enum: ["user", "agent", "channel", "project", "concept"],
+  }).notNull(),
+  // Stable id of the subject. For 'user'/'agent' use user.id/agent.id;
+  // for 'project'/'concept' it's an agent-chosen slug (matches the
+  // memory/projects/<slug>.md file name when there is one).
+  subjectId: text("subject_id").notNull(),
+  // Whitelisted predicate vocabulary (see PREDICATE_WHITELIST in tools).
+  // Keeping the schema open + enforcing at write-time gives us room to
+  // expand without migrations.
+  predicate: text("predicate").notNull(),
+  object: text("object").notNull(),
+  // Source provenance — the message that produced this fact (so a user
+  // can audit why the agent "knows" something).
+  sourceMessageId: text("source_message_id"),
+  // Confidence 0..1. Reflection should set lower confidence on
+  // inferences vs explicit user statements.
+  confidence: real("confidence").notNull().default(0.8),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  // When set, this row is historical — superseded by the row with id=<this>.
+  supersededBy: text("superseded_by"),
+}, (t) => [
+  index("idx_facts_agent_subject").on(t.agentId, t.subjectKind, t.subjectId),
+  // Partial index for active-fact queries (the hot path).
+  index("idx_facts_active").on(t.agentId).where(sqlFn`superseded_by IS NULL`),
 ]);
 
 // ---------------------------------------------------------------------------

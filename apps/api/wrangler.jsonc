@@ -39,8 +39,12 @@
 
   // Cron triggers — handlers in src/scheduled.ts dispatch on event.cron.
   // 03:00 UTC daily: D1 dump → R2 raltic-backups + prune > 30 days.
+  // Cron schedule:
+  //   0 3 * * *      — daily 03:00 UTC backup
+  //   */5 * * * *    — Vectorize backfill (catches messages missed by
+  //                    inline DO indexing — see scheduled.ts)
   "triggers": {
-    "crons": ["0 3 * * *"]
+    "crons": ["0 3 * * *", "*/5 * * * *"]
   },
 
   "durable_objects": {
@@ -81,14 +85,19 @@
     "binding": "AI"
   },
 
-  // Vectorize index for semantic message search (D8: global index +
-  // metadata filter). Create with:
-  //   wrangler vectorize create raltic-messages-prod \
-  //     --dimensions 768 --metric cosine
+  // Vectorize index for semantic message search.
+  // P3: switched from raltic-messages-prod (768-d bge-base-en-v1.5) to
+  // raltic-messages-v2 (1024-d bge-m3, multilingual including CJK).
+  // Metadata indexes on channelId/senderType/ts so search_messages
+  // can pre-filter (cheaper than post-filter SQL). Recreate with:
+  //   wrangler vectorize create raltic-messages-v2 --dimensions 1024 --metric cosine
+  //   wrangler vectorize create-metadata-index raltic-messages-v2 --property-name channelId --type string
+  //   wrangler vectorize create-metadata-index raltic-messages-v2 --property-name senderType --type string
+  //   wrangler vectorize create-metadata-index raltic-messages-v2 --property-name ts --type number
   "vectorize": [
     {
       "binding": "VECTORIZE",
-      "index_name": "raltic-messages-prod"
+      "index_name": "raltic-messages-v2"
     }
   ],
 

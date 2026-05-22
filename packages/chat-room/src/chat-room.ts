@@ -22,6 +22,14 @@ export interface ChatRoomEnv {
    *  agents that are members of this channel. Optional so test envs
    *  without the binding still boot. */
   RALTIC_AGENT?: DurableObjectNamespace;
+  /** Workers AI binding — for embedding messages into VECTORIZE on
+   *  persist. Optional; missing = indexing is a no-op (search_messages
+   *  just won't return results for un-indexed channels). */
+  AI?: Ai;
+  /** Vectorize binding — semantic message index queried via the
+   *  search_messages agent tool. Index dimensions must match the
+   *  embedding model (bge-m3 = 1024). Optional for the same reason. */
+  VECTORIZE?: VectorizeIndex;
 }
 
 interface AttachedSession {
@@ -681,6 +689,15 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       await db.insert(messages).values(goodRows).onConflictDoNothing();
       const goodSeqs = goodRows.map(r => r.seq);
       sql.exec(`DELETE FROM pending_writes WHERE seq IN (${goodSeqs.map(() => "?").join(",")})`, ...goodSeqs);
+      // Vectorize indexing (P3-W2). Fire-and-forget — search index is
+      // best-effort; if AI / Vectorize is missing or rate-limited we
+      // simply don't index this batch. Worst case: the messages won't
+      // appear in search_messages results until a future backfill.
+      if (this.env.AI && this.env.VECTORIZE && goodRows.length > 0) {
+        this.ctx.waitUntil(this.indexMessageBatch(goodRows).catch(e => {
+          console.warn("[ChatRoom] vectorize index failed", { channelId: this.channelId, error: String(e) });
+        }));
+      }
     } catch (e) {
       console.error("[ChatRoom alarm] D1 flush failed", { channelId: this.channelId, error: String(e) });
       const goodSeqs = goodRows.map(r => r.seq);
@@ -707,6 +724,72 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
     if (sql.exec(`SELECT 1 FROM pending_writes WHERE attempts < ? LIMIT 1`, MAX_FLUSH_ATTEMPTS).toArray().length > 0) {
       await this.scheduleAlarm(Date.now() + ALARM_DELAY_MS);
+    }
+  }
+
+  /**
+   * Embed a batch of messages and upsert into Vectorize for P3 semantic
+   * search. Called fire-and-forget after a successful D1 flush. We
+   * embed all messages in ONE Workers AI call (the model accepts an
+   * array input) and upsert all vectors in ONE Vectorize call to keep
+   * per-message cost flat.
+   *
+   * Failure modes:
+   *   - AI rate-limit → caller logs, batch is lost from the index.
+   *     Backfill cron picks it up later by re-scanning messages without
+   *     a `vector_indexed_at` marker. (P3-W2.D2)
+   *   - Vectorize quota → same as above.
+   *   - One message's content too long for embed → we truncate to ~6 KB
+   *     so the whole batch doesn't fail.
+   *
+   * Metadata: keep small; only what we filter on (channelId, senderId,
+   * senderType, ts, serverId). Body lives in D1 — Vectorize returns
+   * just IDs which we hydrate.
+   */
+  private async indexMessageBatch(rows: Message[]): Promise<void> {
+    if (!this.env.AI || !this.env.VECTORIZE) return;
+    // Filter: only index messages with non-empty text content. System
+    // events (typing, presence) don't have searchable bodies. Truncate
+    // long ones — bge-m3 has 8k tokens, ~6KB is a safe byte budget.
+    const indexable = rows
+      .filter(r => typeof r.content === "string" && r.content.trim().length > 0)
+      .map(r => ({ row: r, text: r.content.slice(0, 6_000) }));
+    if (indexable.length === 0) return;
+    // bge-m3 multilingual (covers EN + CJK well). 1024-d cosine.
+    // Index must be created with dimensions=1024, metric=cosine.
+    const aiRes = await this.env.AI.run("@cf/baai/bge-m3" as never, {
+      text: indexable.map(x => x.text),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as never) as unknown as { data: number[][] };
+    if (!aiRes?.data || !Array.isArray(aiRes.data)) {
+      console.warn("[ChatRoom indexer] bge-m3 returned no vectors");
+      return;
+    }
+    const vectors = indexable.map((x, i) => ({
+      id: x.row.id,
+      values: aiRes.data[i]!,
+      metadata: {
+        channelId: x.row.channelId,
+        senderId: x.row.senderId,
+        senderType: x.row.senderType,
+        // Vectorize metadata only accepts string|number|boolean|array.
+        // Store ts as unix ms (number) so range filters work later.
+        ts: x.row.createdAt instanceof Date ? x.row.createdAt.getTime() : Number(x.row.createdAt),
+      },
+    }));
+    await this.env.VECTORIZE.upsert(vectors);
+    // Stamp vectorIndexedAt so the backfill cron skips these rows on
+    // its next pass (codex P3-W2 HIGH: prevent double-embed spend).
+    // Best-effort: a stamp failure just means backfill may re-index
+    // — costs a few extra AI calls, never causes data loss.
+    try {
+      const db = drizzle(this.env.DB);
+      const ids = vectors.map(v => v.id);
+      await db.update(messages)
+        .set({ vectorIndexedAt: new Date() })
+        .where(inArray(messages.id, ids));
+    } catch (e) {
+      console.warn("[ChatRoom indexer] vectorIndexedAt stamp failed", { error: String(e) });
     }
   }
 
@@ -819,4 +902,4 @@ function toMessageRow(m: Message): MessageRow {
 
 
 // drizzle-orm helpers — imported lazily here to avoid TS cycles
-import { and, eq, lt, desc } from "drizzle-orm";
+import { and, eq, lt, desc, inArray } from "drizzle-orm";

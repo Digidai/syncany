@@ -7,6 +7,11 @@ import { sandboxTools } from "./sandbox.js";
 import { webTools } from "./web.js";
 import { channelFilesTools } from "./channel-files.js";
 import { schedulingTools } from "./scheduling.js";
+import { memoryTools } from "./memory.js";
+import { factsTools } from "./facts.js";
+import { githubTools } from "./connectors/github.js";
+import { linearTools } from "./connectors/linear.js";
+import { notionTools } from "./connectors/notion.js";
 
 export interface ToolDispatchCtx {
   state: AgentState;
@@ -56,6 +61,16 @@ export function buildToolRegistry(ctx: ToolDispatchCtx): ToolRegistry {
     ...webTools(ctx),
     ...channelFilesTools(ctx),
     ...schedulingTools(ctx),
+    ...memoryTools(ctx),
+    ...factsTools(ctx),
+    // Connector tools — gated by per-agent enabled_connectors. For
+    // simplicity we always include them in the registry; tools that
+    // require a connector return `{error: "no <kind> connector enabled"}`
+    // when invoked without one, so the model self-corrects without
+    // needing dynamic tool injection.
+    ...githubTools(ctx),
+    ...linearTools(ctx),
+    ...notionTools(ctx),
   };
 }
 

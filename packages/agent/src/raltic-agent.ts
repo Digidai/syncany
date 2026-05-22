@@ -20,6 +20,7 @@ import type { ModelMessage } from "ai";
 import { SandboxClient } from "./sandbox-client.js";
 import { resolveModel } from "./ai-gateway.js";
 import { buildToolRegistry } from "./tools/registry.js";
+import { computeMemoryPath, formatMemoryEntry } from "./tools/memory.js";
 import { TIER_POLICIES, type AgentEnv, type AgentInvocation, type AgentState, type AgentTierPolicy, type ChatTurn, type ScheduledJob, type TodoItem } from "./types.js";
 
 /** Per-DO mutex so two concurrent invokes serialize their setState calls.
@@ -51,6 +52,20 @@ const INITIAL_STATE: AgentState = {
 
 const HISTORY_TOKEN_BUDGET = 100_000;   // compaction trigger
 const MAX_STEPS = 50;                    // hard cap on tool-call iterations per turn
+// Bootstrap memory cap — `/workspace/.memory/CLAUDE.md` is read on every
+// invocation and prepended to the system prompt. 4 KiB ≈ ~1k tokens,
+// small enough to not crowd out the conversation but big enough for a
+// dense set of agent self-notes. The reflection pass is responsible for
+// keeping the file under this limit; we slice as a hard safety net.
+const MEMORY_BOOTSTRAP_CAP_BYTES = 4_096;
+// Reflection triggers after this many onInvoke calls. Chosen so a
+// burst conversation (e.g. 5-message clarification) gets a chance to
+// consolidate before the user leaves, but short enough that we don't
+// lose context to compaction. Tunable.
+const REFLECTION_THRESHOLD = 5;
+// How many history turns the reflection pass examines. Bigger window
+// = better recall; cost grows linearly. Haiku makes this cheap.
+const REFLECTION_HISTORY_TURNS = 12;
 
 export class RalticAgent extends Agent<AgentEnv, AgentState> {
   initialState = INITIAL_STATE;
@@ -181,7 +196,7 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
       const result = streamText({
         model,
         messages: toAiSdkMessages(compactedHistory),
-        system: this.systemPrompt(),
+        system: await this.systemPrompt(invocation),
         tools,
         // v6 replaced `maxSteps` with stopWhen + stepCountIs.
         stopWhen: stepCountIs(MAX_STEPS),
@@ -233,6 +248,8 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     // duplicated every existing turn and made the history grow
     // quadratically across turns (codex caught this).
     const latest = this.state;
+    const nextReflectionCount = (latest.invocationsSinceReflection ?? 0) + 1;
+    const shouldReflect = nextReflectionCount >= REFLECTION_THRESHOLD;
     await this.setState({
       ...latest,
       history: [...compactedHistory, {
@@ -244,9 +261,138 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
       totalTokensThisPeriod: latest.totalTokensThisPeriod + tokensUsed,
       taskStartedAt: null,
       lastActiveAt: Date.now(),
+      // Keep the counter bumped EVEN when triggering reflection. Reset
+      // happens inside runReflection() AFTER the consolidation pass
+      // succeeds — if reflection fails (model error, sandbox down) the
+      // next invocation will retry rather than silently swallow the
+      // opportunity (codex P3-W1 MED finding).
+      invocationsSinceReflection: nextReflectionCount,
     });
 
+    // Reflection: when we've crossed the threshold, fire-and-forget a
+    // memory consolidation pass. ctx.waitUntil keeps the DO alive past
+    // our return so the user gets their reply immediately while the
+    // model writes notes to /workspace/.memory/ in the background.
+    // Failures are non-fatal — agent works fine without reflection,
+    // just doesn't accumulate long-term knowledge as fast.
+    if (shouldReflect) {
+      this.ctx.waitUntil(this.runReflection().catch(e => {
+        console.error("[raltic-agent] reflection failed:", e);
+      }));
+    }
+
     return messageId ? { ok: true, messageId } : { ok: true };
+  }
+
+  /**
+   * Reflection / consolidation pass.
+   *
+   * Reads the last REFLECTION_HISTORY_TURNS of conversation, asks a
+   * cheap Haiku model to extract durable facts/decisions/notes, then
+   * writes them directly to the sandbox's memory tree.
+   *
+   * Why not invoke the memory_remember TOOL? Because that lives inside
+   * streamText's tool-call loop and would require spinning up a full
+   * agent invocation just for reflection. We bypass the tool layer
+   * and go straight to the sandbox client.
+   *
+   * Output format: JSON array of memory entries. Anything the model
+   * emits that doesn't parse cleanly is silently dropped — better to
+   * miss a note than crash reflection. We log at WARN so a persistent
+   * malformed-output problem is visible.
+   */
+  private async runReflection(): Promise<void> {
+    if (!this.state.workspaceContainerId) return;          // no sandbox = nothing to write to
+    if (this.state.history.length === 0) return;            // nothing to reflect on
+    const turns = this.state.history.slice(-REFLECTION_HISTORY_TURNS);
+    if (turns.length < 2) return;                           // not enough signal
+    const sandbox = this.currentSandboxClient();
+    if (!sandbox) return;
+
+    const formatted = turns
+      .map(t => `${t.role.toUpperCase()}: ${t.content}`)
+      .join("\n\n");
+    const REFLECTION_SYSTEM =
+      "You are a memory consolidator. Read the recent conversation and extract entries " +
+      "worth remembering across sessions. Output ONLY a valid JSON array (no markdown, no prose). " +
+      "Each entry is an object with shape: " +
+      `{"category": "person"|"project"|"decision"|"scratch", "title": string (<=120 chars), ` +
+      `"subjectId"?: string (stable id for person/project, e.g. userId or project slug), ` +
+      `"body": string (concise markdown, <=2000 chars)}. ` +
+      "Include only durable facts (decisions made, names, preferences, technical details). " +
+      "Skip pleasantries, intermediate planning, and anything obvious. " +
+      "Empty array if there's nothing worth keeping.";
+    let raw: string;
+    try {
+      const summaryModel = resolveModel({
+        env: this.env,
+        model: "claude-haiku-4-5",
+      });
+      const { text } = await generateText({
+        model: summaryModel,
+        system: REFLECTION_SYSTEM,
+        prompt: formatted,
+      });
+      raw = text.trim();
+    } catch (e) {
+      console.warn("[raltic-agent] reflection model call failed:", e);
+      return;
+    }
+
+    let entries: unknown;
+    try {
+      // Strip code fences if the model wrapped (it shouldn't, but…).
+      const jsonText = raw.replace(/^```(?:json)?\s*/, "").replace(/```\s*$/, "");
+      entries = JSON.parse(jsonText);
+    } catch {
+      console.warn("[raltic-agent] reflection returned non-JSON, skipping:", raw.slice(0, 200));
+      return;
+    }
+    if (!Array.isArray(entries)) return;
+
+    let wrote = 0;
+    for (const e of entries) {
+      if (!e || typeof e !== "object") continue;
+      const entry = e as Record<string, unknown>;
+      const category = entry.category as string | undefined;
+      const title = entry.title as string | undefined;
+      const subjectId = entry.subjectId as string | undefined;
+      const body = entry.body as string | undefined;
+      if (!category || !title || !body) continue;
+      if (!["person", "project", "decision", "scratch"].includes(category)) continue;
+      const path = computeMemoryPath({
+        category: category as "person"|"project"|"decision"|"scratch",
+        title,
+        ...(subjectId ? { subjectId } : {}),
+      });
+      const content = formatMemoryEntry({
+        title,
+        body,
+        ...(subjectId ? { subjectId } : {}),
+      });
+      try {
+        await sandbox.fileWrite(path, content);
+        wrote++;
+      } catch (writeErr) {
+        // Single write failure shouldn't abort the whole batch.
+        console.warn("[raltic-agent] reflection write failed:", path, writeErr);
+      }
+    }
+
+    // Only zero the counter on a real consolidation pass — even an
+    // empty entries[] counts as "we asked the model and it said
+    // nothing was worth keeping", which is a valid outcome. Total
+    // failures (no model response, JSON parse fail) leave the counter
+    // alone so we retry next turn.
+    if (wrote > 0 || Array.isArray(entries)) {
+      try {
+        await this.setState({ ...this.state, invocationsSinceReflection: 0 });
+      } catch {
+        // setState failure during waitUntil — the next invocation
+        // will see a stale-high counter and try reflection again,
+        // which is fine.
+      }
+    }
   }
 
   /**
@@ -421,14 +567,62 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     return TIER_POLICIES.free;
   }
 
-  private systemPrompt(): string {
-    return [
+  /**
+   * Build the per-invocation system prompt. Includes:
+   *   - Base persona + tool usage hints
+   *   - Long-term memory bootstrap from /workspace/.memory/CLAUDE.md
+   *     (capped at MEMORY_BOOTSTRAP_CAP_BYTES so token budget stays sane)
+   *
+   * Memory bootstrap is best-effort: if the sandbox isn't allocated
+   * yet OR the file doesn't exist OR the read fails, we just skip the
+   * memory section — the agent can still operate, it just doesn't have
+   * cross-session context until it calls memory_remember at least once.
+   */
+  private async systemPrompt(invocation: AgentInvocation): Promise<string> {
+    const base = [
       "You are a Raltic Agent — a long-running AI assistant embedded in the user's workspace.",
-      "You can use the provided tools to read/write files, run shell commands, search messages, and post replies.",
+      "You can use the provided tools to read/write files, run shell commands, search messages, manage memory, and post replies.",
       "Prefer the `search_messages` tool over guessing what was said earlier in this workspace.",
       "Use `set_todo` to break multi-step tasks into trackable items; mark them done as you go.",
+      "Use `memory_remember` to persist durable facts (about people, projects, decisions). " +
+        "Use `memory_recall` at the START of complex tasks to check what you already know — " +
+        "don't ask the user for context you've stored before.",
       "Respond in the language the user used.",
-    ].join("\n");
+    ];
+
+    const memoryBootstrap = await this.readMemoryBootstrap();
+    if (memoryBootstrap) {
+      base.push(
+        "",
+        "## Long-term memory (your notes from previous sessions)",
+        memoryBootstrap,
+      );
+    }
+
+    // Caller context — helps the agent decide whether it's talking to
+    // its owner, a teammate, or another agent. Cheap to inline.
+    base.push(
+      "",
+      `## Current invocation`,
+      `Caller: ${invocation.callerType}=${invocation.callerId}`,
+      `Channel: ${invocation.channelId}  (source: ${invocation.source})`,
+    );
+    return base.join("\n");
+  }
+
+  /** Read /workspace/.memory/CLAUDE.md if present, capped by token-budget
+   *  to avoid blowing the context window on a runaway memory file. */
+  private async readMemoryBootstrap(): Promise<string | null> {
+    if (!this.state.workspaceContainerId) return null;   // no sandbox yet
+    const client = this.currentSandboxClient();
+    if (!client) return null;
+    try {
+      const r = await client.fileRead("/workspace/.memory/CLAUDE.md", "utf-8");
+      const text = r.content ?? "";
+      return text.slice(0, MEMORY_BOOTSTRAP_CAP_BYTES);
+    } catch {
+      return null;  // file missing or sandbox unreachable — non-fatal
+    }
   }
 
   /** Stream partial assistant text into the channel via ChatRoom DO. */
