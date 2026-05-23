@@ -1,7 +1,7 @@
 import require$$1$3, { Tray, Menu, app, nativeImage, dialog, ipcMain, BrowserWindow, shell } from "electron";
 import { join as join$1, dirname as dirname$1 } from "node:path";
 import { fileURLToPath as fileURLToPath$1 } from "node:url";
-import { homedir as homedir$1 } from "node:os";
+import { homedir } from "node:os";
 import { existsSync as existsSync$1, lstatSync, readFileSync as readFileSync$2, mkdirSync as mkdirSync$1, chmodSync, writeFileSync as writeFileSync$2, renameSync, unlinkSync } from "node:fs";
 import require$$1, { existsSync, writeFileSync as writeFileSync$1, mkdirSync, readFileSync as readFileSync$1, readdirSync, statSync, rmSync } from "fs";
 import require$$1$1, { join, dirname, resolve } from "path";
@@ -9,7 +9,7 @@ import require$$2$1, { fileURLToPath } from "url";
 import { createRequire } from "node:module";
 import require$$1$4, { execFile, spawn, spawnSync } from "child_process";
 import require$$4, { promisify } from "util";
-import require$$2, { homedir, networkInterfaces, hostname } from "os";
+import require$$2, { networkInterfaces, hostname } from "os";
 import require$$0$3, { createHash } from "crypto";
 import { randomUUID } from "node:crypto";
 import require$$0 from "constants";
@@ -4719,7 +4719,7 @@ object({
   /** Runtimes detected on the bridge host at boot. API zod-validates
    *  this against `bridgeConnectRuntimes` before persisting. */
   runtimes: array(object({
-    id: _enum(["claude", "codex", "gemini", "copilot"]),
+    id: _enum(["claude", "codex", "openclaw", "hermes"]),
     detected: boolean(),
     version: string().max(64).regex(/^[\w.\-+ ()/]+$/).nullable(),
     authed: boolean().nullable(),
@@ -4728,7 +4728,7 @@ object({
   })).max(8).optional()
 });
 const detectedRuntimeSnapshot = object({
-  id: _enum(["claude", "codex", "gemini", "copilot"]),
+  id: _enum(["claude", "codex", "openclaw", "hermes"]),
   detected: boolean(),
   // CLI version strings vary wildly — `claude --version` returns
   // "2.1.143 (Claude Code)", `codex --version` returns "codex-cli 0.130.0".
@@ -4755,7 +4755,7 @@ object({
     model: string().min(1).max(64),
     // NEW: which AI runtime backs this agent. Default "claude" for agents
     // created before multi-runtime shipped.
-    runtime: _enum(["claude", "codex", "gemini", "copilot"]).default("claude")
+    runtime: _enum(["claude", "codex", "openclaw", "hermes"]).default("claude")
   })),
   channels: array(object({
     id: string(),
@@ -4779,11 +4779,12 @@ object({
 const RUNTIME_MODELS = {
   claude: ["sonnet", "opus", "haiku"],
   codex: ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
-  // gemini + copilot are scaffolds in @raltic/agent-runtime; their
-  // model lists here let the validator accept agent creates without
-  // crashing, but the agent-create UI hides them from the picker.
-  gemini: ["gemini-2.5-pro", "gemini-2.5-flash"],
-  copilot: ["default"]
+  // openclaw + hermes are external-daemon runtimes (user installs
+  // them; their daemon routes to whatever providers it's configured
+  // with). "auto" means "let the daemon's router pick"; the other
+  // entries pin a specific upstream when the user wants determinism.
+  openclaw: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
+  hermes: ["auto"]
 };
 object({
   serverId: string(),
@@ -4791,7 +4792,7 @@ object({
   displayName: string().min(1).max(120),
   description: string().max(2e3).optional(),
   systemPrompt: string().max(5e4).optional(),
-  runtime: _enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+  runtime: _enum(["claude", "codex", "openclaw", "hermes"]).default("claude"),
   // P1 W7: cloud-native runtime mode. 'raltic' runs the agent on our
   // Worker DO + sandbox container (zero local install for the user).
   // 'bridge' is the legacy path: agent runs as a spawned process on the
@@ -5266,7 +5267,7 @@ ${agent.display_name}. This may evolve.
 `;
 }
 const execFileP$1 = promisify(execFile);
-const CAPABILITIES$1 = {
+const CAPABILITIES$3 = {
   models: ["sonnet", "opus", "haiku"],
   defaultModel: "sonnet",
   permissionModes: ["readOnly", "default", "acceptEdits", "bypassPermissions"],
@@ -5277,7 +5278,7 @@ const CAPABILITIES$1 = {
 class ClaudeRuntime {
   id = "claude";
   displayName = "Anthropic Claude Code";
-  capabilities = CAPABILITIES$1;
+  capabilities = CAPABILITIES$3;
   async detect() {
     try {
       const { stdout } = await execFileP$1("claude", ["--version"]);
@@ -5329,7 +5330,7 @@ class ClaudeSession {
       "--allowedTools",
       (opts.allowedTools ?? []).join(",") || "Read,Glob,Grep",
       "--permission-mode",
-      mapPermissionMode(opts.permissionMode),
+      mapPermissionMode$1(opts.permissionMode),
       "--model",
       opts.model
     ];
@@ -5473,7 +5474,7 @@ class ClaudeSession {
     }
   }
 }
-function mapPermissionMode(mode) {
+function mapPermissionMode$1(mode) {
   switch (mode) {
     case "readOnly":
       return "default";
@@ -5488,7 +5489,7 @@ function mapPermissionMode(mode) {
   }
 }
 const execFileP = promisify(execFile);
-const CAPABILITIES = {
+const CAPABILITIES$2 = {
   models: ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
   defaultModel: "gpt-5.4",
   permissionModes: ["readOnly", "default", "acceptEdits", "bypassPermissions"],
@@ -5499,7 +5500,7 @@ const CAPABILITIES = {
 class CodexRuntime {
   id = "codex";
   displayName = "OpenAI Codex";
-  capabilities = CAPABILITIES;
+  capabilities = CAPABILITIES$2;
   // Lazy-loaded SDK constructor — we don't want to require @openai/codex-sdk
   // at module-load time so the bridge boots even when only Claude is
   // installed. The dynamic import happens on first spawn().
@@ -5738,87 +5739,488 @@ function writeAgentsRootSentinel(agentsRootDir) {
   } catch {
   }
 }
-class GeminiRuntime {
-  id = "gemini";
-  displayName = "Gemini";
-  // Scaffold capabilities — refine with the actual SDK options when
-  // spawn() lands. Conservative defaults so the agent-create UI shows
-  // something sensible if a user ever picks this runtime.
-  capabilities = {
-    models: ["gemini-2.5-pro", "gemini-2.5-flash"],
-    defaultModel: "gemini-2.5-pro",
-    permissionModes: ["default"],
-    conversational: true,
-    resumable: false,
-    // scaffold — Gemini CLI session resume not wired
-    supportsShellTools: false
-  };
+const CAPABILITIES$1 = {
+  // The "auto" sentinel lets the daemon's router pick a model based
+  // on whatever providers the user has keys for. Explicit names are
+  // surfaced for users who want to pin.
+  models: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
+  defaultModel: "auto",
+  permissionModes: ["readOnly", "default", "acceptEdits"],
+  conversational: true,
+  resumable: true,
+  supportsShellTools: true,
+  lifecycle: "external_daemon"
+};
+class OpenClawRuntime {
+  id = "openclaw";
+  displayName = "OpenClaw";
+  capabilities = CAPABILITIES$1;
   async detect() {
     try {
-      const res = spawnSync("gemini", ["--version"], { encoding: "utf-8", timeout: 3e3 });
-      if (res.status !== 0) {
-        return { error: "gemini CLI not installed (or --version failed)" };
+      const ver = spawnSync("openclaw", ["--version"], { encoding: "utf-8", timeout: 3e3 });
+      if (ver.status !== 0) {
+        return { error: "openclaw CLI not installed — `npm i -g openclaw`" };
       }
-      const version2 = (res.stdout || res.stderr).trim().split("\n")[0] ?? null;
-      return { version: version2, authed: null, authMethod: "none" };
+      const version2 = (ver.stdout || ver.stderr).trim().split("\n")[0] ?? null;
+      const gw = spawnSync("openclaw", ["gateway", "status"], { encoding: "utf-8", timeout: 2e3 });
+      if (gw.status !== 0) {
+        return {
+          binary: "openclaw",
+          version: version2,
+          authed: false,
+          authMethod: "none",
+          error: "openclaw gateway not running — run `openclaw onboard --install-daemon`"
+        };
+      }
+      return { binary: "openclaw", version: version2, authed: true, authMethod: "none" };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
   }
-  /**
-   * Spawn a Gemini session. STUB — throws so the bridge surfaces a
-   * loud error rather than silently swallowing dispatch when an agent
-   * with runtime=gemini gets a message before this is implemented.
-   * The A2 mismatch check (bridge-core/bridge.ts:broadcastLifecycle)
-   * should already prevent this codepath in practice by reporting the
-   * agent as error before the first dispatch, but defense in depth.
-   */
-  spawn(_opts) {
-    throw new Error(
-      "[gemini] runtime spawn not implemented yet — agents with runtime=gemini cannot be dispatched. Track: packages/agent-runtime/src/gemini.ts"
-    );
+  spawn(opts) {
+    return new OpenClawSession(opts);
   }
 }
-class CopilotRuntime {
-  id = "copilot";
-  displayName = "GitHub Copilot";
-  // Copilot's CLI doesn't surface a model list — the user's GitHub
-  // entitlement decides at request time. We expose a single nominal
-  // "default" so the UI agent-create flow has something to display.
-  capabilities = {
-    models: ["default"],
-    defaultModel: "default",
-    permissionModes: ["default"],
-    conversational: true,
-    resumable: false,
-    supportsShellTools: false
+function mapThinking(mode) {
+  switch (mode) {
+    case "readOnly":
+      return "low";
+    case "default":
+      return "medium";
+    case "acceptEdits":
+      return "high";
+    case "bypassPermissions":
+      return "high";
+  }
+}
+function describeOpenClawTool(name, input) {
+  switch (name) {
+    case "shell":
+    case "bash":
+      return { label: "Running command", detail: String(input.command || "").slice(0, 80) };
+    case "read_file":
+      return { label: "Reading file", detail: String(input.path || "").slice(0, 80) };
+    case "write_file":
+      return { label: "Writing file", detail: String(input.path || "").slice(0, 80) };
+    case "edit_file":
+      return { label: "Editing file", detail: String(input.path || "").slice(0, 80) };
+    case "web_search":
+      return { label: "Searching web", detail: String(input.query || "").slice(0, 80) };
+    case "web_fetch":
+      return { label: "Fetching URL", detail: String(input.url || "").slice(0, 80) };
+    case "grep":
+      return { label: "Searching code", detail: String(input.pattern || "").slice(0, 80) };
+    case "message_send":
+      return { label: "Sending message", detail: String(input.target || "").slice(0, 80) };
+    default:
+      return { label: `Running ${name}`, detail: "" };
+  }
+}
+function parseOpenClawEvent(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  try {
+    const raw = JSON.parse(trimmed);
+    const type2 = String(raw.type ?? raw.event ?? "");
+    if (!type2) return null;
+    return {
+      type: type2,
+      threadId: typeof raw.thread === "string" ? raw.thread : typeof raw.threadId === "string" ? raw.threadId : typeof raw.sessionId === "string" ? raw.sessionId : void 0,
+      text: typeof raw.text === "string" ? raw.text : void 0,
+      replaces: typeof raw.replaces === "boolean" ? raw.replaces : void 0,
+      toolName: typeof raw.name === "string" ? raw.name : void 0,
+      toolInput: typeof raw.input === "object" && raw.input !== null ? raw.input : void 0,
+      error: typeof raw.message === "string" && type2 === "error" ? raw.message : void 0
+    };
+  } catch {
+    return null;
+  }
+}
+function toActivityEvent$1(ev) {
+  switch (ev.type) {
+    case "thread.started":
+    case "session.started":
+      return null;
+    case "agent_message":
+    case "text":
+      if (!ev.text) return null;
+      return { kind: "text", text: ev.text, replaces: ev.replaces ?? false };
+    case "reasoning":
+      if (!ev.text) return null;
+      return { kind: "thinking" };
+    case "tool_use":
+    case "tool_call":
+      if (!ev.toolName) return null;
+      {
+        const { label, detail } = describeOpenClawTool(ev.toolName, ev.toolInput ?? {});
+        return { kind: "working", label, detail, tool: ev.toolName };
+      }
+    case "turn.completed":
+    case "turn_complete":
+      if (!ev.threadId) return null;
+      return { kind: "turn_complete", sessionId: ev.threadId };
+    case "error":
+      return { kind: "error", message: ev.error ?? "openclaw reported an error", reason: classifyError$1(ev.error ?? "") };
+    default:
+      return null;
+  }
+}
+function classifyError$1(msg) {
+  const m = msg.toLowerCase();
+  if (/unauthor|invalid.*key|expired/i.test(m)) return "auth";
+  if (/rate.?limit|429|too many/i.test(m)) return "rate_limit";
+  if (/network|timeout|enotfound|econnref/i.test(m)) return "network";
+  if (/quota|budget|exceeded/i.test(m)) return "budget";
+  if (/permission|denied/i.test(m)) return "permission_denied";
+  return "other";
+}
+function consumeLines$1(buf, setRest) {
+  const lines = [];
+  let i = 0;
+  while (true) {
+    const nl = buf.indexOf("\n", i);
+    if (nl === -1) break;
+    lines.push(buf.slice(i, nl));
+    i = nl + 1;
+  }
+  setRest(buf.slice(i));
+  return lines;
+}
+class OpenClawSession {
+  constructor(opts) {
+    this.opts = opts;
+    if (opts.resumeKey) this.resumeKey = opts.resumeKey;
+  }
+  // OpenClaw spawns per turn — there is no stable PID across the
+  // session's lifetime. Match Codex's `pid: null` convention.
+  pid = null;
+  resumeKey = null;
+  listeners = {
+    activity: [],
+    exit: []
   };
+  currentProc = null;
+  aborted = false;
+  async send(text) {
+    if (this.aborted) throw new Error("session shut down");
+    const args = ["agent", "--message", text];
+    if (this.resumeKey) args.push("--thread", this.resumeKey);
+    if (this.opts.systemPrompt) args.push("--system", this.opts.systemPrompt);
+    if (this.opts.model && this.opts.model !== "auto") args.push("--model", this.opts.model);
+    args.push("--thinking", mapThinking(this.opts.permissionMode));
+    args.push("--json");
+    const proc = spawn("openclaw", args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: this.opts.workDir,
+      env: this.opts.env
+    });
+    this.currentProc = proc;
+    let buf = "";
+    let stderrBuf = "";
+    proc.stdout?.on("data", (chunk) => {
+      buf += chunk.toString("utf-8");
+      for (const line of consumeLines$1(buf, (rest) => {
+        buf = rest;
+      })) {
+        const parsed = parseOpenClawEvent(line);
+        if (!parsed) continue;
+        if (parsed.threadId && !this.resumeKey) {
+          this.resumeKey = parsed.threadId;
+        }
+        const ev = toActivityEvent$1(parsed);
+        if (ev) this.listeners.activity.forEach((cb) => cb(ev));
+      }
+    });
+    proc.stderr?.on("data", (chunk) => {
+      stderrBuf += chunk.toString("utf-8");
+    });
+    await new Promise((resolve2, reject) => {
+      proc.on("error", reject);
+      proc.on("close", (code) => {
+        this.currentProc = null;
+        if (code !== 0 && stderrBuf.trim()) {
+          this.listeners.activity.forEach((cb) => cb({
+            kind: "error",
+            message: stderrBuf.trim().slice(0, 500),
+            reason: classifyError$1(stderrBuf)
+          }));
+        }
+        this.listeners.exit.forEach((cb) => cb(code));
+        if (code === 0) resolve2();
+        else reject(new Error(`openclaw exit ${code}: ${stderrBuf.trim().slice(0, 200)}`));
+      });
+    });
+  }
+  on(event, cb) {
+    const arr = event === "activity" ? this.listeners.activity : this.listeners.exit;
+    arr.push(cb);
+    return () => {
+      const i = arr.indexOf(cb);
+      if (i >= 0) arr.splice(i, 1);
+    };
+  }
+  getResumeKey() {
+    return this.resumeKey;
+  }
+  async shutdown() {
+    this.aborted = true;
+    if (this.currentProc && !this.currentProc.killed) {
+      this.currentProc.kill("SIGTERM");
+    }
+  }
+}
+const CAPABILITIES = {
+  models: ["auto"],
+  defaultModel: "auto",
+  permissionModes: ["readOnly", "default", "acceptEdits"],
+  conversational: true,
+  resumable: true,
+  supportsShellTools: true,
+  lifecycle: "external_daemon"
+};
+class HermesRuntime {
+  id = "hermes";
+  displayName = "Hermes Agent";
+  capabilities = CAPABILITIES;
   async detect() {
     try {
-      const res = spawnSync("copilot", ["--version"], { encoding: "utf-8", timeout: 3e3 });
-      if (res.status !== 0) {
-        return { error: "GitHub Copilot CLI not installed" };
+      const ver = spawnSync("hermes", ["--version"], { encoding: "utf-8", timeout: 3e3 });
+      if (ver.status !== 0) {
+        return {
+          error: "hermes CLI not installed — `curl -sSL https://hermes-agent.nousresearch.com/install.sh | sh`"
+        };
       }
-      const version2 = (res.stdout || res.stderr).trim().split("\n")[0] ?? null;
-      const authPath = join(homedir(), ".config", "github-copilot");
-      const authed = existsSync(authPath);
-      return { version: version2, authed, authMethod: authed ? "oauth" : "none" };
+      const version2 = (ver.stdout || ver.stderr).trim().split("\n")[0] ?? null;
+      const st = spawnSync("hermes", ["status", "--json"], { encoding: "utf-8", timeout: 2e3 });
+      if (st.status !== 0) {
+        return {
+          binary: "hermes",
+          version: version2,
+          authed: false,
+          authMethod: "none",
+          error: "hermes daemon not running — try `hermes start`"
+        };
+      }
+      return { binary: "hermes", version: version2, authed: true, authMethod: "none" };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
   }
-  spawn(_opts) {
-    throw new Error(
-      "[copilot] runtime spawn not implemented yet — agents with runtime=copilot cannot be dispatched. Track: packages/agent-runtime/src/copilot.ts"
-    );
+  spawn(opts) {
+    return new HermesSession(opts);
+  }
+}
+function mapPermissionMode(mode) {
+  switch (mode) {
+    case "readOnly":
+      return "readonly";
+    case "default":
+      return "confirm";
+    case "acceptEdits":
+      return "auto";
+    case "bypassPermissions":
+      return "auto";
+  }
+}
+function describeHermesTool(name, input) {
+  switch (name) {
+    case "shell":
+    case "exec":
+      return { label: "Running command", detail: String(input.command || input.cmd || "").slice(0, 80) };
+    case "read":
+    case "read_file":
+      return { label: "Reading file", detail: String(input.path || input.file || "").slice(0, 80) };
+    case "write":
+    case "write_file":
+      return { label: "Writing file", detail: String(input.path || input.file || "").slice(0, 80) };
+    case "edit":
+    case "patch":
+      return { label: "Editing file", detail: String(input.path || input.file || "").slice(0, 80) };
+    case "search":
+    case "grep":
+      return { label: "Searching code", detail: String(input.query || input.pattern || "").slice(0, 80) };
+    case "browse":
+    case "web":
+      return { label: "Browsing web", detail: String(input.url || "").slice(0, 80) };
+    case "memory":
+    case "recall":
+      return { label: "Recalling memory", detail: String(input.query || "").slice(0, 80) };
+    default:
+      return { label: `Running ${name}`, detail: "" };
+  }
+}
+function parseHermesEvent(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  try {
+    const raw = JSON.parse(trimmed);
+    const type2 = String(raw.type ?? raw.event ?? raw.kind ?? "");
+    if (!type2) return null;
+    return {
+      type: type2,
+      threadId: typeof raw.session === "string" ? raw.session : typeof raw.sessionId === "string" ? raw.sessionId : typeof raw.thread === "string" ? raw.thread : void 0,
+      text: typeof raw.text === "string" ? raw.text : typeof raw.content === "string" ? raw.content : void 0,
+      replaces: typeof raw.replaces === "boolean" ? raw.replaces : void 0,
+      toolName: typeof raw.tool === "string" ? raw.tool : typeof raw.name === "string" ? raw.name : void 0,
+      toolInput: typeof raw.input === "object" && raw.input !== null ? raw.input : typeof raw.args === "object" && raw.args !== null ? raw.args : void 0,
+      skillName: typeof raw.skill === "string" ? raw.skill : void 0,
+      error: typeof raw.message === "string" && type2 === "error" ? raw.message : typeof raw.error === "string" ? raw.error : void 0
+    };
+  } catch {
+    return null;
+  }
+}
+function toActivityEvent(ev) {
+  switch (ev.type) {
+    case "session.started":
+    case "thread.started":
+      return null;
+    case "message":
+    case "agent_message":
+    case "text":
+    case "response":
+      if (!ev.text) return null;
+      return { kind: "text", text: ev.text, replaces: ev.replaces ?? false };
+    case "thinking":
+    case "reasoning":
+      return { kind: "thinking" };
+    case "tool_use":
+    case "tool_call":
+    case "tool.start":
+      if (!ev.toolName) return null;
+      {
+        const { label, detail } = describeHermesTool(ev.toolName, ev.toolInput ?? {});
+        return { kind: "working", label, detail, tool: ev.toolName };
+      }
+    case "skill.start":
+    case "skill_invoke":
+      if (!ev.skillName) return null;
+      return { kind: "working", label: `Using skill: ${ev.skillName}`, detail: "", tool: `skill:${ev.skillName}` };
+    case "memory_recall":
+    case "memory.recall":
+      return { kind: "working", label: "Recalling memory", detail: ev.text?.slice(0, 80) ?? "", tool: "memory" };
+    case "turn.completed":
+    case "turn_complete":
+    case "complete":
+      if (!ev.threadId) return null;
+      return { kind: "turn_complete", sessionId: ev.threadId };
+    case "error":
+      return {
+        kind: "error",
+        message: ev.error ?? "hermes reported an error",
+        reason: classifyError(ev.error ?? "")
+      };
+    default:
+      return null;
+  }
+}
+function classifyError(msg) {
+  const m = msg.toLowerCase();
+  if (/unauthor|invalid.*key|expired|api.*key/i.test(m)) return "auth";
+  if (/rate.?limit|429|too many/i.test(m)) return "rate_limit";
+  if (/network|timeout|enotfound|econnref/i.test(m)) return "network";
+  if (/quota|budget|exceeded|insufficient/i.test(m)) return "budget";
+  if (/permission|denied|forbidden/i.test(m)) return "permission_denied";
+  return "other";
+}
+function consumeLines(buf, setRest) {
+  const lines = [];
+  let i = 0;
+  while (true) {
+    const nl = buf.indexOf("\n", i);
+    if (nl === -1) break;
+    lines.push(buf.slice(i, nl));
+    i = nl + 1;
+  }
+  setRest(buf.slice(i));
+  return lines;
+}
+class HermesSession {
+  constructor(opts) {
+    this.opts = opts;
+    if (opts.resumeKey) this.resumeKey = opts.resumeKey;
+  }
+  pid = null;
+  resumeKey = null;
+  listeners = {
+    activity: [],
+    exit: []
+  };
+  currentProc = null;
+  aborted = false;
+  async send(text) {
+    if (this.aborted) throw new Error("session shut down");
+    const args = ["agent", "--message", text];
+    if (this.resumeKey) args.push("--session", this.resumeKey);
+    if (this.opts.systemPrompt) args.push("--system", this.opts.systemPrompt);
+    args.push("--mode", mapPermissionMode(this.opts.permissionMode));
+    args.push("--json");
+    const proc = spawn("hermes", args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: this.opts.workDir,
+      env: this.opts.env
+    });
+    this.currentProc = proc;
+    let buf = "";
+    let stderrBuf = "";
+    proc.stdout?.on("data", (chunk) => {
+      buf += chunk.toString("utf-8");
+      for (const line of consumeLines(buf, (rest) => {
+        buf = rest;
+      })) {
+        const parsed = parseHermesEvent(line);
+        if (!parsed) continue;
+        if (parsed.threadId && !this.resumeKey) {
+          this.resumeKey = parsed.threadId;
+        }
+        const ev = toActivityEvent(parsed);
+        if (ev) this.listeners.activity.forEach((cb) => cb(ev));
+      }
+    });
+    proc.stderr?.on("data", (chunk) => {
+      stderrBuf += chunk.toString("utf-8");
+    });
+    await new Promise((resolve2, reject) => {
+      proc.on("error", reject);
+      proc.on("close", (code) => {
+        this.currentProc = null;
+        if (code !== 0 && stderrBuf.trim()) {
+          this.listeners.activity.forEach((cb) => cb({
+            kind: "error",
+            message: stderrBuf.trim().slice(0, 500),
+            reason: classifyError(stderrBuf)
+          }));
+        }
+        this.listeners.exit.forEach((cb) => cb(code));
+        if (code === 0) resolve2();
+        else reject(new Error(`hermes exit ${code}: ${stderrBuf.trim().slice(0, 200)}`));
+      });
+    });
+  }
+  on(event, cb) {
+    const arr = event === "activity" ? this.listeners.activity : this.listeners.exit;
+    arr.push(cb);
+    return () => {
+      const i = arr.indexOf(cb);
+      if (i >= 0) arr.splice(i, 1);
+    };
+  }
+  getResumeKey() {
+    return this.resumeKey;
+  }
+  async shutdown() {
+    this.aborted = true;
+    if (this.currentProc && !this.currentProc.killed) {
+      this.currentProc.kill("SIGTERM");
+    }
   }
 }
 function buildRuntimeRegistry() {
   return {
     claude: new ClaudeRuntime(),
     codex: new CodexRuntime(),
-    gemini: new GeminiRuntime(),
-    copilot: new CopilotRuntime()
+    openclaw: new OpenClawRuntime(),
+    hermes: new HermesRuntime()
   };
 }
 const __filename$1 = fileURLToPath(import.meta.url);
@@ -6347,7 +6749,7 @@ exec '${shq(process.execPath)}' '${shq(cliEntry.tsxPath)}' '${shq(cliEntry.entry
    *  bounded by an internal timeout (3s) — a broken CLI install can't
    *  hang bridge boot. */
   async detectRuntimes() {
-    const ids = ["claude", "codex"];
+    const ids = ["claude", "codex", "openclaw", "hermes"];
     const results = await Promise.all(
       ids.map(async (id) => {
         const r = this.runtimes[id];
@@ -6716,7 +7118,7 @@ class Bridge {
     }
   }
 }
-const CONFIG_DIR = join$1(homedir$1(), ".raltic", "desktop");
+const CONFIG_DIR = join$1(homedir(), ".raltic", "desktop");
 const CONFIG_PATH = join$1(CONFIG_DIR, "config.json");
 function loadConfig() {
   if (!existsSync$1(CONFIG_PATH)) return {};
@@ -6799,11 +7201,11 @@ async function startBridge() {
       console.log("[desktop] no API key configured — bridge idle. Open Settings to add one.");
       return;
     }
-    mkdirSync$1(join$1(homedir$1(), ".raltic", "agents"), { recursive: true });
+    mkdirSync$1(join$1(homedir(), ".raltic", "agents"), { recursive: true });
     const opts = {
       serverUrl: cfg.serverUrl ?? "https://api.raltic.com",
       apiKey: cfg.apiKey,
-      agentsDir: join$1(homedir$1(), ".raltic", "agents")
+      agentsDir: join$1(homedir(), ".raltic", "agents")
     };
     const b = new Bridge(opts);
     try {

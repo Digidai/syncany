@@ -53,7 +53,7 @@ export function MachineRow({ machine }: { machine: MachineRuntimeRow }) {
         </span>
       </div>
       <div className="mt-1.5 flex flex-col gap-1.5 sm:grid sm:grid-cols-2">
-        {(["claude", "codex"] as RuntimeId[]).map((rid) => {
+        {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((rid) => {
           const r = machine.runtimes.find((x) => x.id === rid);
           return <RuntimePill key={rid} id={rid} snapshot={r} stale={stale} detectedAt={machine.detectedAt} />;
         })}
@@ -97,9 +97,11 @@ function RuntimePill({
       : state === "needs_login"
       ? `Run \`${id} login\` on this laptop`
       : state === "not_installed"
-      ? id === "claude"
-        ? "Run: npm i -g @anthropic-ai/claude-code"
-        : "Run: npm i -g @openai/codex && codex login"
+      ? id === "claude"   ? "Run: npm i -g @anthropic-ai/claude-code"
+      : id === "codex"    ? "Run: npm i -g @openai/codex && codex login"
+      : id === "openclaw" ? "Run: npm i -g openclaw && openclaw onboard --install-daemon"
+      : id === "hermes"   ? "Install: curl -sSL https://hermes-agent.nousresearch.com/install.sh | sh"
+      : "Install this runtime to use it"
       : `Last seen ${humanizeAge(detectedAt)}`;
 
   return (

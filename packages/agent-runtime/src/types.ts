@@ -14,9 +14,18 @@
 //   - extend `agents.runtime` enum in packages/db/src/schema.ts + migration
 //   - extend RUNTIME_MODELS in packages/protocol/src/rest.ts
 //   - extend RUNTIME_LABEL + the wizard RuntimePick options in web
-// The gemini and copilot entries below are scaffolds (detect() works,
-// spawn() throws); see their files for what's still pending.
-export type RuntimeId = "claude" | "codex" | "gemini" | "copilot";
+//
+// Lifecycle:
+//   claude / codex     — per_turn_spawn, bridge owns the process
+//   openclaw / hermes  — external_daemon, user installs+runs the
+//                         daemon themselves; bridge shells out per turn
+//                         (see docs/DESIGN_openclaw_hermes_runtimes.md).
+//                         Raltic never holds their provider API keys.
+//
+// Removed: gemini + copilot. They were scaffolds (detect worked,
+// spawn threw) that caused a UI dead-end if a user picked them. If
+// either warrants integration later, follow the openclaw.ts pattern.
+export type RuntimeId = "claude" | "codex" | "openclaw" | "hermes";
 
 export type PermissionMode = "readOnly" | "default" | "acceptEdits" | "bypassPermissions";
 
@@ -35,6 +44,24 @@ export interface RuntimeCapabilities {
   resumable: boolean;
   /** Has a shell-equivalent tool the agent can invoke. */
   supportsShellTools: boolean;
+  /**
+   * Process lifecycle of the underlying tool — drives UX hints and
+   * detection logic. OPTIONAL; defaults to "per_turn_spawn" so the
+   * pre-existing claude/codex/gemini/copilot capability literals don't
+   * need touching.
+   *
+   *   per_turn_spawn:    bridge spawns a CLI per turn (claude, codex)
+   *                      — Raltic owns the process lifecycle.
+   *   external_daemon:   a long-lived daemon the USER installed +
+   *                      manages (openclaw, hermes); bridge probes
+   *                      its liveness via detect() but doesn't
+   *                      start/stop it. The CLI is a per-turn client.
+   *
+   * Bridge UX surfaces the difference: external_daemon runtimes show
+   * "daemon offline — start it yourself" rather than the generic
+   * "agent crashed" copy.
+   */
+  lifecycle?: "per_turn_spawn" | "external_daemon";
 }
 
 export interface DetectResult {

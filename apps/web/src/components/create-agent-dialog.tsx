@@ -77,14 +77,15 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
   }, [open, serverId]);
 
   // Per-runtime availability summary: any machine has it detected + authed?
-  // Tracks all 4 runtimes (claude/codex fully shipped, gemini/copilot
-  // scaffolds — Runtimes panel uses this data to render install hints).
+  // Tracks all 4 shipped runtimes: claude/codex (per_turn_spawn) and
+  // openclaw/hermes (external_daemon — user must onboard the daemon
+  // before bridge can talk to them).
   const runtimeAvail = useMemo(() => {
     const avail: Record<RuntimeId, "ready" | "needs_login" | "not_installed" | "unknown"> = {
-      claude: "unknown", codex: "unknown", gemini: "unknown", copilot: "unknown",
+      claude: "unknown", codex: "unknown", openclaw: "unknown", hermes: "unknown",
     };
     if (!machines) return avail;
-    for (const id of ["claude", "codex", "gemini", "copilot"] as RuntimeId[]) {
+    for (const id of ["claude", "codex", "openclaw", "hermes"] as RuntimeId[]) {
       let best: "ready" | "needs_login" | "not_installed" = "not_installed";
       for (const m of machines) {
         const r = m.runtimes.find(x => x.id === id);

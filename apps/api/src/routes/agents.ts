@@ -13,11 +13,10 @@ const updateAgentBody = z.object({
   systemPrompt: z.string().max(50_000).nullable().optional(),
   model: z.string().max(64).optional(),
   // Accept the full RuntimeId enum (matches packages/agent-runtime).
-  // The PATCH handler additionally enforces RUNTIME_MODELS combos,
-  // and gemini/copilot are scaffolds (spawn throws), so the
-  // agent-create UI should still hide them — see CopilotRuntime.spawn
-  // / GeminiRuntime.spawn comment for the gate timeline.
-  runtime: z.enum(["claude", "codex", "gemini", "copilot"]).optional(),
+  // openclaw + hermes are external_daemon runtimes — see
+  // docs/DESIGN_openclaw_hermes_runtimes.md. The PATCH handler
+  // additionally enforces RUNTIME_MODELS combos.
+  runtime: z.enum(["claude", "codex", "openclaw", "hermes"]).optional(),
   avatarSeed: z.string().max(64).nullable().optional(),
 });
 import type { Env, Variables } from "../lib/env";
@@ -27,7 +26,7 @@ import { rateLimit } from "../lib/rate-limit";
 export const agentsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 const AGENT_STATUS_STALE_MS = 2 * 60_000;
 type AgentStatus = "online" | "sleeping" | "offline";
-type AgentRuntimeMode = "bridge" | "raltic" | "claude" | "codex" | "gemini" | "copilot";
+type AgentRuntimeMode = "bridge" | "raltic" | "claude" | "codex" | "openclaw" | "hermes";
 
 function computedAgentStatus<T extends {
   status: AgentStatus;

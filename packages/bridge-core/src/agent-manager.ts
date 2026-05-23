@@ -655,7 +655,7 @@ export class AgentManager {
    *  bounded by an internal timeout (3s) — a broken CLI install can't
    *  hang bridge boot. */
   async detectRuntimes() {
-    const ids: RuntimeId[] = ["claude", "codex"];
+    const ids: RuntimeId[] = ["claude", "codex", "openclaw", "hermes"];
     const results = await Promise.all(
       ids.map(async (id) => {
         const r = this.runtimes[id];

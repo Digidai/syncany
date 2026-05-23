@@ -132,7 +132,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                 <Field>
                   <FieldLabel>Runtime</FieldLabel>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    {(["claude", "codex"] as RuntimeId[]).map((r) => (
+                    {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
                       <button
                         key={r}
                         type="button"

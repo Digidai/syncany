@@ -103,7 +103,7 @@ export function SetupWizard({
   // runtime=codex + model=gpt-5.5. Default stays Claude/Sonnet so users
   // who don't care (or don't have Codex installed) end up on the
   // best-supported path.
-  const [runtime, setRuntime] = useState<"claude" | "codex">("claude");
+  const [runtime, setRuntime] = useState<"claude" | "codex" | "openclaw" | "hermes">("claude");
   // Tab selection on step 3 — quick npx (default + recommended), a
   // persistent install for users who want bridge to keep running after
   // they close the terminal, and a desktop-app link (placeholder until
@@ -509,6 +509,32 @@ export function SetupWizard({
                           body="OpenAI Codex — GPT-5.5 default. Requires the codex CLI logged in."
                           installHref="https://platform.openai.com/docs/codex/cli"
                         />
+                        {/* External-daemon runtimes — the user runs the
+                            daemon themselves and Raltic just shells out
+                            to its CLI. Marked "Advanced" because they
+                            require a separate onboarding (multi-channel
+                            routing for OpenClaw, skill marketplace for
+                            Hermes) most new Raltic users don't need yet. */}
+                        <RuntimePick
+                          id="openclaw"
+                          checked={runtime === "openclaw"}
+                          onChange={() => setRuntime("openclaw")}
+                          title="OpenClaw"
+                          chip="Advanced"
+                          chipTone="violet"
+                          body="Local-first multi-channel assistant. Install separately; Raltic detects your daemon."
+                          installHref="https://github.com/openclaw/openclaw"
+                        />
+                        <RuntimePick
+                          id="hermes"
+                          checked={runtime === "hermes"}
+                          onChange={() => setRuntime("hermes")}
+                          title="Hermes Agent"
+                          chip="Advanced"
+                          chipTone="rose"
+                          body="Nous Research's self-improving agent with persistent memory + auto skills. Install separately."
+                          installHref="https://hermes-agent.nousresearch.com/"
+                        />
                       </div>
                     </div>
                   )}
@@ -517,16 +543,40 @@ export function SetupWizard({
                     <p className="font-medium">You&apos;ll need on this laptop:</p>
                     <ul className="mt-1 space-y-0.5 text-muted-foreground">
                       <li>• <strong>Node ≥ 20</strong> — check with <code className="rounded bg-muted px-1">node -v</code></li>
-                      {runtime === "claude" ? (
+                      {runtime === "claude" && (
                         <li>
                           • The <a className="underline" href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noreferrer"><code>claude</code> CLI</a>{" "}
                           (logged in via <code className="rounded bg-muted px-1">claude</code>)
                         </li>
-                      ) : (
+                      )}
+                      {runtime === "codex" && (
                         <li>
                           • The <a className="underline" href="https://platform.openai.com/docs/codex/cli" target="_blank" rel="noreferrer"><code>codex</code> CLI</a>{" "}
                           (logged in via <code className="rounded bg-muted px-1">codex login</code>)
                         </li>
+                      )}
+                      {runtime === "openclaw" && (
+                        <>
+                          <li>
+                            • The <a className="underline" href="https://github.com/openclaw/openclaw" target="_blank" rel="noreferrer"><code>openclaw</code> CLI</a>{" "}
+                            installed via <code className="rounded bg-muted px-1">npm i -g openclaw</code>
+                          </li>
+                          <li>
+                            • Daemon running — start with{" "}
+                            <code className="rounded bg-muted px-1">openclaw onboard --install-daemon</code>
+                          </li>
+                        </>
+                      )}
+                      {runtime === "hermes" && (
+                        <>
+                          <li>
+                            • The <a className="underline" href="https://hermes-agent.nousresearch.com/" target="_blank" rel="noreferrer"><code>hermes</code> CLI</a>{" "}
+                            installed via the one-line curl on the site above
+                          </li>
+                          <li>
+                            • Daemon running — verify with <code className="rounded bg-muted px-1">hermes status</code>
+                          </li>
+                        </>
                       )}
                     </ul>
                   </div>
@@ -843,13 +893,18 @@ function RuntimePick({
   onChange: () => void;
   title: string;
   chip: string;
-  chipTone: "cyan" | "amber";
+  chipTone: "cyan" | "amber" | "violet" | "rose";
   body: string;
   installHref: string;
 }) {
-  const chipColor = chipTone === "cyan"
-    ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
-    : "bg-amber-500/10 text-amber-700 dark:text-amber-400";
+  // Per-runtime accent; matches the sidebar runtime-dot palette so
+  // the same color identifies the same runtime everywhere.
+  const chipColor = {
+    cyan:   "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
+    amber:  "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    violet: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+    rose:   "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  }[chipTone];
   return (
     <label
       className={

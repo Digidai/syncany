@@ -226,11 +226,13 @@ export interface ChannelMember {
   channelId: string; memberId: string; memberType: "human" | "agent"; joinedAt: number;
 }
 // Keep in sync with packages/agent-runtime/src/types.ts RuntimeId and
-// packages/protocol/src/rest.ts runtime enums. gemini + copilot are
-// scaffolds — present in the type system so the Runtimes panel can
-// label them, but the agent-create UI hides them until their runtime
-// classes implement spawn() (today they throw).
-export type RuntimeId = "claude" | "codex" | "gemini" | "copilot";
+// packages/protocol/src/rest.ts runtime enums.
+//
+// Lifecycle:
+//   claude / codex     — per_turn_spawn (bridge owns the process)
+//   openclaw / hermes  — external_daemon (user installs + runs daemon
+//                         themselves; bridge shells out per turn)
+export type RuntimeId = "claude" | "codex" | "openclaw" | "hermes";
 export type AuthMethod = "oauth" | "env" | "none";
 
 export interface Agent {
@@ -245,7 +247,7 @@ export interface Agent {
    *  'bridge'  = user's local bridge daemon (legacy default)
    *  'raltic'  = our cloud Worker DO + sandbox container
    *  others    = reserved for sidecar runtimes (P2+) */
-  runtimeMode?: "bridge" | "raltic" | "claude" | "codex" | "gemini" | "copilot";
+  runtimeMode?: "bridge" | "raltic" | "claude" | "codex" | "openclaw" | "hermes";
   status: "online" | "sleeping" | "offline";
   /** Optional override seed for the gradient avatar. Null → derive from `id`. */
   avatarSeed?: string | null;
@@ -276,16 +278,18 @@ export interface MachineRuntimeRow {
 }
 
 export const RUNTIME_LABEL: Record<RuntimeId, string> = {
-  claude:  "Anthropic Claude Code",
-  codex:   "OpenAI Codex",
-  gemini:  "Google Gemini",
-  copilot: "GitHub Copilot",
+  claude:   "Anthropic Claude Code",
+  codex:    "OpenAI Codex",
+  openclaw: "OpenClaw",
+  hermes:   "Hermes Agent",
 };
 export const RUNTIME_MODELS: Record<RuntimeId, readonly string[]> = {
-  claude:  ["sonnet", "opus", "haiku"],
-  codex:   ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
-  gemini:  ["gemini-2.5-pro", "gemini-2.5-flash"],
-  copilot: ["default"],
+  claude:   ["sonnet", "opus", "haiku"],
+  codex:    ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
+  // openclaw + hermes routes via the user's daemon configuration —
+  // "auto" lets the daemon's router pick based on installed providers.
+  openclaw: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
+  hermes:   ["auto"],
 };
 
 export const api = {

@@ -78,7 +78,7 @@ export default function AgentsIndexPage() {
       <header className="border-b px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           {/* Emerald — distinct from per-runtime colors (claude=cyan,
-              codex=amber, gemini=violet, copilot=emerald). The page is
+              codex=amber, openclaw=violet, hermes=rose). The page is
               "agents in this workspace" so we use a runtime-agnostic
               tint that doesn't compete with the per-row runtime badge. */}
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
@@ -192,10 +192,10 @@ export default function AgentsIndexPage() {
 
 function RuntimeChip({ runtime }: { runtime: import("@/lib/api").RuntimeId }) {
   const tone = {
-    claude:  "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
-    codex:   "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-    gemini:  "bg-violet-500/10 text-violet-700 dark:text-violet-400",
-    copilot: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    claude:   "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
+    codex:    "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    openclaw: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+    hermes:   "bg-rose-500/10 text-rose-700 dark:text-rose-400",
   }[runtime];
   return (
     <span className={cn("rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider", tone)}>

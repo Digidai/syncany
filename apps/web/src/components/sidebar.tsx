@@ -475,10 +475,10 @@ function RuntimeDot({ runtime }: { runtime: import("@/lib/api").RuntimeId }) {
   // Color + glyph + shape ALL differ across runtimes — the redundancy
   // is intentional for colorblind users at this small (3×3) size.
   const palette = {
-    claude:  { bg: "bg-cyan-500",   text: "C", shape: "rounded-sm",   label: "Claude" },
-    codex:   { bg: "bg-amber-500",  text: "X", shape: "rounded-full", label: "Codex" },
-    gemini:  { bg: "bg-violet-500", text: "G", shape: "rounded-md",   label: "Gemini" },
-    copilot: { bg: "bg-emerald-500",text: "P", shape: "rounded-sm",   label: "Copilot" },
+    claude:   { bg: "bg-cyan-500",   text: "C", shape: "rounded-sm",   label: "Claude" },
+    codex:    { bg: "bg-amber-500",  text: "X", shape: "rounded-full", label: "Codex" },
+    openclaw: { bg: "bg-violet-500", text: "O", shape: "rounded-md",   label: "OpenClaw" },
+    hermes:   { bg: "bg-rose-500",   text: "H", shape: "rounded-sm",   label: "Hermes" },
   }[runtime];
   return (
     <span

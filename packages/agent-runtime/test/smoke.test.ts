@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { ClaudeRuntime, CodexRuntime } from "../src/index.js";
+import { ClaudeRuntime, CodexRuntime, OpenClawRuntime, HermesRuntime } from "../src/index.js";
 import type { AgentRuntime } from "../src/index.js";
 
 describe("@raltic/agent-runtime smoke", () => {
   const runtimes: Array<{ name: string; instance: AgentRuntime; id: string }> = [
-    { name: "ClaudeRuntime", instance: new ClaudeRuntime(), id: "claude" },
-    { name: "CodexRuntime", instance: new CodexRuntime(), id: "codex" },
+    { name: "ClaudeRuntime",   instance: new ClaudeRuntime(),   id: "claude" },
+    { name: "CodexRuntime",    instance: new CodexRuntime(),    id: "codex" },
+    { name: "OpenClawRuntime", instance: new OpenClawRuntime(), id: "openclaw" },
+    { name: "HermesRuntime",   instance: new HermesRuntime(),   id: "hermes" },
   ];
 
   for (const { name, instance, id } of runtimes) {

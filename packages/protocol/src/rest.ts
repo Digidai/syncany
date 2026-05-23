@@ -25,7 +25,7 @@ export const bridgeConnectRequest = z.object({
   /** Runtimes detected on the bridge host at boot. API zod-validates
    *  this against `bridgeConnectRuntimes` before persisting. */
   runtimes: z.array(z.object({
-    id: z.enum(["claude", "codex", "gemini", "copilot"]),
+    id: z.enum(["claude", "codex", "openclaw", "hermes"]),
     detected: z.boolean(),
     version: z.string().max(64).regex(/^[\w.\-+ ()/]+$/).nullable(),
     authed: z.boolean().nullable(),
@@ -40,7 +40,7 @@ export type BridgeConnectRequest = z.infer<typeof bridgeConnectRequest>;
  *  Server-side zod-validated BEFORE persistence to defend against bridge
  *  sending arbitrary JSON (XSS surface via `error` field). */
 export const detectedRuntimeSnapshot = z.object({
-  id: z.enum(["claude", "codex", "gemini", "copilot"]),
+  id: z.enum(["claude", "codex", "openclaw", "hermes"]),
   detected: z.boolean(),
   // CLI version strings vary wildly — `claude --version` returns
   // "2.1.143 (Claude Code)", `codex --version` returns "codex-cli 0.130.0".
@@ -70,7 +70,7 @@ export const bridgeConnectResponse = z.object({
     model: z.string().min(1).max(64),
     // NEW: which AI runtime backs this agent. Default "claude" for agents
     // created before multi-runtime shipped.
-    runtime: z.enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+    runtime: z.enum(["claude", "codex", "openclaw", "hermes"]).default("claude"),
   })),
   channels: z.array(z.object({
     id: z.string(),
@@ -105,14 +105,15 @@ export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
 /** Model whitelists per runtime — kept in sync with `RuntimeCapabilities.models`
  *  in `@raltic/agent-runtime`. Listed here too because zod cross-validation
  *  in `createAgentRequest.superRefine` needs them at the API boundary. */
-export const RUNTIME_MODELS: Record<"claude" | "codex" | "gemini" | "copilot", readonly string[]> = {
+export const RUNTIME_MODELS: Record<"claude" | "codex" | "openclaw" | "hermes", readonly string[]> = {
   claude:  ["sonnet", "opus", "haiku"],
   codex:   ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
-  // gemini + copilot are scaffolds in @raltic/agent-runtime; their
-  // model lists here let the validator accept agent creates without
-  // crashing, but the agent-create UI hides them from the picker.
-  gemini:  ["gemini-2.5-pro", "gemini-2.5-flash"],
-  copilot: ["default"],
+  // openclaw + hermes are external-daemon runtimes (user installs
+  // them; their daemon routes to whatever providers it's configured
+  // with). "auto" means "let the daemon's router pick"; the other
+  // entries pin a specific upstream when the user wants determinism.
+  openclaw: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
+  hermes:   ["auto"],
 };
 
 export const createAgentRequest = z.object({
@@ -121,7 +122,7 @@ export const createAgentRequest = z.object({
   displayName: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
   systemPrompt: z.string().max(50_000).optional(),
-  runtime: z.enum(["claude", "codex", "gemini", "copilot"]).default("claude"),
+  runtime: z.enum(["claude", "codex", "openclaw", "hermes"]).default("claude"),
   // P1 W7: cloud-native runtime mode. 'raltic' runs the agent on our
   // Worker DO + sandbox container (zero local install for the user).
   // 'bridge' is the legacy path: agent runs as a spawned process on the

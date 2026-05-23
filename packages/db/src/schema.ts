@@ -127,12 +127,14 @@ export const agents = sqliteTable("agents", {
   // Which AI runtime backs this agent. Each runtime has its own model
   // list, permission semantics, and CLI. Defaults to "claude" so
   // existing pre-multi-runtime rows are stable.
-  // runtime: the AI CLI that backs this agent. claude + codex are
-  // fully implemented; gemini + copilot are scaffolds (detect-only)
-  // until the spawn() paths in packages/agent-runtime land. SQLite
-  // accepts the wider enum here; the web agent-create UI gates
-  // visibility separately so users can't pick scaffold runtimes yet.
-  runtime: text("runtime", { enum: ["claude", "codex", "gemini", "copilot"] }).notNull().default("claude"),
+  // runtime: the AI CLI that backs this agent. Currently shipped:
+  // claude, codex, openclaw, hermes. Stored as plain text — the same
+  // pattern as `runtime_mode` (validation lives in zod at the API
+  // boundary, not the DB), so adding/removing runtimes doesn't need
+  // a table rebuild. Drizzle's enum metadata only generates a CHECK
+  // constraint when used at create-table time, so dropping enum here
+  // doesn't break existing rows.
+  runtime: text("runtime").notNull().default("claude"),
   // P0 W2: where this agent's runtime executes.
   //   'bridge'  → user's local bridge process (existing path, default for
   //                back-compat with pre-cloud agents).
