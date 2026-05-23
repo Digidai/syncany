@@ -182,6 +182,10 @@ function SignupInner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm mx-4">
+        {/* sr-only h1 for a11y (mirrors /login). Card primitive uses
+            a div for visual title; screen readers + axe-core expect
+            a real <h1>. */}
+        <h1 className="sr-only">Sign up for Raltic</h1>
         {sentTo ? (
           <CheckInboxCard
             email={sentTo}

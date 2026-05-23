@@ -122,6 +122,11 @@ function LoginInner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm mx-4">
+        {/* Visually hidden h1 — Card uses a div for its visual title
+            (CardTitle is a styled div primitive). Screen readers + a11y
+            audits expect a real <h1> per page, so we add one here.
+            Detected by axe-core (codex T7) — "page should have one h1". */}
+        <h1 className="sr-only">Sign in to Raltic</h1>
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Raltic</CardTitle>

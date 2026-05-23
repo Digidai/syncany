@@ -21,9 +21,11 @@ test.describe("public pages render", () => {
 
   test("/signup shows name + email + password", async ({ page }) => {
     await page.goto("/signup");
-    await expect(page.getByPlaceholder("Your name")).toBeVisible();
+    // Placeholder evolved to "Your name (shown to teammates)"; match by prefix.
+    await expect(page.getByPlaceholder(/Your name/)).toBeVisible();
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
-    await expect(page.getByPlaceholder("At least 6 characters")).toBeVisible();
+    // MIN_PASSWORD_LENGTH bumped from 6 → 8; match by pattern so future changes don't break.
+    await expect(page.getByPlaceholder(/At least \d+ characters/)).toBeVisible();
   });
 
   test("/forgot-password renders", async ({ page }) => {
@@ -36,10 +38,11 @@ test.describe("homepage", () => {
   test("/ renders the public marketing landing for unauthenticated visitors", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { name: /humans .* AI/i })).toBeVisible();
-    // Auth-aware CTA pair (signed-out branch shows both buttons; appears in
-    // both hero + final-CTA so .first() to avoid strict-mode multi-match).
-    await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible();
+    // Hero H1 was rewritten to lead with the dual-mode story; match
+    // "Your AI Agent. Or theirs." (codex GTM H1 fix).
+    await expect(page.getByRole("heading", { name: /Your AI Agent.*Or theirs/i })).toBeVisible();
+    // Primary CTA renamed from "Get started" → "Start a cloud Agent".
+    await expect(page.getByRole("link", { name: /Start a cloud Agent/i }).first()).toBeVisible();
   });
 });
 

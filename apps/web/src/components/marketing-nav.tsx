@@ -93,41 +93,34 @@ export function MarketingNav() {
 }
 
 /**
- * "For" / Audiences dropdown. Uses pointerenter / pointerleave with a
- * small grace period so the menu doesn't snap shut when the cursor
- * crosses the trigger→popover gap. Click outside also closes.
+ * "For" / Audiences dropdown. Click-only — earlier draft combined
+ * pointerEnter (open) + click (toggle), which collided: the pointer
+ * sweep landing on the trigger fired pointerEnter→open, and the
+ * subsequent click toggled it shut again. Easy to misread as broken.
+ * Now: click opens, click again or click-outside or Escape closes.
  */
 function ForDropdown() {
   const [open, setOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrap = useRef<HTMLDivElement | null>(null);
 
-  function scheduleClose() {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  }
-  function cancelClose() {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
       if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
-    <div
-      ref={wrap}
-      className="relative"
-      onPointerEnter={() => { cancelClose(); setOpen(true); }}
-      onPointerLeave={scheduleClose}
-    >
+    <div ref={wrap} className="relative">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}

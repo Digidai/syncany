@@ -45,6 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@cloudflare/workers-types": "^4.20250108.0",
     "@opennextjs/cloudflare": "^1.10.0",
     "@tailwindcss/postcss": "^4",

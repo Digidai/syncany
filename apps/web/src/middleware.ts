@@ -103,6 +103,12 @@ const API_ORIGIN =
 // when the SDK posts events from the client.
 const SENTRY_DOMAIN = "https://*.ingest.sentry.io https://*.sentry.io";
 
+// Cloudflare Web Analytics (beacon.min.js) needs to be allowed in
+// script-src. Without this, the auto-injected analytics script throws
+// a CSP violation on every page load (1 console.error per visit) and
+// no analytics data is collected. Detected by codex T9 hygiene test.
+const CF_INSIGHTS = "https://static.cloudflareinsights.com";
+
 // CSP is mode-aware:
 //   • Dev: keep `unsafe-eval` so Next.js HMR works (its dev compiler
 //     uses eval); allow `ws://` to local wrangler.
@@ -119,12 +125,12 @@ function wsOriginOf(httpOrigin: string): string {
 const CSP_DIRECTIVES = [
   "default-src 'self'",
   IS_DEV
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'",
+    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${CF_INSIGHTS}`
+    : `script-src 'self' 'unsafe-inline' ${CF_INSIGHTS}`,
   "style-src 'self' 'unsafe-inline'",                // Tailwind JIT inline runtime styles
   "img-src 'self' data: blob: https:",               // avatars + OG + uploaded files via R2
   "font-src 'self' data:",
-  `connect-src 'self' ${API_ORIGIN} ${wsOriginOf(API_ORIGIN)} ${SENTRY_DOMAIN}`,
+  `connect-src 'self' ${API_ORIGIN} ${wsOriginOf(API_ORIGIN)} ${SENTRY_DOMAIN} ${CF_INSIGHTS}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

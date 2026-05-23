@@ -48,26 +48,29 @@ test.describe("error surfaces — auth-gated not-found", () => {
   });
 });
 
-test.describe("landing — collab framing", () => {
-  test("hero promises ship together (human + AI)", async ({ page }) => {
+test.describe("landing — dual-mode framing (post-rewrite)", () => {
+  test("hero lands the default-cloud-or-bring-your-own choice", async ({ page }) => {
     await page.goto("/");
-    // ".first()" — both the h1 and the final-CTA h2 contain "ship together".
-    await expect(page.getByRole("heading", { name: /ship together/i }).first()).toBeVisible();
-    await expect(page.locator("h1").filter({ hasText: /humans/i }).first()).toBeVisible();
+    // H1 was rewritten ("Your AI Agent. Or theirs."); both halves of
+    // the dual-mode story must be visible in the hero.
+    await expect(page.locator("h1").filter({ hasText: /Your AI Agent/i }).first()).toBeVisible();
+    await expect(page.locator("h1").filter({ hasText: /Or theirs/i }).first()).toBeVisible();
+    await expect(page.getByText(/default cloud Agent/i).first()).toBeVisible();
+    await expect(page.getByText(/Claude Code, Codex, OpenClaw, Hermes/i).first()).toBeVisible();
   });
 
-  test("step 1 mentions email invites (multi-human)", async ({ page }) => {
+  test("TwoWaysToRun explicitly names the two cards", async ({ page }) => {
     await page.goto("/");
-    await page.locator("a[href='#how']").click();
-    // .first() — same copy may appear elsewhere; first occurrence is the
-    // Step 1 card body.
-    await expect(page.getByText(/invite teammates by email/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Raltic cloud Agent/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Your CLI .*Your daemon/i })).toBeVisible();
   });
 
-  test("step 3 calls out human ↔ agent collaboration", async ({ page }) => {
+  test("RuntimeBadges shows all 4 with experimental on openclaw + hermes", async ({ page }) => {
     await page.goto("/");
-    await page.locator("a[href='#how']").click();
-    await expect(page.getByText(/people talk to agents/i).first()).toBeVisible();
+    await expect(page.getByText(/Anthropic Claude/i)).toBeVisible();
+    await expect(page.getByText(/OpenAI Codex/i)).toBeVisible();
+    await expect(page.getByText(/OpenClaw/).first()).toBeVisible();
+    await expect(page.getByText(/Hermes/).first()).toBeVisible();
   });
 });
 
@@ -80,9 +83,12 @@ test.describe("public pages still work after migration", () => {
 
   test("/signup renders all 3 fields", async ({ page }) => {
     await page.goto("/signup");
-    await expect(page.getByPlaceholder("Your name")).toBeVisible();
+    // Name placeholder evolved to "Your name (shown to teammates)" —
+    // match by prefix. Password placeholder uses MIN_PASSWORD_LENGTH
+    // which bumped from 6 → 8 — match by pattern.
+    await expect(page.getByPlaceholder(/Your name/)).toBeVisible();
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
-    await expect(page.getByPlaceholder("At least 6 characters")).toBeVisible();
+    await expect(page.getByPlaceholder(/At least \d+ characters/)).toBeVisible();
   });
 });
 
