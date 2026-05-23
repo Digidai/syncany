@@ -75,8 +75,31 @@ export const clientHeartbeat = z.object({
   v: z.literal(1), t: z.literal("heartbeat"), id: z.string(),
 });
 
+/**
+ * Workspace-wide presence subscribe/unsubscribe — sent over the
+ * UserGateway WS. Subscribing adds this user (and their open WS
+ * count) to the WorkspacePresence DO for the given server and asks
+ * for updates whenever a workspace peer's online state flips. One
+ * subscribe per workspace the client wants to observe (sidebar
+ * shows DMs across the current workspace only, so typically one).
+ *
+ * The DO ref-counts WS opens — a user with 3 tabs reports as 1
+ * online entry to peers, transitions to offline only when the
+ * last tab closes.
+ */
+export const clientPresenceSubscribe = z.object({
+  v: z.literal(1), t: z.literal("presence_subscribe"), id: z.string(),
+  serverId: z.string(),
+});
+
+export const clientPresenceUnsubscribe = z.object({
+  v: z.literal(1), t: z.literal("presence_unsubscribe"), id: z.string(),
+  serverId: z.string(),
+});
+
 export const clientMessage = z.discriminatedUnion("t", [
   clientHello, clientSend, clientTyping, clientPresence, clientHistory, clientRpc, clientHeartbeat,
+  clientPresenceSubscribe, clientPresenceUnsubscribe,
 ]);
 export type ClientMessage = z.infer<typeof clientMessage>;
 
@@ -165,6 +188,31 @@ export const serverLeaderStatus = z.object({
   isLeader: z.boolean(),
 });
 
+/** Snapshot delivered immediately after presence_subscribe — caller
+ *  uses it to seed the local presence map. Also re-sent on reconnect
+ *  so the client doesn't have to re-resolve. Includes every USER seen
+ *  by the WorkspacePresence DO since boot (online OR recently offline). */
+export const serverPresenceSnapshot = z.object({
+  v: z.literal(1), t: z.literal("presence_snapshot"),
+  serverId: z.string(),
+  users: z.array(z.object({
+    userId: z.string(),
+    online: z.boolean(),
+    lastSeenAt: z.number().int(),
+  })),
+});
+
+/** Single-user delta. Pushed when a workspace peer's online state
+ *  flips (offline→online or vice versa). Sidebar / user-pill / DM
+ *  header subscribe to these and update the green dot in real time. */
+export const serverPresenceUpdate = z.object({
+  v: z.literal(1), t: z.literal("presence_update"),
+  serverId: z.string(),
+  userId: z.string(),
+  online: z.boolean(),
+  lastSeenAt: z.number().int(),
+});
+
 export const serverHistory = z.object({
   v: z.literal(1), t: z.literal("history"), id: z.string(),
   messages: z.array(messageRow),
@@ -181,6 +229,7 @@ export const serverMessage = z.discriminatedUnion("t", [
   serverMemberAdd, serverHistory, serverRpc, serverActivity,
   serverMessageUpdate, serverReaction, serverChannelNew, serverRead,
   serverLeaderStatus,
+  serverPresenceSnapshot, serverPresenceUpdate,
 ]);
 export type ServerMessage = z.infer<typeof serverMessage>;
 

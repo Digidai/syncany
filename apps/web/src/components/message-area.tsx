@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { api, type Channel, type ChannelMember, type Agent, ApiError } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { useChannelSocket } from "@/hooks/use-channel-socket";
-import { useGateway } from "@/hooks/use-agent-activity";
+import { useGateway, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { authClient } from "@/lib/auth-client";
 import type { MessageRow } from "@raltic/protocol";
 import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
@@ -518,18 +518,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             )}
           </div>
         </div>
-        <span className={
-          "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium " +
-          (connected
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-            : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400")
-        }>
-          <span className={
-            "h-1.5 w-1.5 rounded-full " +
-            (connected ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-amber-500 animate-pulse")
-          } />
-          {connected ? "Live" : "Connecting…"}
-        </span>
+        <PresencePill
+          channel={channel}
+          channelPeer={channelPeer}
+          members={members}
+          userId={userId}
+          connected={connected}
+        />
       </header>
 
       <div ref={scrollWrapperRef} className="relative flex-1 min-h-0">
@@ -813,4 +808,102 @@ function safeUrl(url: string): string {
   if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return url;
   if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) return url;
   return "#";
+}
+
+/**
+ * Header pill for the channel/DM. Three modes:
+ *
+ *   1. DM with HUMAN peer → "Olivia · Online" / "Last seen 5m"
+ *      (real workspace presence, replacing the old "Live" pill that
+ *      meant nothing more than "your own WS is up".)
+ *
+ *   2. Regular CHANNEL with humans → "N online" (count of human
+ *      members currently online — agents don't count toward presence).
+ *
+ *   3. Anything else (DM with an agent, no peer info, channel with
+ *      no human members) → falls back to the original WS status
+ *      so the user still knows if THEIR connection just dropped.
+ *
+ * The amber "Connecting…" pulse always wins on local WS drop so
+ * debugging signal isn't lost.
+ */
+function PresencePill({ channel, channelPeer, members, userId, connected }: {
+  channel: Channel | null;
+  channelPeer: Channel["peer"];
+  members: ChannelMember[];
+  userId: string;
+  connected: boolean;
+}): React.ReactElement {
+  const presence = useWorkspacePresence(channel?.serverId);
+
+  // Local WS dropped → show that first; nothing else matters until reconnect.
+  if (!connected) {
+    return (
+      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+        Connecting…
+      </span>
+    );
+  }
+
+  const isDmWithHuman = channel?.type === "dm" && channelPeer?.type === "human";
+  if (isDmWithHuman && channelPeer) {
+    const peer = presence[channelPeer.id];
+    if (peer) {
+      const label = peer.online ? "Online" : peer.lastSeenAt ? `Last seen ${humanizeAgo(peer.lastSeenAt)}` : "Offline";
+      return (
+        <span className={
+          "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium " +
+          (peer.online
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : "border-zinc-300 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400")
+        }>
+          <span className={
+            "h-1.5 w-1.5 rounded-full " +
+            (peer.online ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-zinc-400")
+          } />
+          {label}
+        </span>
+      );
+    }
+  }
+
+  // Regular channel: count human members who appear online in the
+  // workspace presence map. Self is always online (this tab is open),
+  // so include if user is a member.
+  const isPublicOrPrivateChannel = channel?.type === "public" || channel?.type === "private";
+  if (isPublicOrPrivateChannel) {
+    const humanMemberIds = members
+      .filter(m => m.memberType === "human")
+      .map(m => m.memberId);
+    const onlineCount = humanMemberIds.filter(id => id === userId || presence[id]?.online).length;
+    return (
+      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+        {onlineCount} online
+      </span>
+    );
+  }
+
+  // Fallback: DM with an agent (no human peer presence to show).
+  // Agents have their own status mechanism via useAgentActivity; the
+  // pill is just a "we're connected" affordance here.
+  return (
+    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+      Live
+    </span>
+  );
+}
+
+/** Compact "5m" / "2h" / "3d" formatter for last-seen labels. */
+function humanizeAgo(ts: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
 }

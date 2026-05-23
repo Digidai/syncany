@@ -14,6 +14,11 @@ import { verifyWsToken } from "@raltic/auth-core";
 export interface UserGatewayEnv {
   DB: D1Database;
   CHAT_ROOM_AUTH_SECRET: string;
+  /** WorkspacePresence DO namespace. Bound by apps/api/wrangler.jsonc.
+   *  UserGateway forwards client presence_subscribe / _unsubscribe
+   *  intents here and receives broadcast deltas back over
+   *  /internal/presence. */
+  WORKSPACE_PRESENCE: DurableObjectNamespace;
 }
 
 interface AttachedSession {
@@ -23,6 +28,11 @@ interface AttachedSession {
   connectedAt: number;          // ms epoch — used for "latest bridge wins" leader election
   isBridge: boolean;            // true if this socket has a bridgeId
   lastHeartbeatAt?: number;     // ms epoch — bumped on every clientHeartbeat
+  /** serverIds this socket is currently subscribed to for workspace
+   *  presence updates. Survives hibernation via serializeAttachment so
+   *  the gateway can decrement the right WorkspacePresence DOs on
+   *  webSocketClose. */
+  presenceSubs?: string[];
 }
 
 /** Bridge sockets older than this with no heartbeat are excluded from
@@ -55,7 +65,21 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     const url = new URL(req.url);
     if (url.pathname.endsWith("/ws")) return this.handleUpgrade(req);
     if (url.pathname.endsWith("/internal/notify")) return this.handleNotify(req);
+    if (url.pathname.endsWith("/internal/presence")) return this.handlePresenceBroadcast(req);
     return new Response("not found", { status: 404 });
+  }
+
+  /** Called by WorkspacePresence DO when a peer's online state flips.
+   *  Forwards the JSON payload to every live WS owned by this user. */
+  private async handlePresenceBroadcast(req: Request): Promise<Response> {
+    const s = this.env.CHAT_ROOM_AUTH_SECRET;
+    if (!s || typeof s !== "string" || s.length < 16) return new Response("forbidden", { status: 403 });
+    if (req.headers.get("x-internal-secret") !== s) return new Response("forbidden", { status: 403 });
+    const text = await req.text();
+    for (const ws of this.ctx.getWebSockets()) {
+      try { ws.send(text); } catch { /* socket closing */ }
+    }
+    return new Response(null, { status: 204 });
   }
 
   private async handleUpgrade(req: Request): Promise<Response> {
@@ -205,18 +229,133 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       this.broadcast({ v: PROTOCOL_VERSION, t: "rpc", id: msg.id, result: msg.params }, ws);
       return;
     }
+    if (msg.t === "presence_subscribe") {
+      await this.handlePresenceSubscribe(ws, sess, msg.id, msg.serverId);
+      return;
+    }
+    if (msg.t === "presence_unsubscribe") {
+      await this.handlePresenceUnsubscribe(ws, sess, msg.id, msg.serverId);
+      return;
+    }
     this.sendErr(ws, msg.id, "UNSUPPORTED", `gateway DO does not handle ${msg.t}`);
   }
 
+  /** WorkspacePresence subscribe path:
+   *    1. Note +1 connection in the target server's WorkspacePresence DO
+   *       (this triggers offline→online broadcast to peers if first conn).
+   *    2. Subscribe THIS user to future presence updates for that server.
+   *    3. Get the current snapshot back and send it down THIS WS so the
+   *       client can seed its presence map immediately.
+   *    4. Record the serverId on the attached session so webSocketClose
+   *       can clean up.
+   *  Steps 1+2 are folded into the WorkspacePresence DO's `/presence/sub`
+   *  contract to keep this client roundtrip-cheap. */
+  private async handlePresenceSubscribe(
+    ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
+  ): Promise<void> {
+    const stub = this.env.WORKSPACE_PRESENCE.get(
+      this.env.WORKSPACE_PRESENCE.idFromName(serverId)
+    );
+    try {
+      // Already subscribed on a different tab? Don't double-count.
+      const subs = sess.presenceSubs ?? [];
+      if (!subs.includes(serverId)) {
+        await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: 1 });
+        const snapRes = await this.callPresence(stub, "/presence/sub", { userId: sess.userId, serverId });
+        const snap = await snapRes.json() as { users: { userId: string; online: boolean; lastSeenAt: number }[] };
+        sess.presenceSubs = [...subs, serverId];
+        this.sessions.set(ws, sess);
+        ws.serializeAttachment(sess);
+        this.send(ws, {
+          v: PROTOCOL_VERSION, t: "presence_snapshot",
+          serverId, users: snap.users ?? [],
+        });
+      } else {
+        // Already subscribed — just refresh the snapshot for this tab.
+        const snapRes = await this.callPresence(stub, "/presence/sub", { userId: sess.userId, serverId });
+        const snap = await snapRes.json() as { users: { userId: string; online: boolean; lastSeenAt: number }[] };
+        this.send(ws, {
+          v: PROTOCOL_VERSION, t: "presence_snapshot",
+          serverId, users: snap.users ?? [],
+        });
+      }
+      this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
+    } catch (e) {
+      console.warn("[UserGateway] presence_subscribe failed", { serverId, error: String(e) });
+      this.sendErr(ws, id, "INTERNAL", "presence subscribe failed");
+    }
+  }
+
+  private async handlePresenceUnsubscribe(
+    ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
+  ): Promise<void> {
+    const stub = this.env.WORKSPACE_PRESENCE.get(
+      this.env.WORKSPACE_PRESENCE.idFromName(serverId)
+    );
+    try {
+      await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: -1 });
+      await this.callPresence(stub, "/presence/unsub", { userId: sess.userId, serverId });
+      sess.presenceSubs = (sess.presenceSubs ?? []).filter(s => s !== serverId);
+      this.sessions.set(ws, sess);
+      ws.serializeAttachment(sess);
+      this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
+    } catch (e) {
+      console.warn("[UserGateway] presence_unsubscribe failed", { serverId, error: String(e) });
+      this.sendErr(ws, id, "INTERNAL", "presence unsubscribe failed");
+    }
+  }
+
+  private async callPresence(
+    stub: DurableObjectStub, path: string, body: Record<string, unknown>,
+  ): Promise<Response> {
+    return stub.fetch(`https://workspace-presence${path}`, {
+      method: "POST",
+      headers: {
+        "x-internal-secret": this.env.CHAT_ROOM_AUTH_SECRET,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
   async webSocketClose(ws: WebSocket): Promise<void> {
-    const wasBridge = this.sessions.get(ws)?.isBridge ?? false;
+    const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
+    const wasBridge = sess?.isBridge ?? false;
+    // Drop this tab's presence subscriptions before forgetting the session.
+    // Each subscribed serverId gets a -1 + unsubscribe; the WorkspacePresence
+    // DO collapses to offline only when conns hits 0 (other tabs may still
+    // be holding the user online).
+    if (sess?.presenceSubs?.length) {
+      for (const serverId of sess.presenceSubs) {
+        void this.decrementPresence(sess.userId, serverId).catch((e) => {
+          console.warn("[UserGateway] presence cleanup on close failed", { serverId, error: String(e) });
+        });
+      }
+    }
     this.sessions.delete(ws);
     if (wasBridge) this.broadcastLeaderStatus();
   }
   async webSocketError(ws: WebSocket): Promise<void> {
-    const wasBridge = this.sessions.get(ws)?.isBridge ?? false;
+    const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
+    const wasBridge = sess?.isBridge ?? false;
+    if (sess?.presenceSubs?.length) {
+      for (const serverId of sess.presenceSubs) {
+        void this.decrementPresence(sess.userId, serverId).catch(() => { /* logged once is enough */ });
+      }
+    }
     this.sessions.delete(ws);
     if (wasBridge) this.broadcastLeaderStatus();
+  }
+
+  /** Called on WS close — sends a single -1 + unsubscribe to the
+   *  workspace's WorkspacePresence DO. Best-effort; failures only
+   *  delay reap until the alarm sweeps. */
+  private async decrementPresence(userId: string, serverId: string): Promise<void> {
+    const stub = this.env.WORKSPACE_PRESENCE.get(
+      this.env.WORKSPACE_PRESENCE.idFromName(serverId)
+    );
+    await this.callPresence(stub, "/presence/note", { userId, serverId, delta: -1 });
+    await this.callPresence(stub, "/presence/unsub", { userId, serverId });
   }
 
   /** Delegates to auth-core's single canonical HS256 verifier. */

@@ -8,7 +8,7 @@ import { Hash, Lock, MessageSquare, Settings, Plus, ListTodo, Inbox as InboxIcon
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
-import { useAgentActivities, useGateway, useChannelUnread } from "@/hooks/use-agent-activity";
+import { useAgentActivities, useGateway, useChannelUnread, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { UserPill } from "./user-pill";
 
@@ -167,6 +167,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
               channels={publicChannels}
               activeId={activeChannelId}
               serverSlug={serverSlug}
+              serverId={serverId}
               // "+" reveals on group hover (same pattern as Direct
               // messages). Click → workspace's create-channel dialog if
               // admin, else routes to /s/{slug}/channels for browse +
@@ -189,6 +190,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
               channels={dmChannels}
               activeId={activeChannelId}
               serverSlug={serverSlug}
+              serverId={serverId}
               // "+" reveals on group hover (group/group class on
               // SidebarGroup wrapper). Click opens the new-DM picker
               // covering both humans + agents — the discoverable entry
@@ -215,7 +217,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
             />
             {privateChannels.length > 0 && (
               <ChannelGroup label="Private" icon={<Lock className="h-3.5 w-3.5" />}
-                channels={privateChannels} activeId={activeChannelId} serverSlug={serverSlug} />
+                channels={privateChannels} activeId={activeChannelId} serverSlug={serverSlug} serverId={serverId} />
             )}
           </>
         )}
@@ -396,12 +398,19 @@ function AgentRow({ agent: a, activity: act, serverSlug, active }: {
   );
 }
 
-function ChannelLink({ channel, activeId, serverSlug, icon }: {
-  channel: Channel; activeId?: string; serverSlug: string; icon: React.ReactNode;
+function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
+  channel: Channel; activeId?: string; serverSlug: string; serverId: string; icon: React.ReactNode;
 }) {
   const live = useChannelUnread(channel.id);
   const unread = activeId === channel.id ? 0 : live;
   const isActive = activeId === channel.id;
+  // Workspace presence — only for human DM rows. The hook is refcounted
+  // and shares a single WS subscription across all callers in the tree.
+  const presence = useWorkspacePresence(serverId);
+  const humanPeerPresence =
+    channel.type === "dm" && channel.peer?.type === "human"
+      ? presence[channel.peer.id]
+      : undefined;
   // DM rows show the OTHER party's name, not channel.name (which for
   // human↔human DMs is a hex slug, never a person's name). Falls back
   // to channel.name if peer wasn't populated (older API, or non-DM).
@@ -423,6 +432,20 @@ function ChannelLink({ channel, activeId, serverSlug, icon }: {
     >
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 truncate leading-tight">{displayName}</span>
+      {/* For human DMs: emerald dot if peer's online, zinc dot if seen
+          recently, none if never connected. Real workspace presence —
+          not the hardcoded green the user-pill used to show. */}
+      {humanPeerPresence !== undefined && (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            humanPeerPresence.online
+              ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.55)]"
+              : "bg-zinc-400/60",
+          )}
+          aria-label={humanPeerPresence.online ? "Online" : "Offline"}
+        />
+      )}
       {/* For agent DMs, show the runtime indicator inline so users can
           tell at a glance whether a DM peer is Claude or Codex without
           opening the channel. Humans show no chip. */}
@@ -439,13 +462,16 @@ function ChannelLink({ channel, activeId, serverSlug, icon }: {
 }
 
 function ChannelGroup({
-  label, icon, channels, activeId, serverSlug, headerAction, emptyHint,
+  label, icon, channels, activeId, serverSlug, serverId, headerAction, emptyHint,
 }: {
   label: string;
   icon: React.ReactNode;
   channels: Channel[];
   activeId?: string;
   serverSlug: string;
+  /** Required — ChannelLink uses it to look up workspace presence for
+   *  human DM peers. */
+  serverId: string;
   // Optional "+" or similar trailing action shown in the section header.
   headerAction?: React.ReactNode;
   // Optional copy shown when there are zero channels in this group, IF
@@ -460,7 +486,7 @@ function ChannelGroup({
         emptyHint
       ) : (
         channels.map((c) => (
-          <ChannelLink key={c.id} channel={c} activeId={activeId} serverSlug={serverSlug} icon={icon} />
+          <ChannelLink key={c.id} channel={c} activeId={activeId} serverSlug={serverSlug} serverId={serverId} icon={icon} />
         ))
       )}
     </SidebarGroup>

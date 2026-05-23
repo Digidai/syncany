@@ -79,11 +79,18 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-medium leading-tight">{user.name ?? user.email}</div>
         </div>
-        {/* Green dot = online. We don't track presence (yet); show
-            it statically as a "this user is signed in" affordance. */}
+        {/* Self-presence dot. Always green when this tab is open —
+            that's the source of truth for "am I online" since the
+            UserGateway WS we hold IS what the WorkspacePresence DO
+            counts. Other workspace members see the same green via
+            their own presence subscription. (Used to be hardcoded
+            static green with "presence not tracked yet" comment;
+            now it's still always green for SELF but it's actually
+            true — and other workspace members see it as such too.) */}
         <span
           className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]"
           aria-label="Online"
+          title="Online — other workspace members see this dot too."
         />
         <ChevronUp className="h-3 w-3 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
       </DropdownMenuTrigger>

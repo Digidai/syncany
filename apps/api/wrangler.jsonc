@@ -60,7 +60,12 @@
       // CLI / OrbStack must be running locally), then SANDBOX.get(
       // idFromName(containerId)).fetch(...) routes through this DO,
       // wakes the container if asleep, proxies to sandbox-daemon :8080.
-      { "name": "SANDBOX",      "class_name": "SandboxContainer" }
+      { "name": "SANDBOX",      "class_name": "SandboxContainer" },
+      // Workspace-wide presence (per server). Tracks who's online via
+      // UserGateway WS ref-counts; broadcasts deltas back via
+      // /internal/presence so sidebar dots are real-time.
+      // See docs/DESIGN_workspace_presence.md.
+      { "name": "WORKSPACE_PRESENCE", "class_name": "WorkspacePresence" }
     ]
   },
 
@@ -113,6 +118,13 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["SandboxContainer"]
+    },
+    {
+      "tag": "v4",
+      // WorkspacePresence is purely in-memory (no storage / no alarm
+      // persistence beyond the next-alarm pointer). `new_classes`
+      // instead of `new_sqlite_classes` — no SQLite backing needed.
+      "new_classes": ["WorkspacePresence"]
     }
   ],
 

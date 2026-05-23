@@ -21,7 +21,7 @@ import { inboxRoutes } from "./routes/inbox";
 import { agentWorkspaceRoutes } from "./routes/agent-workspace";
 import { connectorsRoutes } from "./routes/connectors";
 
-export { ChatRoom, UserGateway } from "@raltic/chat-room";
+export { ChatRoom, UserGateway, WorkspacePresence } from "@raltic/chat-room";
 // P0 W2: cloud-native agent runtime DO (per docs/DESIGN_agent_platform_v2.md §4.1).
 // Wrangler binding: RALTIC_AGENT — one DO instance per Agent row.
 export { RalticAgent } from "@raltic/agent";

@@ -4,6 +4,10 @@ import type { Subject } from "@raltic/auth-core";
 export interface Env extends AuthEnv {
   RATE_LIMITS: KVNamespace;
   USER_GATEWAY: DurableObjectNamespace;
+  /** Workspace presence DO — per server, tracks who's online.
+   *  UserGateway routes presence_subscribe / _unsubscribe here.
+   *  See docs/DESIGN_workspace_presence.md. */
+  WORKSPACE_PRESENCE: DurableObjectNamespace;
   /** RalticAgent DO — per-Agent cloud-native runtime (P0 W2).
    *  Hosts agent loop, history, plan list, sandbox container id.
    *  Resolved via .idFromName(agentId). */
