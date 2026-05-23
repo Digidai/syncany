@@ -7,6 +7,7 @@ import { ChevronUp, LogOut, Settings as SettingsIcon, User as UserIcon } from "l
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+  DropdownMenuGroup,
 } from "@raltic/ui/components/ui/menu";
 import { notifyThrown } from "@/lib/notify";
 
@@ -87,9 +88,15 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
         <ChevronUp className="h-3 w-3 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={4} className="w-56">
-        <DropdownMenuLabel className="truncate text-[10.5px] font-normal text-muted-foreground">
-          Signed in as {user.email ?? user.name}
-        </DropdownMenuLabel>
+        {/* Base UI 1.4 requires MenuGroupLabel (= DropdownMenuLabel) to
+            be wrapped in a MenuGroup. Without it, opening the menu throws
+            "Base UI error #31: MenuGroupContext is missing" and the entire
+            page hits the root error boundary. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="truncate text-[10.5px] font-normal text-muted-foreground">
+            Signed in as {user.email ?? user.name}
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href={`/s/${serverSlug}/settings/account`} />}>
           <UserIcon className="h-4 w-4" />
