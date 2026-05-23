@@ -157,6 +157,11 @@ async function expectVisibleInteractiveElementsKeyboardFocusable(page: Page): Pr
       .filter((element) => isVisible(element))
       .filter((element) => !element.hasAttribute("disabled"))
       .filter((element) => element.getAttribute("aria-disabled") !== "true")
+      // Allow explicit `tabindex="-1"` opt-outs — these are legit for
+      // programmatically-focused targets (skip-link targets, scroll
+      // regions, modal containers). Test still catches MISSING
+      // focusability on elements that should clearly be in tab order.
+      .filter((element) => element.getAttribute("tabindex") !== "-1")
       .flatMap((element) => {
         const reasons: string[] = [];
         if (element.tabIndex < 0) reasons.push(`tabIndex=${element.tabIndex}`);

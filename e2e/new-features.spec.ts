@@ -67,10 +67,14 @@ test.describe("landing — dual-mode framing (post-rewrite)", () => {
 
   test("RuntimeBadges shows all 4 with experimental on openclaw + hermes", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText(/Anthropic Claude/i)).toBeVisible();
-    await expect(page.getByText(/OpenAI Codex/i)).toBeVisible();
-    await expect(page.getByText(/OpenClaw/).first()).toBeVisible();
-    await expect(page.getByText(/Hermes/).first()).toBeVisible();
+    // Scope to the RuntimeBadges section — "Anthropic Claude" also
+    // appears in the FAQ answer ("Four runtimes: Anthropic Claude
+    // and OpenAI Codex…"), which trips Playwright's strict-mode.
+    const badges = page.locator("section", { hasText: /Four runtimes/i });
+    await expect(badges.getByText("Anthropic Claude", { exact: true })).toBeVisible();
+    await expect(badges.getByText("OpenAI Codex", { exact: true })).toBeVisible();
+    await expect(badges.getByText("OpenClaw", { exact: true })).toBeVisible();
+    await expect(badges.getByText("Hermes", { exact: true })).toBeVisible();
   });
 });
 
