@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Channel, type ChannelMember, type Agent, ApiError } from "@/lib/api";
@@ -12,7 +12,7 @@ import type { MessageRow } from "@raltic/protocol";
 import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Trash2, MessageSquareReply, Copy, X as XIcon } from "lucide-react";
+import { Smile, Pencil, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown } from "lucide-react";
 import { useMentionPicker, type MentionMember } from "./mention-picker";
 import { notifySuccess } from "@/lib/notify";
 
@@ -40,7 +40,37 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const inputRef = useRef<TiptapMessageInputHandle | null>(null);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // ScrollArea wrapper element — we query the actual overflow viewport
+  // out of it via data-slot (see scroll-area.tsx). The Viewport, NOT
+  // this wrapper or the inner content div, is what scrolls; targeting
+  // the wrong node was the previous "send doesn't snap to bottom" bug.
+  const scrollWrapperRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLElement | null>(null);
+  // Inner content div — observe its size so growing messages
+  // (streaming assistant text, image loads, edits) keep us pinned to
+  // the bottom when we're already there.
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  // Live "user is near bottom" flag. Ref (not state) because we read
+  // it inside passive scroll listeners that fire every frame.
+  const stickToBottomRef = useRef(true);
+  // Track which channel we've already done the initial paint-scroll
+  // for. Without this guard, the initial-scroll effect would refire
+  // every time `messages.length` changes (e.g. a new live message
+  // arrives) and yank a scrolled-up reader back to the bottom. We
+  // explicitly need messages.length in the dep array because the
+  // load promise resolves in two commits on slow links (setLoading
+  // false → setMessages populated in different microtasks), so a
+  // load-only dep occasionally fires the effect with messages=[].
+  const initialScrolledChannelRef = useRef<string | null>(null);
+  // Coalesce burst scrolls — when 5 messages stream in within one rAF
+  // we don't want 5 stacked smooth-scroll animations fighting each
+  // other (and the ResizeObserver's instant pin). One pending frame.
+  // Codex perf/UX LOW finding.
+  const pendingScrollRef = useRef<number | null>(null);
+  // Number of unseen messages while scrolled up. State → renders the
+  // pill button. Reset when the user scrolls back to bottom (manually
+  // OR via the pill).
+  const [unreadBelow, setUnreadBelow] = useState(0);
   const sendInFlightRef = useRef(false);
 
   // Only mark messages as read when this tab is actually visible.
@@ -60,6 +90,16 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     setLoading(true);
     setMessages([]);
     setToken(null);
+    // Fresh channel — assume the user wants to land at the bottom.
+    // Without this, switching from a scrolled-up channel back to a
+    // freshly-opened one would inherit "not at bottom" state and the
+    // unread pill would flash for the first incoming message.
+    stickToBottomRef.current = true;
+    setUnreadBelow(0);
+    // Re-arm the initial-scroll guard so the new channel gets one
+    // paint-scroll. (The guard prevents re-scrolling within the same
+    // channel as live messages arrive.)
+    initialScrolledChannelRef.current = null;
     (async () => {
       try {
         const [chData, msgData, tokData, agData] = await Promise.all([
@@ -92,14 +132,128 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     return () => { cancelled = true; };
   }, [channelId]);
 
+  // Pixel distance from the bottom that still counts as "at the bottom"
+  // for sticky-scroll purposes. Slightly bigger than one message row so
+  // a reply landing right above the viewport bottom doesn't flip the
+  // user out of stick mode. Tuned by feel — keep it small enough that a
+  // user scrolled clearly above the latest still gets the unread pill.
+  const STICK_THRESHOLD_PX = 80;
+
+  const isViewportNearBottom = useCallback((): boolean => {
+    const v = viewportRef.current;
+    if (!v) return true;        // before mount: assume "yes" so first paint scrolls
+    return v.scrollHeight - v.scrollTop - v.clientHeight <= STICK_THRESHOLD_PX;
+  }, []);
+
+  const scrollToBottom = useCallback((opts?: { smooth?: boolean }) => {
+    const v = viewportRef.current;
+    if (!v) {
+      if (process.env.NODE_ENV !== "production") {
+        // Codex a11y LOW: silent no-op makes diagnosis hard. Logged
+        // in dev only so prod bundles stay quiet.
+        // eslint-disable-next-line no-console
+        console.warn("[message-area] scrollToBottom: viewport not found (ScrollArea data-slot may have changed)");
+      }
+      return;
+    }
+    // Honor user's reduced-motion preference even when we asked for
+    // smooth — `behavior: "smooth"` on scrollTo() does NOT auto-fall
+    // back to "auto" under prefers-reduced-motion (codex a11y MED).
+    const prefersReducedMotion = typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    v.scrollTo({
+      top: v.scrollHeight,
+      behavior: opts?.smooth && !prefersReducedMotion ? "smooth" : "auto",
+    });
+    stickToBottomRef.current = true;
+    setUnreadBelow(0);
+  }, []);
+
+  /** Schedule at most one scroll-to-bottom per animation frame. Bursts
+   *  of incoming messages collapse into one smooth scroll rather than
+   *  stacking N competing animations (codex UX MED + perf LOW). */
+  const scheduleSmoothScrollToBottom = useCallback(() => {
+    if (pendingScrollRef.current !== null) return;
+    pendingScrollRef.current = requestAnimationFrame(() => {
+      pendingScrollRef.current = null;
+      scrollToBottom({ smooth: true });
+    });
+  }, [scrollToBottom]);
+
   const handleNew = useCallback((m: MessageRow) => {
     setMessages((prev) => (prev.some((p) => p.id === m.id) ? prev : [...prev, m]));
-    requestAnimationFrame(() => {
-      scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight });
-    });
+    // Defer the scroll/unread decision until after React commits the
+    // new row — otherwise scrollHeight reflects the old DOM and the
+    // sticky check misjudges. scheduleSmoothScrollToBottom() coalesces
+    // bursts so 5 quick messages don't stack 5 animations.
+    if (stickToBottomRef.current) {
+      scheduleSmoothScrollToBottom();
+    } else {
+      setUnreadBelow(n => n + 1);
+    }
     markReadIfVisible(m.seq);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId]);
+  }, [channelId, scheduleSmoothScrollToBottom]);
+
+  // Resolve the real overflow viewport out of the ScrollArea wrapper,
+  // attach scroll + resize listeners. ScrollAreaPrimitive renders its
+  // own Viewport with data-slot="scroll-area-viewport"; that's the
+  // node whose scrollTop changes (the wrapper + inner div don't have
+  // overflow). useLayoutEffect so the ref is populated before the
+  // initial-scroll effect below runs in the same commit.
+  useLayoutEffect(() => {
+    const wrapper = scrollWrapperRef.current;
+    if (!wrapper) return;
+    const v = wrapper.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (!v) return;
+    viewportRef.current = v;
+
+    function onScroll() {
+      stickToBottomRef.current = isViewportNearBottom();
+      // When the user scrolls back to bottom themselves, clear the
+      // unread badge. (Programmatic scrollToBottom already does this.)
+      if (stickToBottomRef.current) setUnreadBelow(0);
+    }
+    v.addEventListener("scroll", onScroll, { passive: true });
+
+    // ResizeObserver on the inner content keeps us pinned while an
+    // assistant streams its reply (height grows token by token). Only
+    // re-scroll when we're currently stuck — never yank an explicitly
+    // scrolled-up reader downward.
+    const inner = innerRef.current;
+    let ro: ResizeObserver | null = null;
+    if (inner && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        if (stickToBottomRef.current) {
+          v.scrollTop = v.scrollHeight;       // sync, no animation = no jitter during streaming
+        }
+      });
+      ro.observe(inner);
+    }
+    return () => {
+      v.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+      // Cancel any in-flight coalesced scroll on unmount so we don't
+      // touch a stale viewport.
+      if (pendingScrollRef.current !== null) {
+        cancelAnimationFrame(pendingScrollRef.current);
+        pendingScrollRef.current = null;
+      }
+    };
+  }, [isViewportNearBottom]);
+
+  // First paint of a channel's messages — land at the bottom. Guarded
+  // by initialScrolledChannelRef so the effect can safely depend on
+  // `messages.length` (needed because setLoading + setMessages can
+  // land in separate commits) without yanking a scrolled-up reader
+  // every time a live message arrives.
+  useLayoutEffect(() => {
+    if (loading) return;
+    if (messages.length === 0) return;
+    if (initialScrolledChannelRef.current === channelId) return;
+    initialScrolledChannelRef.current = channelId;
+    scrollToBottom();
+  }, [loading, channelId, messages.length, scrollToBottom]);
 
   // When tab regains focus, flush a mark-read for the newest visible message.
   useEffect(() => {
@@ -224,9 +378,21 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   async function handleSend(content: string): Promise<boolean> {
     if (!content.trim() || !channelId || sendInFlightRef.current) return false;
     sendInFlightRef.current = true;
+    // User pressing Enter is an explicit intent to send AND see their
+    // message land — re-pin to the bottom even if they had scrolled up
+    // to read history. Without this, sending a reply while reviewing
+    // earlier messages would silently leave their own message off-screen
+    // and bump the unread-pill counter instead.
+    stickToBottomRef.current = true;
     try {
       const ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
-      if (ok) setReplyTo(null);
+      if (ok) {
+        setReplyTo(null);
+        // Snap after the optimistic-or-echoed row has had a chance to
+        // render. handleNew will also scroll when the server echoes it
+        // back, but the local user expects an immediate visual confirm.
+        requestAnimationFrame(() => scrollToBottom());
+      }
       if (!ok) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
       return ok;
     } finally {
@@ -343,9 +509,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         </span>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div ref={scrollerRef} className="space-y-6 px-6 py-6">
-          {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
+      <div ref={scrollWrapperRef} className="relative flex-1 min-h-0">
+        <ScrollArea className="absolute inset-0">
+          {/* Bottom padding leaves room for the floating "N new" pill
+              so it never overlaps reactions on the last message
+              (codex a11y MED). 64px = pill height + breathing room. */}
+          <div ref={innerRef} className="space-y-6 px-6 pt-6 pb-16">
+            {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
           {!loading && messages.length === 0 && (
             <div className="flex h-full min-h-64 items-center justify-center">
               <p className="text-sm text-muted-foreground">No messages yet — say hi.</p>
@@ -382,8 +552,28 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               />
             );
           })}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+        {/* Floating "jump to latest" affordance. Visible only when the
+            user is scrolled away from the bottom AND new messages have
+            arrived in that window. Clicking it snaps to the newest
+            message and clears the unread counter. */}
+        {unreadBelow > 0 && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom({ smooth: true })}
+            aria-label={`Jump to ${unreadBelow} new message${unreadBelow === 1 ? "" : "s"}`}
+            // min-h-9 = 36px target. Pairs with px-4 to land near the
+            // 44×44 mobile-tap recommendation while staying visually
+            // light. h-9 alone would clip mid-vertical-align on some
+            // browsers due to the icon + text baseline (codex a11y MED).
+            className="absolute bottom-4 left-1/2 z-10 flex min-h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background px-4 py-2 text-xs font-medium shadow-md transition-shadows hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            {unreadBelow} new
+          </button>
+        )}
+      </div>
 
       <footer className="border-t px-6 py-3">
         {/* Picker floats above the composer when active. The wrapper has
