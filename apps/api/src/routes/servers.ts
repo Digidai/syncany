@@ -274,7 +274,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
     type: "human" | "agent";
     id: string;
     avatarSeed?: string | null;
-    runtime?: "claude" | "codex" | "gemini" | "copilot" | null;
+    runtime?: "claude" | "codex" | "openclaw" | "hermes" | null;
   };
   const dmPeerByChannel = new Map<string, DmPeer>();
   if (dmChannelIds.length > 0) {
@@ -307,7 +307,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
             id: agents.id, displayName: agents.displayName,
             avatarSeed: agents.avatarSeed, runtime: agents.runtime,
           }).from(agents).where(inArray(agents.id, [...agentPeerIds]))
-        : Promise.resolve([] as Array<{ id: string; displayName: string; avatarSeed: string | null; runtime: "claude" | "codex" | "gemini" | "copilot" }>),
+        : Promise.resolve([] as Array<{ id: string; displayName: string; avatarSeed: string | null; runtime: "claude" | "codex" | "openclaw" | "hermes" }>),
     ]);
     const humanName = new Map(humanRows.map(r => [r.id, r.name]));
     const agentRow = new Map(agentRows.map(r => [r.id, r]));
@@ -319,7 +319,10 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
         const a = agentRow.get(peer.id);
         if (a) dmPeerByChannel.set(cid, {
           name: a.displayName, type: "agent", id: peer.id,
-          avatarSeed: a.avatarSeed, runtime: a.runtime,
+          avatarSeed: a.avatarSeed,
+          // Cast: agents.runtime is plain TEXT after S2. See sibling
+          // channels.ts for rationale.
+          runtime: a.runtime as "claude" | "codex" | "openclaw" | "hermes" | null,
         });
       }
     }

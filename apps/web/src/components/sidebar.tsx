@@ -471,22 +471,24 @@ function ChannelGroup({
  *  (not color-only) so it remains distinguishable for color-blind users
  *  and at WCAG-AA contrast on small sizes. Cyan square=Claude, amber
  *  circle=Codex; the differing SHAPE is the redundant non-color cue. */
-function RuntimeDot({ runtime }: { runtime: import("@/lib/api").RuntimeId }) {
-  // Color + glyph + shape ALL differ across runtimes — the redundancy
-  // is intentional for colorblind users at this small (3×3) size.
-  const palette = {
+function RuntimeDot({ runtime }: { runtime: string }) {
+  // Accept `string` so a legacy "gemini"/"copilot" value from the DB
+  // doesn't crash with palette.bg on undefined. Falls through to a
+  // neutral zinc dot. Detected by review (backcompat H1).
+  const palette: Record<string, { bg: string; text: string; shape: string; label: string }> = {
     claude:   { bg: "bg-cyan-500",   text: "C", shape: "rounded-sm",   label: "Claude" },
     codex:    { bg: "bg-amber-500",  text: "X", shape: "rounded-full", label: "Codex" },
     openclaw: { bg: "bg-violet-500", text: "O", shape: "rounded-md",   label: "OpenClaw" },
     hermes:   { bg: "bg-rose-500",   text: "H", shape: "rounded-sm",   label: "Hermes" },
-  }[runtime];
+  };
+  const entry = palette[runtime] ?? { bg: "bg-zinc-400", text: "?", shape: "rounded-sm", label: runtime || "Unknown runtime" };
   return (
     <span
-      title={palette.label}
-      aria-label={`Runtime: ${palette.label}`}
-      className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${palette.shape} ${palette.bg} text-[8px] font-bold leading-none text-white`}
+      title={entry.label}
+      aria-label={`Runtime: ${entry.label}`}
+      className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${entry.shape} ${entry.bg} text-[8px] font-bold leading-none text-white`}
     >
-      {palette.text}
+      {entry.text}
     </span>
   );
 }

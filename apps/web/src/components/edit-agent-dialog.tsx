@@ -37,14 +37,23 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
       setDisplayName(agent.displayName);
       setDescription(agent.description ?? "");
       setSystemPrompt(agent.systemPrompt ?? "");
-      setRuntime(agent.runtime);
-      // Guard: if the agent's stored model is no longer in the runtime's
-      // capability list (model deprecated), fall back to the first valid
-      // one so the picker has a selection + submit is valid.
-      const allowed = RUNTIME_MODELS[agent.runtime];
+      // Legacy-runtime guard (backcompat H3): agent.runtime is plain
+      // TEXT post-S2 and may be "gemini"/"copilot" from before the
+      // removal. RUNTIME_MODELS[unknown] is undefined → .includes
+      // would throw and crash the dialog. Fall back to "claude" so
+      // the user can pick a real runtime, with a banner via setError.
+      const effectiveRuntime: RuntimeId = (RUNTIME_MODELS as Record<string, readonly string[] | undefined>)[agent.runtime]
+        ? (agent.runtime as RuntimeId)
+        : "claude";
+      setRuntime(effectiveRuntime);
+      const allowed = RUNTIME_MODELS[effectiveRuntime];
       setModel(allowed.includes(agent.model) ? agent.model : allowed[0]);
       setAvatarSeed(agent.avatarSeed ?? null);
-      setError(null);
+      setError(
+        effectiveRuntime !== agent.runtime
+          ? `This agent's previous runtime "${agent.runtime}" was removed. Pick a new runtime + model and save.`
+          : null,
+      );
     }
   }, [agent, open]);
 

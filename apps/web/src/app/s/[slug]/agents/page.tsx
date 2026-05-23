@@ -190,15 +190,21 @@ export default function AgentsIndexPage() {
   );
 }
 
-function RuntimeChip({ runtime }: { runtime: import("@/lib/api").RuntimeId }) {
-  const tone = {
+function RuntimeChip({ runtime }: { runtime: string }) {
+  // Accept `string` (not RuntimeId) because agents.runtime is plain TEXT
+  // post-S2 and the server may pass through legacy "gemini"/"copilot"
+  // values from pre-removal rows. Fall through to a neutral zinc tone
+  // for unknown runtimes — never throw, never white-screen. Detected
+  // by review (backcompat H1).
+  const tone: Record<string, string> = {
     claude:   "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
     codex:    "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     openclaw: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
     hermes:   "bg-rose-500/10 text-rose-700 dark:text-rose-400",
-  }[runtime];
+  };
+  const cls = tone[runtime] ?? "bg-zinc-500/10 text-zinc-700 dark:text-zinc-400";
   return (
-    <span className={cn("rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider", tone)}>
+    <span className={cn("rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider", cls)}>
       {runtime}
     </span>
   );

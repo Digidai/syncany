@@ -19,6 +19,26 @@ interface Props {
   onCreated?: (id: string) => void;
 }
 
+/** One-line description per bridge runtime — shown under each option
+ *  in the picker. Keep punchy (1 line); long copy goes in the install
+ *  hint below the chip. */
+const RUNTIME_SHORT_DESC: Record<RuntimeId, string> = {
+  claude:   "Anthropic — opus / sonnet / haiku",
+  codex:    "OpenAI — gpt-5.5 / gpt-5.4 / gpt-5.3-codex-spark",
+  openclaw: "Local-first multi-channel daemon (you install + run)",
+  hermes:   "Self-improving agent with persistent memory (you install + run)",
+};
+
+/** Install command per runtime — shown when the bridge reports the
+ *  CLI isn't detected on any of the user's machines. external_daemon
+ *  runtimes (openclaw, hermes) include both install + onboard steps. */
+const RUNTIME_INSTALL_CMD: Record<RuntimeId, string> = {
+  claude:   "npm i -g @anthropic-ai/claude-code",
+  codex:    "npm i -g @openai/codex && codex login",
+  openclaw: "npm i -g openclaw && openclaw onboard --install-daemon",
+  hermes:   "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+};
+
 export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: Props) {
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -194,15 +214,15 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                 {runtimeMode === "bridge" && (
                 <Field>
                   <FieldLabel>Runtime</FieldLabel>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    {(["claude", "codex"] as RuntimeId[]).map((r) => (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
                       <button
                         key={r}
                         type="button"
                         onClick={() => pickRuntime(r)}
                         aria-pressed={runtime === r}
                         className={cn(
-                          "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                          "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
                           runtime === r
                             ? "border-cyan-500 bg-cyan-500/10"
                             : "border-border hover:border-foreground/20",
@@ -213,19 +233,24 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                           <RuntimeAvailabilityChip state={runtimeAvail[r]} />
                         </div>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {r === "claude" ? "Anthropic — opus / sonnet / haiku" : "OpenAI — gpt-5.5 / gpt-5.4 / gpt-5.3-codex-spark"}
+                          {RUNTIME_SHORT_DESC[r]}
                         </p>
                         {runtimeAvail[r] === "not_installed" && (
                           <p className="mt-1 text-[11px] text-amber-700">
                             Not installed on any of your bridges. Run on your laptop:
-                            <code className="ml-1 rounded bg-muted px-1">
-                              {r === "claude" ? "npm i -g @anthropic-ai/claude-code" : "npm i -g @openai/codex && codex login"}
+                            <code className="ml-1 break-all rounded bg-muted px-1">
+                              {RUNTIME_INSTALL_CMD[r]}
                             </code>
                           </p>
                         )}
                         {runtimeAvail[r] === "needs_login" && (
                           <p className="mt-1 text-[11px] text-amber-700">
-                            Installed but not signed in. Run: <code className="rounded bg-muted px-1">{r} login</code>
+                            {/* external_daemon runtimes (openclaw, hermes)
+                                aren't a `login` command — they're a daemon
+                                that's not running. */}
+                            {r === "openclaw" || r === "hermes"
+                              ? `Installed but daemon not running. Start: ${r === "openclaw" ? "openclaw onboard --install-daemon" : "hermes start"}`
+                              : <>Installed but not signed in. Run: <code className="rounded bg-muted px-1">{r} login</code></>}
                           </p>
                         )}
                       </button>

@@ -101,16 +101,32 @@ bridgeRoutes.post("/api/v1/bridge/connect", async (c) => {
 
   // Build the response then zod-parse it before returning — catches
   // accidental shape drift (e.g. forgot to add `runtime` to agents).
+  //
+  // Legacy-runtime coercion: agents.runtime is plain TEXT after S2
+  // and may carry pre-removal values like "gemini"/"copilot". The
+  // bridge zod enum (rest.ts:73) would reject those, failing the
+  // ENTIRE /connect for ONE legacy agent — taking every other agent
+  // on that machine offline. Coerce unknown runtimes to "claude" at
+  // the boundary so the bridge stays up; the legacy agent surfaces
+  // as a regular claude agent until the user fixes its runtime via
+  // the edit dialog. Detected by review (backcompat H2).
+  const KNOWN_RUNTIMES = new Set(["claude", "codex", "openclaw", "hermes"]);
   const responseBody = {
     wsUrl: new URL(c.req.url).origin.replace(/^http/, "ws"),
     token: wsToken,
     userId: mk.userId,
     serverId: mk.serverId,
-    agents: myAgents.map(a => ({
-      id: a.id, name: a.name, displayName: a.displayName,
-      systemPrompt: a.systemPrompt, model: a.model,
-      runtime: a.runtime,
-    })),
+    agents: myAgents.map(a => {
+      const runtime = KNOWN_RUNTIMES.has(a.runtime) ? a.runtime : "claude";
+      if (runtime !== a.runtime) {
+        console.warn(`[bridge.connect] coerced legacy runtime "${a.runtime}" → "claude" for agent ${a.id}`);
+      }
+      return {
+        id: a.id, name: a.name, displayName: a.displayName,
+        systemPrompt: a.systemPrompt, model: a.model,
+        runtime,
+      };
+    }),
     channels: Array.from(channelMap.values()),
   };
   const parsed = bridgeConnectResponse.safeParse(responseBody);

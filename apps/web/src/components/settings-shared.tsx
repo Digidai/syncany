@@ -95,12 +95,17 @@ function RuntimePill({
     state === "ready" && snapshot
       ? `${snapshot.version ?? ""}${snapshot.authMethod === "env" ? " · via env key" : snapshot.authMethod === "oauth" ? " · via login" : ""}`
       : state === "needs_login"
-      ? `Run \`${id} login\` on this laptop`
+      // openclaw + hermes are external_daemon runtimes — needs_login
+      // here means "binary present, daemon not reachable", not a real
+      // login command. Detected by review (wizard H1).
+      ? id === "openclaw" ? "Start daemon: openclaw onboard --install-daemon"
+      : id === "hermes"   ? "Start daemon: hermes start"
+      : `Run \`${id} login\` on this laptop`
       : state === "not_installed"
       ? id === "claude"   ? "Run: npm i -g @anthropic-ai/claude-code"
       : id === "codex"    ? "Run: npm i -g @openai/codex && codex login"
       : id === "openclaw" ? "Run: npm i -g openclaw && openclaw onboard --install-daemon"
-      : id === "hermes"   ? "Install: curl -sSL https://hermes-agent.nousresearch.com/install.sh | sh"
+      : id === "hermes"   ? "Install: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash"
       : "Install this runtime to use it"
       : `Last seen ${humanizeAge(detectedAt)}`;
 

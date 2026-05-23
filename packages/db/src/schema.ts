@@ -149,7 +149,7 @@ export const agents = sqliteTable("agents", {
   // agent-dispatch.ts) skips dispatch for bridge agents because the
   // bridge sees the message via its own WS subscription.
   runtimeMode: text("runtime_mode", {
-    enum: ["bridge", "raltic", "claude", "codex", "gemini", "copilot"],
+    enum: ["bridge", "raltic", "claude", "codex", "openclaw", "hermes"],
   }).notNull().default("bridge"),
   /** Migration safety (D6): exactly one runtime per agent at a time.
    *  When user clicks "Move to Cloud", we set 'in_progress' before the

@@ -113,7 +113,12 @@ export const RUNTIME_MODELS: Record<"claude" | "codex" | "openclaw" | "hermes", 
   // with). "auto" means "let the daemon's router pick"; the other
   // entries pin a specific upstream when the user wants determinism.
   openclaw: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
-  hermes:   ["auto"],
+  // Hermes' router is the only thing the user controls — provider
+  // selection is daemon-side. Keep two labels so the edit-agent
+  // dialog's `.join(" / ")` rendering doesn't look like a stub.
+  // Detected by review (wizard M3). The second entry is purely cosmetic;
+  // the daemon ignores model strings and routes via its own config.
+  hermes:   ["auto", "router-default"],
 };
 
 export const createAgentRequest = z.object({

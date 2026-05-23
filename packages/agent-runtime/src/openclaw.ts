@@ -22,7 +22,7 @@
  * `--json` event grammar is unverified. Replace `parseOpenClawEvent`
  * once real samples land.
  */
-import { spawn, spawnSync, type ChildProcess } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import type {
   ActivityEvent,
   ActivityListener,
@@ -48,6 +48,36 @@ const CAPABILITIES: RuntimeCapabilities = {
   lifecycle: "external_daemon",
 };
 
+/**
+ * Run a short CLI, capturing stdout/stderr, with a hard timeout.
+ * Returns `{code: null}` on timeout (process killed). Used by
+ * detect() — `spawnSync` would block the bridge's event loop and
+ * defeat the outer _withTimeout() wrapper (codex review MED).
+ */
+async function runCli(
+  bin: string, args: readonly string[], timeoutMs: number,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    let stdout = "", stderr = "";
+    let timedOut = false;
+    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    proc.stdout?.on("data", (b: Buffer) => { stdout += b.toString("utf-8"); });
+    proc.stderr?.on("data", (b: Buffer) => { stderr += b.toString("utf-8"); });
+    const t = setTimeout(() => {
+      timedOut = true;
+      if (!proc.killed) proc.kill("SIGKILL");
+    }, timeoutMs);
+    proc.on("error", () => {
+      clearTimeout(t);
+      resolve({ code: null, stdout, stderr: stderr || "spawn failed" });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(t);
+      resolve({ code: timedOut ? null : code, stdout, stderr });
+    });
+  });
+}
+
 export class OpenClawRuntime implements AgentRuntime {
   readonly id = "openclaw" as const;
   readonly displayName = "OpenClaw";
@@ -55,18 +85,18 @@ export class OpenClawRuntime implements AgentRuntime {
 
   async detect(): Promise<DetectResult> {
     try {
-      const ver = spawnSync("openclaw", ["--version"], { encoding: "utf-8", timeout: 3000 });
-      if (ver.status !== 0) {
+      // Async spawn (not spawnSync) so the bridge's outer
+      // _withTimeout(detect(), 3500) actually bounds us — spawnSync
+      // blocks the event loop and ignores the wrapper timeout, which
+      // worst-case stalled boot by ~10s with both daemons in the
+      // detect list (codex review module 1 MED).
+      const ver = await runCli("openclaw", ["--version"], 3000);
+      if (ver.code !== 0) {
         return { error: "openclaw CLI not installed — `npm i -g openclaw`" };
       }
       const version = (ver.stdout || ver.stderr).trim().split("\n")[0] ?? null;
-      // Daemon liveness. The CLI is a local RPC client; if the
-      // gateway isn't up, every `openclaw agent` call hangs/fails.
-      // Distinguishing "binary present, daemon down" from "binary
-      // missing" lets the UI tell the user EXACTLY which step they
-      // missed (onboard vs install).
-      const gw = spawnSync("openclaw", ["gateway", "status"], { encoding: "utf-8", timeout: 2000 });
-      if (gw.status !== 0) {
+      const gw = await runCli("openclaw", ["gateway", "status"], 2000);
+      if (gw.code !== 0) {
         return {
           binary: "openclaw",
           version,
@@ -210,12 +240,18 @@ function toActivityEvent(ev: ParsedEvent): ActivityEvent | null {
       }
     case "turn.completed":
     case "turn_complete":
-      // ActivityEvent requires sessionId: string (non-null). If the
-      // daemon never gave us a thread id, swallow the turn-complete
-      // — the AgentManager treats missing turn-complete as "still
-      // streaming" which is correct: without an id we can't resume.
-      if (!ev.threadId) return null;
-      return { kind: "turn_complete", sessionId: ev.threadId };
+      // Always emit turn_complete. Fill sessionId from (1) terminal
+      // event's threadId, (2) the cached resumeKey from earlier events
+      // in this turn, (3) "" so AgentManager still unblocks. Dropping
+      // the event entirely would lock AgentManager in `busy:true`
+      // forever (parity/abstraction H1 + codex review 6 HIGH).
+      //
+      // Note: `toActivityEvent` is pure; the caller's `dispatch()`
+      // already commits resumeKey BEFORE calling us, so reading the
+      // cached value here would need a closure — instead, the caller
+      // (spawn handler's `dispatch`) overrides sessionId on the way
+      // out. See openclaw.ts:319-ish.
+      return { kind: "turn_complete", sessionId: ev.threadId ?? "" };
     case "error":
       return { kind: "error", message: ev.error ?? "openclaw reported an error", reason: classifyError(ev.error ?? "") };
     default:
@@ -224,23 +260,40 @@ function toActivityEvent(ev: ParsedEvent): ActivityEvent | null {
 }
 
 function classifyError(msg: string): "auth" | "rate_limit" | "network" | "budget" | "not_installed" | "permission_denied" | "spawn_failed" | "other" {
-  const m = msg.toLowerCase();
-  if (/unauthor|invalid.*key|expired/i.test(m)) return "auth";
-  if (/rate.?limit|429|too many/i.test(m)) return "rate_limit";
-  if (/network|timeout|enotfound|econnref/i.test(m)) return "network";
-  if (/quota|budget|exceeded/i.test(m)) return "budget";
-  if (/permission|denied/i.test(m)) return "permission_denied";
+  const m = (msg ?? "").toLowerCase();
+  if (!m) return "other";
+  // Check specific categories before generic ones to avoid bad
+  // collisions. Order: not_installed → spawn_failed → permission →
+  // network → auth → rate_limit → budget → other. Tightened bounds
+  // (\b, specific token sets) per codex review 4 HIGH:
+  //   - bare /expired/ stole "cache key expired" → now requires token/key/credential context
+  //   - bare /too many/ stole "too many open files" → now requires requests/429
+  //   - bare /insufficient/ stole permission errors → now requires quota/credit context
+  if (/\b(?:command not found|enoent|no such file or directory|is not recognized as)\b/i.test(m)) return "not_installed";
+  if (/\bspawn\s+\w+\s+(?:eacces|eagain|emfile|enomem|efault)\b|\bexec format error\b|\bfork\/exec\b/i.test(m)) return "spawn_failed";
+  if (/\b(?:403|forbidden|permission denied|access denied|eacces|eperm|operation not permitted|sandbox (?:denied|violation)|blocked by policy|requires approval|insufficient permissions?)\b/i.test(m)) return "permission_denied";
+  if (/\b(?:network|timed? out|timeout|enotfound|econnref(?:used)?|econnreset|etimedout|ehostunreach|enetunreach|enetdown|econnaborted|epipe|eai_again|socket hang up|connection reset|fetch failed|dns|self[- ]signed|cert_has_expired|proxy)\b/i.test(m)) return "network";
+  if (/\b(?:401|unauthori[sz]ed|not authenticated|authentication (?:failed|required)|invalid (?:api[-_ ]?)?key|api[-_ ]?key (?:missing|not set|not valid|expired)|invalid token|bad credentials|expired (?:token|credential))\b/i.test(m)) return "auth";
+  if (/\b(?:429|rate[-_ ]?limit(?:ed|s)?|rate_limit_error|resource_exhausted|too many requests|requests? per minute|temporarily overloaded)\b/i.test(m)) return "rate_limit";
+  if (/\b(?:quota|budget|billing|payment required|credits?|credit balance|insufficient_quota|hard limit|spend limit|billing account disabled|exceeded)\b/i.test(m)) return "budget";
   return "other";
 }
 
 // ── NDJSON line buffer (shared pattern with ClaudeRuntime) ──
+//
+// Splits on \n and strips a trailing \r so CRLF lines come out clean.
+// Mac classic \r-only lines are NOT split (sub-1%-of-traffic) — they
+// would hang the buffer until a \n arrives; document this as a known
+// limitation rather than complicating the hot path. Codex review MED.
 function consumeLines(buf: string, setRest: (rest: string) => void): string[] {
   const lines: string[] = [];
   let i = 0;
   while (true) {
     const nl = buf.indexOf("\n", i);
     if (nl === -1) break;
-    lines.push(buf.slice(i, nl));
+    let end = nl;
+    if (end > i && buf.charCodeAt(end - 1) === 13 /* \r */) end -= 1;
+    lines.push(buf.slice(i, end));
     i = nl + 1;
   }
   setRest(buf.slice(i));
@@ -291,16 +344,33 @@ class OpenClawSession implements RuntimeSession {
 
     let buf = "";
     let stderrBuf = "";
+    const dispatch = (parsed: ParsedEvent): void => {
+      // Resume-key handling: prefer the threadId reported on the
+      // FINAL turn_complete event (canonical), else the first event
+      // that carried one (codex review MED — first-wins could leak
+      // a stale id if the daemon normalises mid-stream).
+      if (parsed.threadId) {
+        if (parsed.type === "turn.completed" || parsed.type === "turn_complete") {
+          this.resumeKey = parsed.threadId;
+        } else if (!this.resumeKey) {
+          this.resumeKey = parsed.threadId;
+        }
+      }
+      const ev = toActivityEvent(parsed);
+      if (!ev) return;
+      // Iterate a SNAPSHOT + per-callback try/catch so one listener
+      // throwing doesn't kill the rest, and so a listener that
+      // unsubscribes during dispatch doesn't skip indices (codex
+      // review 2 MED + LOW).
+      for (const cb of [...this.listeners.activity]) {
+        try { cb(ev); } catch (e) { console.error("[openclaw] activity listener threw:", e); }
+      }
+    };
     proc.stdout?.on("data", (chunk: Buffer) => {
       buf += chunk.toString("utf-8");
       for (const line of consumeLines(buf, (rest) => { buf = rest; })) {
         const parsed = parseOpenClawEvent(line);
-        if (!parsed) continue;
-        if (parsed.threadId && !this.resumeKey) {
-          this.resumeKey = parsed.threadId;
-        }
-        const ev = toActivityEvent(parsed);
-        if (ev) this.listeners.activity.forEach(cb => cb(ev));
+        if (parsed) dispatch(parsed);
       }
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
@@ -311,17 +381,36 @@ class OpenClawSession implements RuntimeSession {
       proc.on("error", reject);
       proc.on("close", (code) => {
         this.currentProc = null;
-        // Surface stderr-only failures as an error activity event
-        // so the user sees something concrete instead of a silent
-        // exit.
-        if (code !== 0 && stderrBuf.trim()) {
-          this.listeners.activity.forEach(cb => cb({
-            kind: "error",
-            message: stderrBuf.trim().slice(0, 500),
-            reason: classifyError(stderrBuf),
-          }));
+        // Drain the final NDJSON fragment if the CLI flushed without
+        // a trailing newline (common with exit-on-final-event). Codex
+        // review MED — missing this caused the last turn_complete to
+        // be dropped, leaving AgentManager waiting forever.
+        if (buf.trim()) {
+          const parsed = parseOpenClawEvent(buf);
+          if (parsed) dispatch(parsed);
+          buf = "";
         }
-        this.listeners.exit.forEach(cb => cb(code));
+        if (code !== 0 && stderrBuf.trim()) {
+          for (const cb of [...this.listeners.activity]) {
+            try { cb({
+              kind: "error",
+              message: stderrBuf.trim().slice(0, 500),
+              reason: classifyError(stderrBuf),
+            }); } catch (e) { console.error("[openclaw] activity listener threw:", e); }
+          }
+        }
+        // Lifecycle: openclaw is external_daemon — the CLI spawns
+        // per turn and code===0 means "turn finished normally", NOT
+        // "session died". Emitting exit on every successful close
+        // makes AgentManager drop the entry between turns (codex
+        // review 2 + 7 HIGH). Only bubble exit when:
+        //   - we're shutting down (caller wants the signal), OR
+        //   - the CLI died non-zero (real failure AgentManager should restart)
+        if (this.aborted || code !== 0) {
+          for (const cb of [...this.listeners.exit]) {
+            try { cb(code); } catch (e) { console.error("[openclaw] exit listener threw:", e); }
+          }
+        }
         if (code === 0) resolve();
         else reject(new Error(`openclaw exit ${code}: ${stderrBuf.trim().slice(0, 200)}`));
       });

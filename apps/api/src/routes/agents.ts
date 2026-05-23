@@ -281,11 +281,20 @@ agentsRoutes.patch("/api/v1/agents/:id", requireAuth, async (c) => {
       if (current.length === 0) {
         return c.json({ error: { code: "NOT_FOUND", message: "no such agent" } }, 404);
       }
-      finalRuntime = finalRuntime ?? current[0].runtime;
+      // current[0].runtime is plain TEXT after S2 — cast to the
+      // narrow request union. Legacy gemini/copilot rows will fall
+      // through to the RUNTIME_MODELS lookup below and get a clean
+      // 400 INVALID_RUNTIME_MODEL.
+      finalRuntime = finalRuntime ?? (current[0].runtime as unknown as typeof finalRuntime);
       finalModel = finalModel ?? current[0].model;
     }
-    const allowed = RUNTIME_MODELS[finalRuntime];
-    if (!allowed || !allowed.includes(finalModel)) {
+    // Narrow finalRuntime (string from DB after the S2 enum drop) to
+    // a known RuntimeId key before indexing RUNTIME_MODELS. An older
+    // gemini/copilot row would land in the `!allowed` branch and 400
+    // — the only safe behaviour, since those runtimes were removed.
+    const runtimeKey = finalRuntime as keyof typeof RUNTIME_MODELS;
+    const allowed = RUNTIME_MODELS[runtimeKey];
+    if (!allowed || finalModel === undefined || !allowed.includes(finalModel)) {
       return c.json({
         error: {
           code: "INVALID_RUNTIME_MODEL",

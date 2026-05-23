@@ -27,7 +27,7 @@
  * blog posts. Replace `parseHermesEvent` once real samples land in
  * docs/SAMPLES_hermes.jsonl.
  */
-import { spawn, spawnSync, type ChildProcess } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import type {
   ActivityEvent,
   ActivityListener,
@@ -50,6 +50,32 @@ const CAPABILITIES: RuntimeCapabilities = {
   lifecycle: "external_daemon",
 };
 
+/** See openclaw.ts for rationale — async detect probe that respects
+ *  the outer _withTimeout wrapper in bridge-core. */
+async function runCli(
+  bin: string, args: readonly string[], timeoutMs: number,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    let stdout = "", stderr = "";
+    let timedOut = false;
+    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    proc.stdout?.on("data", (b: Buffer) => { stdout += b.toString("utf-8"); });
+    proc.stderr?.on("data", (b: Buffer) => { stderr += b.toString("utf-8"); });
+    const t = setTimeout(() => {
+      timedOut = true;
+      if (!proc.killed) proc.kill("SIGKILL");
+    }, timeoutMs);
+    proc.on("error", () => {
+      clearTimeout(t);
+      resolve({ code: null, stdout, stderr: stderr || "spawn failed" });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(t);
+      resolve({ code: timedOut ? null : code, stdout, stderr });
+    });
+  });
+}
+
 export class HermesRuntime implements AgentRuntime {
   readonly id = "hermes" as const;
   readonly displayName = "Hermes Agent";
@@ -57,15 +83,16 @@ export class HermesRuntime implements AgentRuntime {
 
   async detect(): Promise<DetectResult> {
     try {
-      const ver = spawnSync("hermes", ["--version"], { encoding: "utf-8", timeout: 3000 });
-      if (ver.status !== 0) {
+      // Async spawn (codex review MED — see openclaw.ts for rationale).
+      const ver = await runCli("hermes", ["--version"], 3000);
+      if (ver.code !== 0) {
         return {
-          error: "hermes CLI not installed — `curl -sSL https://hermes-agent.nousresearch.com/install.sh | sh`",
+          error: "hermes CLI not installed — `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`",
         };
       }
       const version = (ver.stdout || ver.stderr).trim().split("\n")[0] ?? null;
-      const st = spawnSync("hermes", ["status", "--json"], { encoding: "utf-8", timeout: 2000 });
-      if (st.status !== 0) {
+      const st = await runCli("hermes", ["status", "--json"], 2000);
+      if (st.code !== 0) {
         return {
           binary: "hermes",
           version,
@@ -201,8 +228,9 @@ function toActivityEvent(ev: ParsedEvent): ActivityEvent | null {
     case "turn.completed":
     case "turn_complete":
     case "complete":
-      if (!ev.threadId) return null;
-      return { kind: "turn_complete", sessionId: ev.threadId };
+      // Always emit so AgentManager unblocks. See openclaw.ts:248 for
+      // rationale (parity + abstraction H1).
+      return { kind: "turn_complete", sessionId: ev.threadId ?? "" };
     case "error":
       return {
         kind: "error",
@@ -215,22 +243,30 @@ function toActivityEvent(ev: ParsedEvent): ActivityEvent | null {
 }
 
 function classifyError(msg: string): "auth" | "rate_limit" | "network" | "budget" | "not_installed" | "permission_denied" | "spawn_failed" | "other" {
-  const m = msg.toLowerCase();
-  if (/unauthor|invalid.*key|expired|api.*key/i.test(m)) return "auth";
-  if (/rate.?limit|429|too many/i.test(m)) return "rate_limit";
-  if (/network|timeout|enotfound|econnref/i.test(m)) return "network";
-  if (/quota|budget|exceeded|insufficient/i.test(m)) return "budget";
-  if (/permission|denied|forbidden/i.test(m)) return "permission_denied";
+  // Kept in lock-step with openclaw.ts classifyError — see that
+  // function's comment for the order/bounds rationale (codex review 4 HIGH).
+  const m = (msg ?? "").toLowerCase();
+  if (!m) return "other";
+  if (/\b(?:command not found|enoent|no such file or directory|is not recognized as)\b/i.test(m)) return "not_installed";
+  if (/\bspawn\s+\w+\s+(?:eacces|eagain|emfile|enomem|efault)\b|\bexec format error\b|\bfork\/exec\b/i.test(m)) return "spawn_failed";
+  if (/\b(?:403|forbidden|permission denied|access denied|eacces|eperm|operation not permitted|sandbox (?:denied|violation)|blocked by policy|requires approval|insufficient permissions?)\b/i.test(m)) return "permission_denied";
+  if (/\b(?:network|timed? out|timeout|enotfound|econnref(?:used)?|econnreset|etimedout|ehostunreach|enetunreach|enetdown|econnaborted|epipe|eai_again|socket hang up|connection reset|fetch failed|dns|self[- ]signed|cert_has_expired|proxy)\b/i.test(m)) return "network";
+  if (/\b(?:401|unauthori[sz]ed|not authenticated|authentication (?:failed|required)|invalid (?:api[-_ ]?)?key|api[-_ ]?key (?:missing|not set|not valid|expired)|invalid token|bad credentials|expired (?:token|credential))\b/i.test(m)) return "auth";
+  if (/\b(?:429|rate[-_ ]?limit(?:ed|s)?|rate_limit_error|resource_exhausted|too many requests|requests? per minute|temporarily overloaded)\b/i.test(m)) return "rate_limit";
+  if (/\b(?:quota|budget|billing|payment required|credits?|credit balance|insufficient_quota|hard limit|spend limit|billing account disabled|exceeded)\b/i.test(m)) return "budget";
   return "other";
 }
 
+// Splits on \n; strips trailing \r so CRLF is clean (codex review MED).
 function consumeLines(buf: string, setRest: (rest: string) => void): string[] {
   const lines: string[] = [];
   let i = 0;
   while (true) {
     const nl = buf.indexOf("\n", i);
     if (nl === -1) break;
-    lines.push(buf.slice(i, nl));
+    let end = nl;
+    if (end > i && buf.charCodeAt(end - 1) === 13) end -= 1;
+    lines.push(buf.slice(i, end));
     i = nl + 1;
   }
   setRest(buf.slice(i));
@@ -268,16 +304,28 @@ class HermesSession implements RuntimeSession {
 
     let buf = "";
     let stderrBuf = "";
+    const dispatch = (parsed: ParsedEvent): void => {
+      // Resume-key: prefer canonical id from terminal completion
+      // events; fall back to first-seen (codex review MED).
+      if (parsed.threadId) {
+        const terminal =
+          parsed.type === "turn.completed" ||
+          parsed.type === "turn_complete" ||
+          parsed.type === "complete";
+        if (terminal || !this.resumeKey) this.resumeKey = parsed.threadId;
+      }
+      const ev = toActivityEvent(parsed);
+      if (!ev) return;
+      // Snapshot + try/catch per callback (codex review 2 MED+LOW).
+      for (const cb of [...this.listeners.activity]) {
+        try { cb(ev); } catch (e) { console.error("[hermes] activity listener threw:", e); }
+      }
+    };
     proc.stdout?.on("data", (chunk: Buffer) => {
       buf += chunk.toString("utf-8");
       for (const line of consumeLines(buf, (rest) => { buf = rest; })) {
         const parsed = parseHermesEvent(line);
-        if (!parsed) continue;
-        if (parsed.threadId && !this.resumeKey) {
-          this.resumeKey = parsed.threadId;
-        }
-        const ev = toActivityEvent(parsed);
-        if (ev) this.listeners.activity.forEach(cb => cb(ev));
+        if (parsed) dispatch(parsed);
       }
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
@@ -288,14 +336,29 @@ class HermesSession implements RuntimeSession {
       proc.on("error", reject);
       proc.on("close", (code) => {
         this.currentProc = null;
-        if (code !== 0 && stderrBuf.trim()) {
-          this.listeners.activity.forEach(cb => cb({
-            kind: "error",
-            message: stderrBuf.trim().slice(0, 500),
-            reason: classifyError(stderrBuf),
-          }));
+        // Drain final NDJSON fragment without trailing newline
+        // (codex review MED).
+        if (buf.trim()) {
+          const parsed = parseHermesEvent(buf);
+          if (parsed) dispatch(parsed);
+          buf = "";
         }
-        this.listeners.exit.forEach(cb => cb(code));
+        if (code !== 0 && stderrBuf.trim()) {
+          for (const cb of [...this.listeners.activity]) {
+            try { cb({
+              kind: "error",
+              message: stderrBuf.trim().slice(0, 500),
+              reason: classifyError(stderrBuf),
+            }); } catch (e) { console.error("[hermes] activity listener threw:", e); }
+          }
+        }
+        // Lifecycle: hermes is external_daemon — see openclaw.ts for
+        // the per-turn-exit-isnt-session-death rationale (codex 2 + 7 HIGH).
+        if (this.aborted || code !== 0) {
+          for (const cb of [...this.listeners.exit]) {
+            try { cb(code); } catch (e) { console.error("[hermes] exit listener threw:", e); }
+          }
+        }
         if (code === 0) resolve();
         else reject(new Error(`hermes exit ${code}: ${stderrBuf.trim().slice(0, 200)}`));
       });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, RUNTIME_LABEL, type RuntimeId } from "@/lib/api";
 import { Button } from "@raltic/ui/components/ui/button";
 import { Input } from "@raltic/ui/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
@@ -239,22 +239,33 @@ export function SetupWizard({
           // message" round-trip actually exercises that runtime. The
           // onboarding agent was created during runOnboarding (always
           // runtime=claude/sonnet); we lazy-flip it here when the user
-          // picked Codex. Best-effort — a flip failure shouldn't block
-          // the wizard from advancing; user can edit the agent manually
-          // from Settings → Agents.
-          if (runtime === "codex" && !hasExistingBridge) {
+          // picked something else. Best-effort — a flip failure shouldn't
+          // block the wizard from advancing; user can edit the agent
+          // manually from Settings → Agents.
+          //
+          // Codex review MED: previously this only fired for codex,
+          // which silently routed openclaw/hermes wizard users through
+          // a Claude agent and produced confusing round-trip behaviour.
+          if (runtime !== "claude" && !hasExistingBridge) {
             void (async () => {
               try {
                 const { agents: all } = await api.listAgents();
                 const onboarding = all.find(
                   (a) => a.serverId === serverId && a.name === "onboarding",
                 );
-                if (onboarding && onboarding.runtime !== "codex") {
+                if (onboarding && onboarding.runtime !== runtime) {
+                  // Canonical default model per runtime — keep in sync
+                  // with RUNTIME_MODELS[runtime][1] (slot 0 is "auto",
+                  // which is a router-level alias not a real model).
+                  const defaultModel: Record<RuntimeId, string> = {
+                    claude:   "claude-sonnet-4-6",
+                    codex:    "gpt-5.5",
+                    openclaw: "claude-sonnet-4-6",
+                    hermes:   "auto",
+                  };
                   await api.updateAgent(onboarding.id, {
-                    runtime: "codex",
-                    // Pick the canonical default for this runtime; the
-                    // user can change model later from Agents settings.
-                    model: "gpt-5.5",
+                    runtime,
+                    model: defaultModel[runtime],
                   });
                 }
               } catch (e) {
@@ -486,7 +497,7 @@ export function SetupWizard({
                     <div>
                       <p className="font-medium">Which AI runtime do you want to use?</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Both run locally on YOUR laptop. You can change per-agent later.
+                        All run locally on YOUR laptop. You can change per-agent later.
                       </p>
                       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <RuntimePick
@@ -574,7 +585,7 @@ export function SetupWizard({
                             installed via the one-line curl on the site above
                           </li>
                           <li>
-                            • Daemon running — verify with <code className="rounded bg-muted px-1">hermes status</code>
+                            • Daemon running — start with <code className="rounded bg-muted px-1">hermes start</code>, verify with <code className="rounded bg-muted px-1">hermes status</code>
                           </li>
                         </>
                       )}
@@ -796,13 +807,20 @@ export function SetupWizard({
                             <span className="h-3 w-3 shrink-0 rounded-full bg-zinc-300" />
                           )}
                           <span className="font-medium">
-                            {r.id === "codex" ? "Codex" : "Claude"}
+                            {RUNTIME_LABEL[r.id]}
                           </span>
                           <span className="text-muted-foreground">
                             {r.detected && r.authed
                               ? `${r.version ?? ""} ready`
                               : r.detected
-                              ? `installed — run \`${r.id} login\``
+                              // external_daemon runtimes (openclaw,
+                              // hermes) report needs_login when the
+                              // daemon is reachable-but-not-running;
+                              // the fix is `start`, not `login`.
+                              // Codex review MED.
+                              ? (r.id === "openclaw" || r.id === "hermes")
+                                ? `installed — daemon not running`
+                                : `installed — run \`${r.id} login\``
                               : "not installed"}
                           </span>
                         </div>

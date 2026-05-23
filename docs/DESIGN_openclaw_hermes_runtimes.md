@@ -1,12 +1,26 @@
 # Integrating OpenClaw + Hermes as agent runtimes
 
-Status: **PROPOSAL v2 — codex-reviewed; awaiting user approval**
+Status: **BUILT — shipped under tasks S1–S10 + two rounds of codex-review fixes (4-module round + final 10C+10X agent-team round). Smoke test runbook at `docs/SMOKE_TESTS_openclaw_hermes.md` still required before exposing real user traffic.**
 
-> v2 changelog: codex review identified 4 real bugs in v1 — corrected
-> RuntimeSession contract (pid + send(text) + ExitListener=`(code) =>`),
-> corrected schema claim (it's enum-constrained, needs migration),
-> expanded enum-update site list from 6 to 23+ files, made `lifecycle`
-> capability optional with default. Effort estimate adjusted upward.
+> Second-round fix summary (final agent-team review):
+> - **bridge.ts**: legacy gemini/copilot runtime coerced to "claude" so one stale agent can't 500 the entire `/bridge/connect`
+> - **RuntimeChip + RuntimeDot + EditAgentDialog**: graceful fallback for unknown runtime values (banner instead of white-screen)
+> - **openclaw + hermes turn_complete**: always emit `sessionId: ev.threadId ?? ""` — never swallow, AgentManager would deadlock
+> - **openclaw + hermes exit listener**: only fire on aborted/fatal (code !== 0) — per-turn CLI exit is normal lifecycle, not session death
+> - **listener dispatch**: snapshot + per-cb try/catch so one throwing listener doesn't blast the rest
+> - **classifyError**: tightened bounds (\b, specific tokens) + added not_installed/spawn_failed buckets; lock-step between openclaw + hermes
+> - **settings-shared**: "needs_login" copy branched per runtime — external_daemon runtimes say "start daemon" not "{id} login"
+> - **wizard step-1 hermes hint**: now mentions `hermes start`, not just `hermes status`
+> - **RUNTIME_MODELS.hermes**: ["auto", "router-default"] so edit dialog doesn't render a single-token stub
+> - **wizard step-1 copy**: "Both run locally" → "All run locally" (4 options, not 2)
+
+> History note: v1/v2 of this doc retained gemini + copilot scaffolds
+> from a prior aborted exploration. The user opted to remove both
+> during build, so the final `RuntimeId` union is
+> `"claude" | "codex" | "openclaw" | "hermes"`. Sketches below that
+> still mention `gemini` / `copilot` are preserved as historical
+> context — not the shipped surface.
+
 Author: deep-research pass on Raltic's runtime abstraction, OpenClaw README, Hermes Agent landing page + Nous Research docs.
 Last updated: 2026-05-23.
 

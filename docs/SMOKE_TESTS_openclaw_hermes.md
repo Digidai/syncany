@@ -15,7 +15,7 @@ openclaw onboard --install-daemon
 openclaw gateway status         # expect: daemon up
 
 # Hermes
-curl -sSL https://hermes-agent.nousresearch.com/install.sh | sh
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 hermes status --json            # expect: daemon up + json body
 ```
 

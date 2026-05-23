@@ -133,7 +133,7 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
     type: "human" | "agent";
     id: string;
     avatarSeed?: string | null;
-    runtime?: "claude" | "codex" | "gemini" | "copilot" | null;
+    runtime?: "claude" | "codex" | "openclaw" | "hermes" | null;
   } | null = null;
   if (channel.type === "dm") {
     const other = members.find(m => !(m.memberType === "human" && m.memberId === subject.userId));
@@ -147,7 +147,12 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
         }).from(agents).where(eq(agents.id, other.memberId)).limit(1);
         if (r[0]) peer = {
           name: r[0].displayName, type: "agent", id: other.memberId,
-          avatarSeed: r[0].avatarSeed, runtime: r[0].runtime,
+          avatarSeed: r[0].avatarSeed,
+          // agents.runtime is plain TEXT (S2) — cast to the narrow
+          // peer type. Legacy gemini/copilot rows will surface here
+          // verbatim; the UI's RuntimeChip falls through to a generic
+          // tone for unknown ids.
+          runtime: r[0].runtime as "claude" | "codex" | "openclaw" | "hermes" | null,
         };
       }
     }
