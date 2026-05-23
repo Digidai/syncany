@@ -65,9 +65,9 @@ export function MarketingNav() {
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm text-zinc-400 md:flex">
-          <a href="#how" className="hover:text-white">How it works</a>
-          <a href="#use-cases" className="hover:text-white">Use cases</a>
-          <a href="#why" className="hover:text-white">Why Raltic</a>
+          <Link href="/runtimes" className="hover:text-white">Runtimes</Link>
+          <Link href="/connectors" className="hover:text-white">Connectors</Link>
+          <Link href="/security" className="hover:text-white">Security</Link>
           <Link href="/login" className="hover:text-white">Sign in</Link>
           <Link
             href="/signup"

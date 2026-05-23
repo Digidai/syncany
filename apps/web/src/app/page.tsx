@@ -8,6 +8,7 @@ import { HomeCta } from "@/components/home-cta";
 import { MarketingNav } from "@/components/marketing-nav";
 import { RalticLogo } from "@/components/raltic-logo";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
+import { MarketingTracking } from "@/components/marketing/tracking";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Marketing landing page.
@@ -19,10 +20,14 @@ import { SignedInRedirect } from "@/components/signed-in-redirect";
 // actually shipped in the product. If a section advertises a feature that
 // doesn't exist yet, kill the section, not the build.
 //
-// Truth audit (last reviewed when adding multi-runtime to the page):
+// Truth audit (last reviewed for marketing v2 — OpenClaw+Hermes integration):
 //   • Bridge: `npx -y @raltic/bridge --api-key …` works end-to-end.
-//   • Runtimes: ClaudeRuntime + CodexRuntime both ship in
-//     packages/agent-runtime/src/index.ts.
+//   • Runtimes: 4 ship — Claude, Codex (verified), OpenClaw, Hermes
+//     (code shipped, smoke verification pending per
+//     docs/SMOKE_TESTS_openclaw_hermes.md — marked "Experimental" on
+//     this page until verified).
+//   • Runtime modes: bridge (local CLI via user's bridge) AND raltic
+//     (cloud-native, zero install, runs in CF Container sandbox).
 //   • Per-machine keys: machineKeys.serverId scope + revokedAt + KV
 //     denylist for sy_bridge_ JWTs — all real.
 //   • Local execution: agents spawn as child_process on the bridge
@@ -30,6 +35,9 @@ import { SignedInRedirect } from "@/components/signed-in-redirect";
 //   • Real-time: Durable Objects with WS fan-out per channel; latency
 //     sub-second on the staging deploy.
 //   • Threads / reactions / tasks / DMs: all live.
+//   • Connectors: GitHub / Linear / Notion — PAT storage + per-agent
+//     grants only. NO webhook automation, NO PR-triggered runs, NO
+//     scheduling (kept off the page per codex review HIGH-3).
 //   • Private beta, free — accurate (no payment flow exists).
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -40,6 +48,9 @@ export default function Home(): React.ReactElement {
           before marketing fully paints (small `/me` round-trip flash).
           Signed-out users: no-op, marketing renders as normal. */}
       <SignedInRedirect />
+      {/* Marketing event beacon — UTM capture + landing_view. Safe no-op
+          when blocked by adblock or sendBeacon unsupported. */}
+      <MarketingTracking />
       <MarketingNav />
 
       <Hero />
@@ -122,12 +133,17 @@ function Hero(): React.ReactElement {
           </p>
 
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            {/* Primary CTA — defaults to cloud-native onboarding (zero
+                local install). Secondary CTA below routes to /signup
+                with the bridge wizard pre-opened for users who want
+                to bring their own daemon. Per marketing v2 plan +
+                codex review HIGH-1. */}
             <HomeCta />
             <Link
-              href="#how"
+              href="/signup?wizard=1"
               className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-medium text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900"
             >
-              How it works <ArrowRight className="h-3.5 w-3.5" />
+              Bring your own daemon <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
@@ -187,31 +203,50 @@ function RuntimeBadges(): React.ReactElement {
     <section className="border-b border-zinc-900 bg-black px-6 py-12">
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-          Already paying for Claude and OpenAI · Don't pay us for them too
+          Four runtimes · Bring your own daemon, or run on our cloud
         </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
-          <RuntimeBadge name="Anthropic Claude" sub="Bring your own subscription" />
-          <span className="text-zinc-700" aria-hidden="true">·</span>
-          <RuntimeBadge name="OpenAI" sub="Bring your own subscription" />
-          <span className="text-zinc-700" aria-hidden="true">·</span>
-          {/* Pill-style "coming soon" — was a faint zinc-500 inline span that
-              visually competed with the runtime sub-text below the badges.
-              The pill treatment gives it a distinct role (status flag) while
-              staying restrained. */}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
-            <span className="h-1 w-1 rounded-full bg-amber-400/80" aria-hidden="true" />
-            More providers coming
-          </span>
+        {/* Four-runtime strip. Claude + Codex are verified (the original
+            two). OpenClaw + Hermes ship the code but are flagged
+            "experimental" until docs/SMOKE_TESTS_openclaw_hermes.md
+            completes — per codex review HIGH-2. Don't remove the
+            experimental tag without updating that runbook. */}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
+          <RuntimeBadge name="Anthropic Claude" sub="Bring your own subscription" dot="cyan" />
+          <span className="text-zinc-800" aria-hidden="true">·</span>
+          <RuntimeBadge name="OpenAI Codex" sub="Bring your own subscription" dot="amber" />
+          <span className="text-zinc-800" aria-hidden="true">·</span>
+          <RuntimeBadge name="OpenClaw" sub="Your local daemon" dot="violet" experimental />
+          <span className="text-zinc-800" aria-hidden="true">·</span>
+          <RuntimeBadge name="Hermes" sub="Your local daemon" dot="rose" experimental />
         </div>
       </div>
     </section>
   );
 }
 
-function RuntimeBadge({ name, sub }: { name: string; sub: string }): React.ReactElement {
+function RuntimeBadge({ name, sub, dot, experimental }: {
+  name: string;
+  sub: string;
+  dot: "cyan" | "amber" | "violet" | "rose";
+  experimental?: boolean;
+}): React.ReactElement {
+  const dotClass = {
+    cyan:   "bg-cyan-400",
+    amber:  "bg-amber-400",
+    violet: "bg-violet-400",
+    rose:   "bg-rose-400",
+  }[dot];
   return (
     <div className="text-center">
-      <div className="text-sm font-medium text-white">{name}</div>
+      <div className="flex items-center justify-center gap-1.5">
+        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+        <span className="text-sm font-medium text-white">{name}</span>
+        {experimental && (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-1.5 py-px text-[9.5px] font-medium uppercase tracking-wider text-zinc-400">
+            Experimental
+          </span>
+        )}
+      </div>
       <div className="mt-0.5 font-mono text-[10.5px] text-zinc-500">{sub}</div>
     </div>
   );
@@ -708,6 +743,18 @@ function Comparison(): React.ReactElement {
                   label="No per-seat markup on the AI you already pay for"
                   vals={["no", "no", "no", "yes"]}
                 />
+                {/* The two rows below are the OpenClaw + Hermes
+                    differentiator — neither competitor supports
+                    pointing the chat at a daemon you run yourself,
+                    keeping provider keys entirely in your hands. */}
+                <ComparisonRow
+                  label="Point chat at your own AI daemon (OpenClaw / Hermes)"
+                  vals={["no", "no", "no", "yes"]}
+                />
+                <ComparisonRow
+                  label="Provider keys never leave your machine"
+                  vals={["no", "partial", "no", "yes"]}
+                />
               </tbody>
             </table>
           </div>
@@ -914,7 +961,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Which AI providers does Raltic work with?",
-    a: "Anthropic Claude and OpenAI Codex today, with all their current models. Each agent picks its own provider and model — you can mix them in the same workspace. We're adding more providers (Gemini, local models, others) on a rolling basis without breaking existing setups.",
+    a: "Four runtimes: Anthropic Claude and OpenAI Codex are verified and ship today. OpenClaw and Hermes are integrated but marked experimental until our smoke verification completes — they let you point at any local daemon you already run, with no provider key held by Raltic. Each agent picks its own runtime and model; you can mix them in the same workspace.",
+  },
+  {
+    q: "Do I have to install anything to try Raltic?",
+    a: "No. Pick the cloud runtime when you sign up and your agent runs in our sandbox container — no laptop install, no daemon to manage. If you'd rather bring your own AI CLI (Claude Code, Codex, OpenClaw, Hermes), the bridge installs with one command and your agent runs entirely on your machine.",
   },
   {
     q: "Where does our code go?",
@@ -1016,6 +1067,9 @@ function Footer(): React.ReactElement {
           { label: "Pricing", href: "#pricing" },
           { label: "FAQ", href: "#faq" },
         ]} />
+        {/* Runtimes column is empty in Phase 1 — populated in Phase 2
+            when /runtimes/* pages ship. Keeping the placeholder so the
+            footer grid layout doesn't re-flow when those links land. */}
         <FooterCol label="Get started" links={[
           { label: "Sign up", href: "/signup" },
           { label: "Sign in", href: "/login" },
@@ -1097,28 +1151,32 @@ function nameHue(name: string): number {
   return ((h % 360) + 360) % 360;
 }
 
+/** Per-runtime visual palette used by MockMessage. Keep in sync with
+ *  RuntimeChip (apps/web/src/app/s/[slug]/agents/page.tsx) and RuntimeDot
+ *  (apps/web/src/components/sidebar.tsx) so the marketing mocks match
+ *  what the user sees inside the app. */
+const RUNTIME_PALETTE = {
+  claude:   { grad: "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)", text: "text-cyan-300",   pillBg: "bg-cyan-500/15 text-cyan-300",     railColor: "bg-cyan-400/60",   label: "Claude" },
+  codex:    { grad: "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)", text: "text-amber-300",  pillBg: "bg-amber-500/15 text-amber-300",   railColor: "bg-amber-400/60",  label: "OpenAI" },
+  openclaw: { grad: "linear-gradient(140deg, #a78bfa 0%, #7c3aed 100%)", text: "text-violet-300", pillBg: "bg-violet-500/15 text-violet-300", railColor: "bg-violet-400/60", label: "OpenClaw" },
+  hermes:   { grad: "linear-gradient(140deg, #fb7185 0%, #be123c 100%)", text: "text-rose-300",   pillBg: "bg-rose-500/15 text-rose-300",     railColor: "bg-rose-400/60",   label: "Hermes" },
+} as const;
+
 function MockMessage({ name, time, body, runtime, muted }: {
   name: string; time: string; body: string;
-  runtime?: "claude" | "codex";
+  runtime?: keyof typeof RUNTIME_PALETTE;
   muted?: boolean;
 }): React.ReactElement {
   const isAgent = !!runtime;
-  // Agents get their runtime brand color (cyan = Claude, amber = Codex).
-  // Humans get a name-hashed gradient — varied but stable per name.
-  let avatarBg: string;
-  if (isAgent) {
-    avatarBg = runtime === "codex"
-      ? "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)"
-      : "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)";
-  } else {
-    const h = nameHue(name);
-    // 30° hue offset between stops gives a "jelly" highlight on the avatar
-    // that reads as warm + alive rather than flat. Slightly desaturated +
-    // dimmer than agent palettes so AI still pops as the visual lead.
-    avatarBg = `linear-gradient(140deg, hsl(${h}, 65%, 58%) 0%, hsl(${(h + 30) % 360}, 65%, 42%) 100%)`;
-  }
+  const palette = runtime ? RUNTIME_PALETTE[runtime] : null;
+  // Agents get their runtime brand color. Humans get a name-hashed
+  // gradient — varied but stable per name. Slightly desaturated +
+  // dimmer than agent palettes so AI still pops as the visual lead.
+  const avatarBg = palette
+    ? palette.grad
+    : `linear-gradient(140deg, hsl(${nameHue(name)}, 65%, 58%) 0%, hsl(${(nameHue(name) + 30) % 360}, 65%, 42%) 100%)`;
   return (
-    <div className={"relative flex gap-3 " + (isAgent ? "before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:bg-cyan-400/60" : "")}>
+    <div className={"relative flex gap-3 " + (isAgent && palette ? `before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:${palette.railColor}` : "")}>
       <div
         className="relative size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-zinc-800"
         style={{ background: avatarBg }}
@@ -1128,21 +1186,15 @@ function MockMessage({ name, time, body, runtime, muted }: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className={"text-sm font-semibold " + (isAgent
-            ? (runtime === "codex" ? "text-amber-300" : "text-cyan-300")
-            : "text-zinc-200")}>{name}</span>
-          {isAgent && (
-            // Pills show recognizable provider brand names ("Claude" /
-            // "OpenAI"), not internal runtime keys ("claude" / "codex").
-            // A buyer scanning the page should immediately see "this AI
-            // is the Claude/OpenAI my team already trusts", not a tech-jargon
-            // code-style chip.
-            <span className={
-              "rounded-full px-1.5 py-px text-[10px] font-semibold tracking-wide " +
-              (runtime === "codex"
-                ? "bg-amber-500/15 text-amber-300"
-                : "bg-cyan-500/15 text-cyan-300")
-            }>{runtime === "codex" ? "OpenAI" : "Claude"}</span>
+          <span className={"text-sm font-semibold " + (palette ? palette.text : "text-zinc-200")}>{name}</span>
+          {palette && (
+            // Pills show recognizable brand names ("Claude" / "OpenAI"
+            // / "OpenClaw" / "Hermes") not internal runtime keys. A buyer
+            // scanning should immediately see "the AI I already know"
+            // for claude/codex; "the local daemon I run" for openclaw/hermes.
+            <span className={"rounded-full px-1.5 py-px text-[10px] font-semibold tracking-wide " + palette.pillBg}>
+              {palette.label}
+            </span>
           )}
           <span className="text-[11px] text-zinc-600">{time}</span>
         </div>

@@ -26,6 +26,15 @@ export default function robots(): MetadataRoute.Robots {
           "/invite/",
           "/verify-email",
           "/reset-password",
+          // /teams is NOINDEX (waitlist-only) per codex MED-6 until
+          // P4 billing ships.
+          "/teams",
+          // OpenClaw + Hermes runtime pages are NOINDEX until smoke
+          // verification completes (codex review HIGH-2). Their
+          // page.tsx also carries `robots: { index: false }` for
+          // belt-and-braces.
+          "/runtimes/openclaw",
+          "/runtimes/hermes",
         ],
       },
     ],
