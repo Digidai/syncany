@@ -839,8 +839,8 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
   // Local WS dropped → show that first; nothing else matters until reconnect.
   if (!connected) {
     return (
-      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-warning/30 bg-warning/10 text-warning-foreground">
+        <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
         Connecting…
       </span>
     );
@@ -855,12 +855,12 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
         <span className={
           "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium " +
           (peer.online
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            ? "border-success/30 bg-success/10 text-success-foreground"
             : "border-zinc-300 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400")
         }>
           <span className={
             "h-1.5 w-1.5 rounded-full " +
-            (peer.online ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-zinc-400")
+            (peer.online ? "bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-zinc-400")
           } />
           {label}
         </span>
@@ -878,8 +878,8 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
       .map(m => m.memberId);
     const onlineCount = humanMemberIds.filter(id => id === userId || presence[id]?.online).length;
     return (
-      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-success/30 bg-success/10 text-success-foreground">
+        <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
         {onlineCount} online
       </span>
     );
@@ -889,8 +889,8 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
   // Agents have their own status mechanism via useAgentActivity; the
   // pill is just a "we're connected" affordance here.
   return (
-    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-success/30 bg-success/10 text-success-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
       Live
     </span>
   );

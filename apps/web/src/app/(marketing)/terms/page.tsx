@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MarketingShell } from "@/components/marketing/shell";
 import { MarketingFooter } from "@/components/marketing/footer";
 
 /**
@@ -24,7 +23,7 @@ const LAST_UPDATED = "May 23, 2026";
 
 export default function TermsPage() {
   return (
-    <MarketingShell>
+    <>
       <article className="mx-auto max-w-3xl px-6 pt-32 pb-24 text-zinc-200 sm:pt-40">
         <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Legal</p>
         <h1 className="mt-3 text-4xl font-medium tracking-[-0.02em] text-white">Terms of Service</h1>
@@ -140,7 +139,7 @@ export default function TermsPage() {
         </P>
       </article>
       <MarketingFooter />
-    </MarketingShell>
+    </>
   );
 }
 

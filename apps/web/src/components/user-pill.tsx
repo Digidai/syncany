@@ -118,7 +118,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
               future status picker (Online / Away / Do not disturb)
               replaces this row's onClick. */}
           <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+            <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
             Online · teammates can see this
           </DropdownMenuLabel>
           <DropdownMenuLabel className="truncate text-[10.5px] font-normal text-muted-foreground">
@@ -158,7 +158,7 @@ function SelfStatusLine() {
   return (
     <div className="mt-0.5 flex items-center gap-1 text-[10px] leading-tight text-muted-foreground">
       <span
-        className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.55)]"
+        className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_4px_rgba(16,185,129,0.55)]"
         aria-hidden="true"
       />
       Online

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Laptop, Cloud, KeyRound, Sparkles } from "lucide-react";
-import { MarketingShell } from "@/components/marketing/shell";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { NewsletterSignup } from "@/components/marketing/newsletter-signup";
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function IndiePage() {
   return (
-    <MarketingShell>
+    <>
       <section className="border-b border-zinc-900 bg-black px-6 pt-32 pb-20 sm:pt-40">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
@@ -125,7 +124,7 @@ export default function IndiePage() {
       </section>
 
       <MarketingFooter />
-    </MarketingShell>
+    </>
   );
 }
 

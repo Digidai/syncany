@@ -367,8 +367,8 @@ function AgentRow({ agent: a, activity: act, serverSlug, active }: {
           act?.status === "thinking" ? "bg-violet-500 animate-pulse" :
           act?.status === "working"  ? "bg-blue-500 animate-pulse" :
           act?.status === "error"    ? "bg-red-500" :
-          a.status === "online"      ? "bg-emerald-500" :
-          a.status === "sleeping"    ? "bg-amber-500" : "bg-zinc-400")} />
+          a.status === "online"      ? "bg-success" :
+          a.status === "sleeping"    ? "bg-warning" : "bg-zinc-400")} />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="truncate leading-tight">{a.displayName}</span>
@@ -435,7 +435,7 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
             humanPeerPresence.online
-              ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.55)]"
+              ? "bg-success shadow-[0_0_5px_rgba(16,185,129,0.55)]"
               : "bg-zinc-400/60",
           )}
           aria-label={humanPeerPresence.online ? "Online" : "Offline"}

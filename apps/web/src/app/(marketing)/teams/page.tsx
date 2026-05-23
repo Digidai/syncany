@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, KeyRound, Users } from "lucide-react";
-import { MarketingShell } from "@/components/marketing/shell";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
@@ -32,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function TeamsPage() {
   return (
-    <MarketingShell>
+    <>
       <section className="border-b border-zinc-900 bg-black px-6 pt-32 pb-20 sm:pt-40">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-xs font-medium text-amber-200">
@@ -126,7 +125,7 @@ export default function TeamsPage() {
       </section>
 
       <MarketingFooter />
-    </MarketingShell>
+    </>
   );
 }
 

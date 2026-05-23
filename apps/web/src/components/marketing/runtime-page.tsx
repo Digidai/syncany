@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ExternalLink, Terminal } from "lucide-react";
-import { MarketingShell } from "./shell";
 import { MarketingFooter } from "./footer";
 import { SectionHeader } from "./section-header";
 import type { RuntimeDoc } from "./runtime-data";
@@ -37,7 +36,7 @@ const ACCENT_GLOW: Record<RuntimeDoc["accent"], string> = {
  */
 export function RuntimePage({ doc }: { doc: RuntimeDoc }) {
   return (
-    <MarketingShell>
+    <>
       <Hero doc={doc} />
       <section className="border-y border-zinc-900 bg-black">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2">
@@ -68,7 +67,7 @@ export function RuntimePage({ doc }: { doc: RuntimeDoc }) {
       <Faq doc={doc} />
       <Cta doc={doc} />
       <MarketingFooter />
-    </MarketingShell>
+    </>
   );
 }
 

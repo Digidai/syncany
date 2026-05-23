@@ -5,10 +5,8 @@ import {
   X, Minus,
 } from "lucide-react";
 import { HomeCta } from "@/components/home-cta";
-import { MarketingNav } from "@/components/marketing-nav";
 import { RalticLogo } from "@/components/raltic-logo";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
-import { MarketingTracking } from "@/components/marketing/tracking";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Marketing landing page.
@@ -43,15 +41,13 @@ import { MarketingTracking } from "@/components/marketing/tracking";
 
 export default function Home(): React.ReactElement {
   return (
-    <div className="dark bg-black text-white">
+    <>
       {/* Signed-in users get redirected into their default workspace
           before marketing fully paints (small `/me` round-trip flash).
-          Signed-out users: no-op, marketing renders as normal. */}
+          `/` only — sub-pages stay browseable for signed-in users.
+          Layout (`(marketing)/layout.tsx`) provides nav + tracking +
+          dark theme via MarketingShell. */}
       <SignedInRedirect />
-      {/* Marketing event beacon — UTM capture + landing_view. Safe no-op
-          when blocked by adblock or sendBeacon unsupported. */}
-      <MarketingTracking />
-      <MarketingNav />
 
       <Hero />
       <TwoWaysToRun />
@@ -68,7 +64,7 @@ export default function Home(): React.ReactElement {
       <FAQ />
       <FinalCta />
       <Footer />
-    </div>
+    </>
   );
 }
 
