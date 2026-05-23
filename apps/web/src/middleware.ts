@@ -24,14 +24,17 @@ const PUBLIC_PATHS = [
 //
 // Prefix match (startsWith) — so /runtimes ALSO covers /runtimes/claude etc.
 const PUBLIC_MARKETING = [
-  "/runtimes",          // hub + /runtimes/{claude,codex,openclaw,hermes}
-  "/indie",             // indie-dev landing
-  "/teams",             // mid-market waitlist (noindex but still public)
-  "/connectors",        // connector overview
-  "/security",          // security/privacy disclosures
-  "/privacy",           // privacy policy
-  "/terms",             // terms of service
-  "/api/marketing",     // beacon sink (POST /api/marketing/event)
+  "/runtimes",                // hub + /runtimes/{claude,codex,openclaw,hermes}
+  "/indie",                   // indie-dev landing
+  "/teams",                   // mid-market waitlist (noindex but still public)
+  "/connectors",              // connector overview
+  "/security",                // security/privacy disclosures
+  "/privacy",                 // privacy policy
+  "/terms",                   // terms of service
+  // Codex review MED: narrowed from "/api/marketing" — future sub-routes
+  // under that prefix must be added explicitly so we don't accidentally
+  // expose a new auth-needing surface.
+  "/api/marketing/event",     // beacon sink (POST only)
 ];
 
 // SEO / crawler files served as-is. Without this carve-out, the middleware
@@ -54,12 +57,16 @@ const PUBLIC_FILES = new Set(["/sitemap.xml", "/robots.txt", "/favicon.ico"]);
 const PUBLIC_PREFIXES = ["/icon", "/apple-icon", "/opengraph-image", "/twitter-image"];
 
 // `/` is the public marketing landing — rendered for everyone.
+//
+// Note: req.nextUrl.pathname NEVER contains "?" or "#" (those live on
+// nextUrl.search / .hash). Earlier draft included `startsWith(${p}?)`
+// matchers — invalid; removed per codex review LOW.
 function isPublicPath(pathname: string): boolean {
   return pathname === "/"
     || PUBLIC_FILES.has(pathname)
-    || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}-`) || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}?`))
+    || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}-`) || pathname.startsWith(`${p}/`))
     || PUBLIC_PATHS.some((p) => pathname.startsWith(p))
-    || PUBLIC_MARKETING.some((p) => pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}?`));
+    || PUBLIC_MARKETING.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 // better-auth cookie names are like "better-auth.session_token" in plain
 // HTTP and "__Secure-better-auth.session_token" / "__Host-..." over HTTPS.

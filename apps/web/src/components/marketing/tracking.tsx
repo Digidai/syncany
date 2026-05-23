@@ -43,6 +43,9 @@ export function MarketingTracking({ event = "landing_view" }: { event?: string }
       }
       // Beacon the event. Use sendBeacon if available so it survives
       // navigation away from the page; fall back to fetch with keepalive.
+      // Keep this object's `event` field in lock-step with
+      // ALLOWED_EVENTS in apps/web/src/app/api/marketing/event/route.ts
+      // — the server rejects anything not on the allowlist (400).
       const body = JSON.stringify({
         event,
         path: window.location.pathname,

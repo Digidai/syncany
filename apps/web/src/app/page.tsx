@@ -119,17 +119,21 @@ function Hero(): React.ReactElement {
               for chat-as-destination products. `and AI` in cyan picks
               up the eyebrow's accent so the eye lands on the dual-actor
               positioning twice without it being said twice. */}
+          {/* Codex GTM H1: original headline was "Where humans and AI
+              ship together" — pretty but buried the dual-mode story.
+              Lead with the actual choice so a 5-second skim conveys
+              "I can use Raltic's Agent OR mine". */}
           <h1 className="mt-8 text-balance text-5xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-7xl">
-            Where humans{" "}
-            <span className="text-cyan-400">and AI</span>
+            Your AI Agent.<br />
+            <span className="text-cyan-400">Or theirs.</span>
             <br className="hidden sm:inline" />{" "}
-            ship together.
+            <span className="text-zinc-400">In the same team chat.</span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-zinc-400 sm:text-lg">
-            Raltic is the team chat where humans and AI agents share the same channels.
-            <span className="text-zinc-200"> Use our default cloud Agent</span> (zero install, customizable),{" "}
-            <span className="text-zinc-200">or bring your own</span> — Claude Code, Codex, OpenClaw, Hermes.
+            Raltic is team chat where AI agents are first-class teammates.
+            <span className="text-zinc-200"> Spin up our default cloud Agent</span> in seconds, or{" "}
+            <span className="text-zinc-200">connect Claude Code, Codex, OpenClaw, Hermes</span> from your laptop. Mix in the same workspace.
           </p>
 
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -1230,12 +1234,19 @@ function nameHue(name: string): number {
 /** Per-runtime visual palette used by MockMessage. Keep in sync with
  *  RuntimeChip (apps/web/src/app/s/[slug]/agents/page.tsx) and RuntimeDot
  *  (apps/web/src/components/sidebar.tsx) so the marketing mocks match
- *  what the user sees inside the app. */
+ *  what the user sees inside the app.
+ *
+ *  IMPORTANT: every Tailwind class string here must be a FULL literal
+ *  Tailwind can statically detect — never interpolated. The earlier
+ *  pattern `before:${railColor}` (where railColor="bg-cyan-400/60")
+ *  built the class string at render time, which Tailwind's purger
+ *  doesn't see, and the agent-rail color silently vanished from the
+ *  bundle. Codex review LOW. Now: rail uses full class strings. */
 const RUNTIME_PALETTE = {
-  claude:   { grad: "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)", text: "text-cyan-300",   pillBg: "bg-cyan-500/15 text-cyan-300",     railColor: "bg-cyan-400/60",   label: "Claude" },
-  codex:    { grad: "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)", text: "text-amber-300",  pillBg: "bg-amber-500/15 text-amber-300",   railColor: "bg-amber-400/60",  label: "OpenAI" },
-  openclaw: { grad: "linear-gradient(140deg, #a78bfa 0%, #7c3aed 100%)", text: "text-violet-300", pillBg: "bg-violet-500/15 text-violet-300", railColor: "bg-violet-400/60", label: "OpenClaw" },
-  hermes:   { grad: "linear-gradient(140deg, #fb7185 0%, #be123c 100%)", text: "text-rose-300",   pillBg: "bg-rose-500/15 text-rose-300",     railColor: "bg-rose-400/60",   label: "Hermes" },
+  claude:   { grad: "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)", text: "text-cyan-300",   pillBg: "bg-cyan-500/15 text-cyan-300",     rail: "before:bg-cyan-400/60",   label: "Claude" },
+  codex:    { grad: "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)", text: "text-amber-300",  pillBg: "bg-amber-500/15 text-amber-300",   rail: "before:bg-amber-400/60",  label: "OpenAI" },
+  openclaw: { grad: "linear-gradient(140deg, #a78bfa 0%, #7c3aed 100%)", text: "text-violet-300", pillBg: "bg-violet-500/15 text-violet-300", rail: "before:bg-violet-400/60", label: "OpenClaw" },
+  hermes:   { grad: "linear-gradient(140deg, #fb7185 0%, #be123c 100%)", text: "text-rose-300",   pillBg: "bg-rose-500/15 text-rose-300",     rail: "before:bg-rose-400/60",   label: "Hermes" },
 } as const;
 
 function MockMessage({ name, time, body, runtime, muted }: {
@@ -1252,7 +1263,7 @@ function MockMessage({ name, time, body, runtime, muted }: {
     ? palette.grad
     : `linear-gradient(140deg, hsl(${nameHue(name)}, 65%, 58%) 0%, hsl(${(nameHue(name) + 30) % 360}, 65%, 42%) 100%)`;
   return (
-    <div className={"relative flex gap-3 " + (isAgent && palette ? `before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:${palette.railColor}` : "")}>
+    <div className={"relative flex gap-3 " + (isAgent && palette ? `before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full ${palette.rail}` : "")}>
       <div
         className="relative size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-zinc-800"
         style={{ background: avatarBg }}

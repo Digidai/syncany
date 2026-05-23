@@ -82,12 +82,12 @@ export function HomeCta(): React.ReactElement {
     );
   }
 
-  // Single primary CTA. Sign in lives in the top nav — duplicating it in
-  // the hero made the row feel like a generic "two-button login screen"
-  // instead of a confident "this is the action" landing.
+  // Primary CTA — labels the actual default path (cloud-native Agent)
+  // instead of a generic "Get started". Codex GTM H2: makes the dual-mode
+  // story explicit at the click, not just in the page body.
   return (
     <Link href="/signup" className={`${primaryCta} ${CTA_MIN}`}>
-      Get started <span aria-hidden="true">→</span>
+      Start a cloud Agent <span aria-hidden="true">→</span>
     </Link>
   );
 }
