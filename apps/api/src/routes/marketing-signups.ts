@@ -82,6 +82,30 @@ function isBodyTooLarge(req: Request): boolean {
   return Number.isFinite(n) && n > MAX_BODY_BYTES;
 }
 
+/** Flatten an error AND its .cause (Drizzle wraps D1 errors with
+ *  "Failed query: ..." and tucks the SQLite-level cause into .cause).
+ *  Used to detect UNIQUE-constraint collisions from inside a catch. */
+function flattenError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const parts = [e.message];
+  const cause = (e as { cause?: unknown }).cause;
+  if (cause instanceof Error) parts.push(cause.message);
+  else if (typeof cause === "string") parts.push(cause);
+  else if (cause && typeof cause === "object") {
+    try { parts.push(JSON.stringify(cause)); } catch { /* skip */ }
+  }
+  return parts.join(" | ");
+}
+
+/** UNIQUE-constraint detector resilient to Drizzle's wrapper. Matches
+ *  any of: "UNIQUE", "constraint failed", "D1_ERROR:" (Cloudflare's
+ *  wrapped error prefix). Earlier draft only matched "UNIQUE", which
+ *  Drizzle's "Failed query: insert into..." wrapper hides. */
+function isUniqueViolation(e: unknown): boolean {
+  const msg = flattenError(e);
+  return /UNIQUE|constraint failed|D1_ERROR/i.test(msg);
+}
+
 marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
   if (isBodyTooLarge(c.req.raw)) return c.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" } }, 413);
 
@@ -124,11 +148,10 @@ marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
     // the error but still fired notify on every retry, so a single
     // visitor hitting Submit twice would spam hello@raltic.com.
     // Claude review H1.
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("UNIQUE")) {
+    if (isUniqueViolation(e)) {
       return c.json({ ok: true, deduped: true });
     }
-    console.error("[waitlist] insert failed:", msg);
+    console.error("[waitlist] insert failed:", flattenError(e));
     return c.json({ error: { code: "INTERNAL", message: "couldn't save your submission, please retry" } }, 500);
   }
 
@@ -175,11 +198,10 @@ marketingSignupsRoutes.post("/api/v1/marketing/newsletter", async (c) => {
       createdAt: new Date(),
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("UNIQUE")) {
+    if (isUniqueViolation(e)) {
       return c.json({ ok: true, deduped: true });
     }
-    console.error("[newsletter] insert failed:", msg);
+    console.error("[newsletter] insert failed:", flattenError(e));
     return c.json({ error: { code: "INTERNAL", message: "couldn't save your subscription, please retry" } }, 500);
   }
 
