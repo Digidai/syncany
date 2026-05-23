@@ -186,6 +186,32 @@ export async function seedPersonalDefaults(
   // the call site (see below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const batchOps: any[] = [];
+  // Migration for pre-fix existing Onboarding Assistants (codex P3
+  // final review HIGH): users who signed up BEFORE the runtime_mode
+  // fix have an Onboarding Assistant with runtimeMode='bridge' (or
+  // unset → schema default 'bridge'), model='sonnet', status='offline'
+  // — silently dead air. When the existing-row branch is taken, also
+  // queue an idempotent UPDATE that lifts those rows into the new
+  // raltic-mode defaults. The cloud RalticAgent ignores the DB model
+  // anyway and resolves via tier policy, but stamping 'claude-haiku-4-5'
+  // here keeps the UI honest about what they're talking to.
+  if (existingAgent[0]) {
+    batchOps.push(
+      db.update(agents)
+        .set({
+          runtimeMode: "raltic",
+          model: "claude-haiku-4-5",
+          status: "online",
+          updatedAt: now,
+        })
+        .where(and(
+          eq(agents.id, existingAgent[0].id),
+          // Only touch rows still on the OLD seed shape — don't
+          // clobber an agent the user has since edited.
+          eq(agents.runtimeMode, "bridge"),
+        )),
+    );
+  }
   if (!existingAgent[0]) {
     batchOps.push(db.insert(agents).values({
       id: agentId,
@@ -290,7 +316,7 @@ export async function seedPersonalDefaults(
       // lead with concrete next-steps; mirror that here so the
       // user has something to react to BEFORE typing.
       welcomeMessage(agentId,
-        `Hi **${opts.ownerName}** 👋 — I'm your Onboarding Assistant. I run in Raltic's cloud, so this works even before you set up anything else.\n\nTry asking me one of these:\n\n• "What can you do?"\n• "Help me create my first agent"\n• "How do I invite a teammate?"\n\nOr just tell me what you're trying to build and I'll suggest a path.`),
+        `Hi **${opts.ownerName}** 👋 — I'm your Onboarding Assistant. I run in Raltic's cloud, so this works even before you set up anything else.\n\nTry asking me one of these:\n\n- "What can you do?"\n- "Help me create my first agent"\n- "How do I invite a teammate?"\n\nOr just tell me what you're trying to build and I'll suggest a path.`),
     ]));
   }
   if (seedTasks.length > 0) {

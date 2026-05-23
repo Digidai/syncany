@@ -124,9 +124,16 @@ export const serversRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
 const AGENT_STATUS_STALE_MS = 2 * 60_000;
 type AgentStatus = "online" | "sleeping" | "offline";
 
-function computedAgentStatus<T extends { status: AgentStatus; updatedAt: Date | number | string }>(
+function computedAgentStatus<T extends { status: AgentStatus; updatedAt: Date | number | string; runtimeMode?: string | null }>(
   agent: T,
 ): Omit<T, "status"> & { status: AgentStatus } {
+  // Raltic-runtime agents don't have a bridge that heartbeats — they
+  // live in CF Durable Objects and respond on demand. Stale `updatedAt`
+  // doesn't mean they're down, it just means nothing has bumped the
+  // row recently. Exempt them from the staleness check (codex P3 final
+  // review MED — without this, a newly seeded raltic Onboarding
+  // Assistant flips to 'offline' in the UI 2 minutes after seed).
+  if (agent.runtimeMode && agent.runtimeMode !== "bridge") return agent;
   const updatedAt = agent.updatedAt instanceof Date
     ? agent.updatedAt.getTime()
     : typeof agent.updatedAt === "number"
