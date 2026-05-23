@@ -49,9 +49,14 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     return (
       <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
         <div className="h-6 w-6 animate-pulse rounded-full bg-muted/60" />
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1">
+          {/* Skeleton heights match the resolved pill: name row uses
+              text-xs (~12px) → h-3 placeholder; status row uses
+              text-[10px] (~10-11px) → h-3 placeholder. mt-0.5 (~2px)
+              mirrors the SelfStatusLine spacing so hydration is
+              zero-drift. Claude review M3. */}
           <div className="h-3 w-20 animate-pulse rounded bg-muted/40" />
-          <div className="h-2 w-14 animate-pulse rounded bg-muted/30" />
+          <div className="mt-0.5 h-3 w-14 animate-pulse rounded bg-muted/30" />
         </div>
       </div>
     );
@@ -64,9 +69,11 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
-        // Accessible name combines identity + status so screen readers
-        // announce both when focus lands. Codex review LOW.
-        aria-label={`Account menu, signed in as ${user.name ?? user.email}, online`}
+        // No aria-label here — when present, it OVERRIDES the accessible
+        // name computed from contents, hiding the visible username from
+        // screen readers. The trigger's accessible name now comes from
+        // its inner text (name + sr-only ", online" + "Account menu"
+        // helper). Claude review M4.
       >
         {user.image ? (
           // Untrusted URL → no-referrer keeps it from leaking who-uses-Raltic
@@ -84,12 +91,17 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-medium leading-tight">{user.name ?? user.email}</div>
+          <div className="truncate text-xs font-medium leading-tight">
+            {user.name ?? user.email}
+            {/* sr-only suffix so AT reads "Gene, online, account menu"
+                without duplicating "Online" twice. Visible status is
+                rendered by SelfStatusLine below. */}
+            <span className="sr-only">, online, account menu</span>
+          </div>
           {/* Visible status line so the green dot's meaning isn't
-              hover-locked. Codex review MED — "what's the dot mean?"
-              is the user's literal complaint. The dot is decorative
-              (aria-hidden) because the word "Online" carries the
-              meaning for assistive tech. */}
+              hover-locked. The dot is aria-hidden because the visible
+              word "Online" carries the meaning for assistive tech
+              (mirrored in the sr-only suffix above for AT users). */}
           <SelfStatusLine />
         </div>
         <ChevronUp className="h-3 w-3 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />

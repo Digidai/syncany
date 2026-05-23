@@ -60,7 +60,11 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+    // Position relative on the form so any absolutely-positioned
+    // status text (the sm:absolute error below) anchors to THIS
+    // form and not the nearest positioned ancestor (the page
+    // section). Claude review L6.
+    <form onSubmit={handleSubmit} className="relative flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
       <input
         type="email"
         required

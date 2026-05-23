@@ -71,7 +71,20 @@ function userAgent(req: Request): string {
   return (req.headers.get("user-agent") ?? "unknown").slice(0, 200);
 }
 
+const MAX_BODY_BYTES = 4096;
+
+/** Reject early on Content-Length so we don't parse multi-MB JSON
+ *  before zod gets the chance to cap fields. Codex-style M5 fix. */
+function isBodyTooLarge(req: Request): boolean {
+  const cl = req.headers.get("content-length");
+  if (!cl) return false;
+  const n = Number(cl);
+  return Number.isFinite(n) && n > MAX_BODY_BYTES;
+}
+
 marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
+  if (isBodyTooLarge(c.req.raw)) return c.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" } }, 413);
+
   let parsed: z.infer<typeof waitlistBody>;
   try { parsed = waitlistBody.parse(await c.req.json()); }
   catch (e) {
@@ -86,6 +99,7 @@ marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
   const db = drizzle(c.env.DB);
   const id = crypto.randomUUID();
   const now = new Date();
+  const ua = userAgent(c.req.raw);
   try {
     await db.insert(waitlistSignups).values({
       id,
@@ -98,25 +112,29 @@ marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
       utmCampaign: parsed.utmCampaign ?? null,
       refererPath: parsed.refererPath ?? null,
       ip,
-      userAgent: userAgent(c.req.raw),
+      userAgent: ua,
       status: "new",
       adminNote: null,
       createdAt: now,
       updatedAt: now,
     });
   } catch (e) {
-    // Unique-index collision (same email + path) — treat as success
-    // since the visitor's intent is already on file.
+    // Unique-index collision (same email + refererPath) — return
+    // deduped success and SKIP the notify email. Earlier draft swallowed
+    // the error but still fired notify on every retry, so a single
+    // visitor hitting Submit twice would spam hello@raltic.com.
+    // Claude review H1.
     const msg = e instanceof Error ? e.message : String(e);
-    if (!msg.includes("UNIQUE")) {
-      console.error("[waitlist] insert failed:", msg);
-      return c.json({ error: { code: "INTERNAL", message: "couldn't save your submission, please retry" } }, 500);
+    if (msg.includes("UNIQUE")) {
+      return c.json({ ok: true, deduped: true });
     }
+    console.error("[waitlist] insert failed:", msg);
+    return c.json({ error: { code: "INTERNAL", message: "couldn't save your submission, please retry" } }, 500);
   }
 
-  // Fire-and-forget email so the response stays snappy. Email failure
-  // doesn't undo the persisted row.
-  c.executionCtx.waitUntil(notifyHumanWaitlist(c.env, parsed).catch((e) => {
+  // Fire-and-forget email so the response stays snappy. Only runs on
+  // the SUCCESS path now (the UNIQUE branch returns early above).
+  c.executionCtx.waitUntil(notifyHumanWaitlist(c.env, parsed, { ip, ua, submittedAt: now }).catch((e) => {
     console.warn("[waitlist] notification email failed:", e instanceof Error ? e.message : String(e));
   }));
 
@@ -124,6 +142,8 @@ marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
 });
 
 marketingSignupsRoutes.post("/api/v1/marketing/newsletter", async (c) => {
+  if (isBodyTooLarge(c.req.raw)) return c.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" } }, 413);
+
   let parsed: z.infer<typeof newsletterBody>;
   try { parsed = newsletterBody.parse(await c.req.json()); }
   catch (e) {
@@ -139,14 +159,11 @@ marketingSignupsRoutes.post("/api/v1/marketing/newsletter", async (c) => {
   const id = crypto.randomUUID();
   const email = parsed.email.toLowerCase().trim();
   try {
-    // Soft idempotency: if the email already exists, update the row's
-    // page / utm / created_at instead of erroring. The user just wants
-    // to be on the list.
-    const existing = await db.select({ id: newsletterSignups.id })
-      .from(newsletterSignups).where(eq(newsletterSignups.email, email)).limit(1);
-    if (existing.length > 0) {
-      return c.json({ ok: true, id: existing[0].id, deduped: true });
-    }
+    // INSERT-then-catch. Earlier draft did SELECT-then-INSERT which
+    // was a wasted D1 read AND still raced (two near-simultaneous
+    // submits both passed the SELECT then one lost the INSERT).
+    // Now: rely solely on the UNIQUE catch for idempotency. Claude
+    // review M2.
     await db.insert(newsletterSignups).values({
       id,
       email,
@@ -173,8 +190,15 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 }
 
-async function notifyHumanWaitlist(env: Env, body: z.infer<typeof waitlistBody>): Promise<void> {
+async function notifyHumanWaitlist(
+  env: Env,
+  body: z.infer<typeof waitlistBody>,
+  meta: { ip: string; ua: string; submittedAt: Date },
+): Promise<void> {
   const subject = `[Waitlist] ${body.name} · ${body.company ?? "no company"} · ${body.teamSize ?? "n/a"}`;
+  // Plain <p> wrapping instead of <pre> — Outlook desktop strips
+  // <pre> styling. style="white-space:pre-wrap" on a <div> survives
+  // every major client. Claude review M1.
   const html = `
     <p>New <strong>Teams waitlist</strong> submission:</p>
     <table cellpadding="6" style="border-collapse:collapse;font-family:system-ui,sans-serif">
@@ -182,10 +206,13 @@ async function notifyHumanWaitlist(env: Env, body: z.infer<typeof waitlistBody>)
       <tr><td><strong>Email</strong></td><td><a href="mailto:${escapeHtml(body.email)}">${escapeHtml(body.email)}</a></td></tr>
       <tr><td><strong>Company</strong></td><td>${escapeHtml(body.company ?? "—")}</td></tr>
       <tr><td><strong>Team size</strong></td><td>${escapeHtml(body.teamSize ?? "—")}</td></tr>
-      <tr><td><strong>Use case</strong></td><td><pre style="white-space:pre-wrap;margin:0;font-family:inherit">${escapeHtml(body.useCase ?? "—")}</pre></td></tr>
+      <tr><td><strong>Use case</strong></td><td><div style="white-space:pre-wrap;margin:0">${escapeHtml(body.useCase ?? "—")}</div></td></tr>
       <tr><td><strong>UTM source</strong></td><td>${escapeHtml(body.utmSource ?? "—")}</td></tr>
       <tr><td><strong>UTM campaign</strong></td><td>${escapeHtml(body.utmCampaign ?? "—")}</td></tr>
       <tr><td><strong>Referrer</strong></td><td>${escapeHtml(body.refererPath ?? "—")}</td></tr>
+      <tr><td><strong>Submitted</strong></td><td>${escapeHtml(meta.submittedAt.toISOString())}</td></tr>
+      <tr><td><strong>IP</strong></td><td>${escapeHtml(meta.ip)}</td></tr>
+      <tr><td><strong>User-Agent</strong></td><td style="color:#666;font-size:11px">${escapeHtml(meta.ua)}</td></tr>
     </table>
     <p style="color:#888;font-size:12px;margin-top:24px">
       Saved to the <code>waitlist_signups</code> table. Reply directly to the visitor or update status in admin (TODO admin UI).
@@ -194,6 +221,6 @@ async function notifyHumanWaitlist(env: Env, body: z.infer<typeof waitlistBody>)
     to: "hello@raltic.com",
     subject,
     html,
-    text: `Waitlist: ${body.name} <${body.email}> · ${body.company ?? "—"} · ${body.teamSize ?? "—"}\n\n${body.useCase ?? "(no use case provided)"}`,
+    text: `Waitlist: ${body.name} <${body.email}> · ${body.company ?? "—"} · ${body.teamSize ?? "—"}\nSubmitted: ${meta.submittedAt.toISOString()}\nIP: ${meta.ip}\nUA: ${meta.ua}\n\n${body.useCase ?? "(no use case provided)"}`,
   });
 }
