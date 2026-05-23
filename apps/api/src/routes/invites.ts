@@ -121,6 +121,11 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
   await db.insert(invites).values({
     id, serverId: body.serverId, invitedBy: subject.userId,
     role: body.role, maxUses: 1, uses: 0, expiresAt, createdAt: new Date(),
+    // Email-pinned: only an authenticated user whose subject.email
+    // matches this value (case-insensitive) can accept the invite.
+    // Closes the "leaked/forwarded link" hole the codex P3 audit found.
+    // Lowercased here so the accept-side compare is a plain `===`.
+    email: body.email.toLowerCase(),
   });
   const url = `${c.env.WEB_ORIGIN}/invite/${id}`;
   // Look up server name + inviter name+email for the email body — so the
@@ -159,46 +164,83 @@ invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, async (c) => {
   if (inv.expiresAt && (inv.expiresAt as Date).getTime() <= Date.now()) {
     return c.json({ error: { code: "EXPIRED", message: "invite expired" } }, 410);
   }
-  if (inv.maxUses > 0 && inv.uses >= inv.maxUses) {
-    return c.json({ error: { code: "EXHAUSTED", message: "invite used up" } }, 410);
+
+  // Email-binding: an email-pinned invite refuses any subject whose
+  // verified email doesn't match. Closes the "forwarded/leaked link
+  // accepted by stranger" hole (codex P3 audit security HIGH).
+  // Shareable links (inv.email IS NULL) skip this check.
+  if (inv.email) {
+    // subject.userId → look up the user's email (subject doesn't
+    // currently carry email; resolve via the user table).
+    const u = await db.select({ email: user.email })
+      .from(user)
+      .where(eq(user.id, subject.userId))
+      .limit(1);
+    const callerEmail = (u[0]?.email ?? "").toLowerCase();
+    if (callerEmail !== inv.email.toLowerCase()) {
+      return c.json({
+        error: {
+          code: "EMAIL_MISMATCH",
+          message: "this invite was sent to a different email — sign in with that account",
+        },
+      }, 403);
+    }
   }
 
-  // Already a member?
+  // Already-member is now checked FIRST (codex P3 audit MED). Without
+  // this, a user who's already in the workspace would get EXHAUSTED
+  // after the invite hits max_uses by other invitees — confusing and
+  // wrong. Re-clicking own old invite link should be idempotent.
   const existing = await db.select({ id: serverMembers.serverId }).from(serverMembers)
     .where(and(
       eq(serverMembers.serverId, inv.serverId),
       eq(serverMembers.memberId, subject.userId),
       eq(serverMembers.memberType, "human"),
     )).limit(1);
-  if (existing.length === 0) {
-    // Race-safe: claim a slot via a conditional UPDATE that increments
-    // ONLY if max_uses=0 (unlimited) OR uses < max_uses. SQLite returns
-    // the changed row count via `meta.changes`; if 0, someone else used
-    // the last slot between our read and our write — refuse this accept.
-    // Otherwise, commit the membership in a batch alongside the increment.
-    const claim = await c.env.DB
-      .prepare("UPDATE invites SET uses = uses + 1 WHERE id = ? AND (max_uses = 0 OR uses < max_uses)")
-      .bind(id)
-      .run();
-    if (!claim.meta.changes) {
-      return c.json({ error: { code: "EXHAUSTED", message: "invite just used up" } }, 410);
-    }
-    try {
-      await db.insert(serverMembers).values({
-        serverId: inv.serverId, memberId: subject.userId,
-        memberType: "human", role: inv.role, joinedAt: new Date(),
-      });
-    } catch (e) {
-      // Rollback the slot we just claimed. Best-effort — if this fails the
-      // counter is one ahead of reality (the invite "looks" more-used than
-      // it is). Acceptable failure mode vs. the prior race where the
-      // counter under-counts and the cap is breached.
-      await db.update(invites)
-        .set({ uses: sqlFn`${invites.uses} - 1` })
-        .where(eq(invites.id, id))
-        .catch(() => { /* swallow — see comment above */ });
-      throw e;
-    }
+  if (existing.length > 0) {
+    const srv = await db.select({ slug: servers.slug }).from(servers).where(eq(servers.id, inv.serverId)).limit(1);
+    return c.json({ ok: true, alreadyMember: true, serverSlug: srv[0]?.slug });
+  }
+
+  if (inv.maxUses > 0 && inv.uses >= inv.maxUses) {
+    return c.json({ error: { code: "EXHAUSTED", message: "invite used up" } }, 410);
+  }
+
+  // Race-safe: claim a slot via a conditional UPDATE that increments
+  // ONLY if (max_uses=0 OR uses<max_uses) AND NOT revoked AND NOT
+  // expired. Without revoke/expiry in the WHERE, a revoke or expiry
+  // landing between our read and our write would still admit the
+  // user (codex P3 audit race HIGH).
+  const nowMs = Date.now();
+  const claim = await c.env.DB
+    .prepare(
+      "UPDATE invites SET uses = uses + 1 " +
+      "WHERE id = ? " +
+      "  AND (max_uses = 0 OR uses < max_uses) " +
+      "  AND revoked_at IS NULL " +
+      "  AND (expires_at IS NULL OR expires_at > ?)",
+    )
+    .bind(id, nowMs)
+    .run();
+  if (!claim.meta.changes) {
+    return c.json({
+      error: { code: "UNAVAILABLE", message: "invite is no longer accepting users" },
+    }, 410);
+  }
+  try {
+    await db.insert(serverMembers).values({
+      serverId: inv.serverId, memberId: subject.userId,
+      memberType: "human", role: inv.role, joinedAt: new Date(),
+    });
+  } catch (e) {
+    // Rollback the slot we just claimed. Best-effort — if this fails
+    // the counter over-counts (more permissive failure than the prior
+    // bug where it could under-count and breach the cap).
+    await db.update(invites)
+      .set({ uses: sqlFn`${invites.uses} - 1` })
+      .where(eq(invites.id, id))
+      .catch(() => { /* swallow — see comment above */ });
+    throw e;
   }
 
   const srv = await db.select({ slug: servers.slug }).from(servers).where(eq(servers.id, inv.serverId)).limit(1);

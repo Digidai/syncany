@@ -276,6 +276,13 @@ export const invites = sqliteTable("invites", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }),     // null = never
   revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  // P3 audit security HIGH (codex 4 + UX angle 5): email-pinned invites.
+  // When set, accept refuses any subject whose email != this value
+  // (case-insensitive). NULL = shareable link (any authenticated user
+  // can accept up to maxUses). Always populated by /invites/email so
+  // forwarded/leaked links from the email path can't be used by a
+  // stranger. Stored lowercased server-side for case-insensitive compare.
+  email: text("email"),
 }, (t) => [
   index("ix_invites_server").on(t.serverId),
   index("ix_invites_invited_by").on(t.invitedBy),

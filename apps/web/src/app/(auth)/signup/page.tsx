@@ -58,6 +58,43 @@ function SignupInner() {
   }, [resendReadyAt]);
   const cooldown = Math.max(0, Math.ceil((resendReadyAt - now) / 1000));
 
+  // Cross-tab handoff (codex P3 onboarding audit, UX angle 2 H1):
+  // when the verification link is clicked in a different tab in the
+  // SAME browser, that tab broadcasts {type: 'email-verified', email}
+  // on the 'raltic-auth' channel. We listen here so the signup tab
+  // auto-progresses to the destination instead of sitting on
+  // "check your inbox" forever. Cross-BROWSER still requires the
+  // user to come back to the original device, but at least same-
+  // browser is fixed (the vast majority of users).
+  useEffect(() => {
+    if (!sentTo) return;
+    if (typeof BroadcastChannel === "undefined") return;
+    let cancelled = false;
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("raltic-auth");
+      bc.onmessage = (ev) => {
+        if (cancelled) return;
+        const data = ev.data as { type?: string; email?: string } | undefined;
+        if (data?.type !== "email-verified") return;
+        // Only auto-advance if the broadcast was for THIS signup's email
+        // (defense against a stale message from a different account).
+        // The verifier may not send `email` for very old links — be
+        // permissive when it's missing.
+        if (data.email && data.email.toLowerCase() !== sentTo.toLowerCase()) return;
+        // Reload triggers better-auth's useSession to pick up the
+        // freshly-set cookie (same-origin cookie was set on the verify
+        // tab's response; this tab sees it after reload). A
+        // router.push won't pick up the new cookie state without one.
+        window.location.assign(nextPath);
+      };
+    } catch { /* feature-degraded */ }
+    return () => {
+      cancelled = true;
+      try { bc?.close(); } catch { /* ignore */ }
+    };
+  }, [sentTo, nextPath]);
+
   async function handleGoogle() {
     if (oauthLoading) return;
     setOauthLoading(true);

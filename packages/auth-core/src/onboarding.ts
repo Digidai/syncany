@@ -195,8 +195,21 @@ export async function seedPersonalDefaults(
       displayName: "Onboarding Assistant",
       description: "Helps you get set up with Raltic",
       systemPrompt: ONBOARDING_AGENT_PROMPT,
-      model: "sonnet",
-      status: "offline",
+      // P1+ ships a cloud sandbox; running the seeded assistant in
+      // raltic-mode means a brand-new user can DM it and get a real
+      // reply WITHOUT installing a local bridge first. Previously this
+      // omitted runtimeMode → schema default 'bridge' → cloud-only
+      // users saw dead air (4 independent reviewers flagged HIGH).
+      // The cloud RalticAgent ignores the DB `model` field and
+      // resolves to the first allowed model in its tier policy
+      // (currently claude-haiku-4-5), which is correct for an
+      // onboarding role.
+      runtimeMode: "raltic",
+      model: "claude-haiku-4-5",
+      // status: "online" matches reality for raltic agents — they
+      // don't require a local bridge to be running. Bridge agents
+      // remain "offline" until the bridge connects.
+      status: "online",
       isDefault: true,
       createdAt: now,
       updatedAt: now,
@@ -258,14 +271,26 @@ export async function seedPersonalDefaults(
   // already received their welcome on the prior run.
   const seedTasks: Promise<unknown>[] = [];
   if (!existingOnboardingCh[0]) {
+    // The #onboarding public channel is a tutorial transcript — three
+    // staged messages the user can scroll. Distinct from the DM
+    // (Q&A) so the public-channel feature itself is demonstrated.
     seedTasks.push(seedChannel(env, onboardingChannelId, [
       welcomeMessage(agentId,
-        `👋 Welcome to Raltic, **${opts.ownerName}**! I'm your Onboarding Assistant.\n\nLet me know how I can help.`),
+        `👋 Welcome to Raltic, **${opts.ownerName}**!\n\nThis channel is a quick tour. Read top to bottom — should take 2 minutes.`),
+      welcomeMessage(agentId,
+        `**1. Talk to me anytime.**\n\nIn the sidebar under *Direct messages*, click **Onboarding Assistant**. I can help you set goals, draft messages, or just answer "what does X do".`),
+      welcomeMessage(agentId,
+        `**2. Bring your own agents.**\n\nWhen you're ready to run an agent on your laptop (Claude Code, Codex CLI, …), go to **Settings → Runtimes** for the 2-minute bridge setup. Until then, you can chat with me — I run in Raltic's cloud, no install needed.`),
     ]));
   }
   if (!existingDmCh[0]) {
     seedTasks.push(seedChannel(env, dmChannelId, [
-      welcomeMessage(agentId, `Hi ${opts.ownerName}, you can DM me here anytime.`),
+      // First message in a DM should answer "what now?" — not a
+      // generic greeting. The system prompt expects the assistant to
+      // lead with concrete next-steps; mirror that here so the
+      // user has something to react to BEFORE typing.
+      welcomeMessage(agentId,
+        `Hi **${opts.ownerName}** 👋 — I'm your Onboarding Assistant. I run in Raltic's cloud, so this works even before you set up anything else.\n\nTry asking me one of these:\n\n• "What can you do?"\n• "Help me create my first agent"\n• "How do I invite a teammate?"\n\nOr just tell me what you're trying to build and I'll suggest a path.`),
     ]));
   }
   if (seedTasks.length > 0) {

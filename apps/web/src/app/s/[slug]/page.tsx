@@ -64,6 +64,10 @@ export default function ServerHomePage() {
   // Per-workspace bridge state — true iff THIS workspace has a key that
   // has ever been used. NOT a user-level flag (that was the original bug).
   const [hasBridgeHere, setHasBridgeHere] = useState<boolean | null>(null);
+  // True when this workspace has at least one runtime_mode='bridge'
+  // agent — the only case where missing-bridge is a real problem.
+  // Drives the new "soft nag vs hard nag" copy below.
+  const [hasBridgeAgents, setHasBridgeAgents] = useState<boolean>(false);
   // Personal-workspace bridge state — true iff the user's OWN workspace
   // has a connected bridge. Drives the "Set up your bridge in
   // <Personal>" banner on invited workspaces.
@@ -119,8 +123,12 @@ export default function ServerHomePage() {
         setHasBridgeInPersonal(personalBridge);
 
         // Auto-pop ONLY on personal workspace AND only if its bridge
-        // isn't connected AND not snoozed. Explicit `?wizard=1` always
-        // pops — that's how the "Re-open setup" link works.
+        // isn't connected AND not snoozed AND the user has at least
+        // one bridge-mode agent in this workspace. Cloud-only users
+        // shouldn't be forced through bridge setup just because they
+        // signed up — the seeded Onboarding Assistant is raltic-mode
+        // (codex P3 audit fix), so they can chat with it without
+        // installing anything (codex P3 audit Angle 6 HIGH).
         //
         // The key behavior change vs. the original bug: on an INVITED
         // workspace, we no longer auto-pop. Olivia ran the wizard on
@@ -128,9 +136,16 @@ export default function ServerHomePage() {
         // minted a key bound to Gene's serverId. Now we only pop where
         // the wizard's target (personal) IS the current workspace.
         const amOnPersonal = personalRef && personalRef.id === data.server.id;
+        const hasBridgeAgentHere = data.agents?.some(a => (a as { runtimeMode?: string }).runtimeMode === "bridge") ?? false;
+        setHasBridgeAgents(hasBridgeAgentHere);
         if (forceWizard) {
           setWizardOpen(true);
-        } else if (amOnPersonal && !personalBridge && !isWizardSnoozed(me.subject.userId, personalRef.slug)) {
+        } else if (
+          amOnPersonal &&
+          !personalBridge &&
+          hasBridgeAgentHere &&
+          !isWizardSnoozed(me.subject.userId, personalRef.slug)
+        ) {
           setWizardOpen(true);
         }
       } finally {
@@ -170,15 +185,32 @@ export default function ServerHomePage() {
 
         {onPersonalWorkspace ? (
           // ── On the user's OWN workspace ─────────────────────────────
-          hasBridgeHere ? (
-            <p className="text-sm text-muted-foreground">
-              Pick an agent or channel from the sidebar to start a conversation.
-            </p>
+          // Cloud-mode agents work without any bridge install, so the
+          // copy now adapts: if any cloud agent exists, point at it
+          // first; only nag for bridge if the user actually has a
+          // bridge-mode agent waiting (codex P3 audit Angle 6 HIGH +
+          // Angle 9 M1).
+          hasBridgeHere || !hasBridgeAgents ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Pick an agent or channel from the sidebar to start a conversation.
+              </p>
+              {/* Bridge is optional — surface it as a tertiary "later"
+                  CTA rather than the headline. */}
+              {!hasBridgeHere && (
+                <button
+                  onClick={() => setWizardOpen(true)}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Want to run agents on your own laptop? Set up the bridge (2 min)
+                </button>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Your workspace is ready, but no agent is online yet —
-                the bridge needs to run on your laptop.
+                One of your agents runs on your laptop, but the bridge
+                isn&apos;t connected yet. Two-minute setup brings it online.
               </p>
               <Button onClick={() => setWizardOpen(true)} className="mt-2">
                 <Sparkles className="mr-1 h-3.5 w-3.5" /> Start the 2-min setup
