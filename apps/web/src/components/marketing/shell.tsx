@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { MarketingNav } from "@/components/marketing-nav";
-import { SignedInRedirect } from "@/components/signed-in-redirect";
 import { MarketingTracking } from "@/components/marketing/tracking";
 
 /**
@@ -17,11 +16,15 @@ import { MarketingTracking } from "@/components/marketing/tracking";
  * losing the global footer.
  */
 export function MarketingShell({ children }: { children: ReactNode }) {
+  // NOTE: deliberately does NOT include SignedInRedirect.
+  // Auto-redirect to /s/[slug] only applies on the primary landing (`/`).
+  // Secondary marketing pages (/runtimes, /indie, /security, /privacy, etc.)
+  // are browsable by signed-in users — they may want to share a runtime
+  // page or re-read the security disclosures without being thrown back
+  // into their workspace. (Reported feedback: previously kicked signed-in
+  // users out of every marketing click — confusing UX.)
   return (
     <div className="dark bg-black text-white">
-      <SignedInRedirect />
-      {/* Fires once per landing — UTM persistence + landing_view event.
-          Per-page event overrides go via direct <MarketingTracking event=…/>. */}
       <MarketingTracking />
       <MarketingNav />
       {children}

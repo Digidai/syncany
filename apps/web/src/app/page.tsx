@@ -54,6 +54,7 @@ export default function Home(): React.ReactElement {
       <MarketingNav />
 
       <Hero />
+      <TwoWaysToRun />
       <RuntimeBadges />
       <Architecture />
       <Teammates />
@@ -126,10 +127,9 @@ function Hero(): React.ReactElement {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-zinc-400 sm:text-lg">
-            Your team's best AI conversations are stuck in private tabs —
-            forgotten by Tuesday. Raltic is the team chat where humans and AI
-            agents share the same channels, so every insight reaches the team
-            that can act on it.
+            Raltic is the team chat where humans and AI agents share the same channels.
+            <span className="text-zinc-200"> Use our default cloud Agent</span> (zero install, customizable),{" "}
+            <span className="text-zinc-200">or bring your own</span> — Claude Code, Codex, OpenClaw, Hermes.
           </p>
 
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -184,6 +184,77 @@ function Hero(): React.ReactElement {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+// ─────────────────────── Two ways to run ───────────────────────
+// Pointed feedback: the homepage didn't make it clear that there are
+// TWO entry paths — (1) Raltic's default cloud Agent, customizable
+// via system prompt, zero install; and (2) bring your own AI CLI
+// (Claude Code / Codex / OpenClaw / Hermes), runs on your machine.
+// Both paths land in the same chat surface. This section explicitly
+// surfaces the choice instead of hiding it in the runtime badges.
+
+function TwoWaysToRun(): React.ReactElement {
+  return (
+    <section className="border-b border-zinc-900 bg-black px-6 py-20 sm:py-24">
+      <div className="mx-auto max-w-5xl">
+        <p className="text-center text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+          Two ways to run
+        </p>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {/* Card 1: Cloud-native default agent */}
+          <div className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent p-6">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
+              <span className="h-1 w-1 rounded-full bg-cyan-400" />
+              Default · Zero install
+            </span>
+            <h3 className="mt-4 text-xl font-medium text-white">Raltic cloud Agent</h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Sign up, get an Agent running in our sandbox container in seconds. Give it a system prompt, point it at channels, done. We handle the routing, you write the persona.
+            </p>
+            <ul className="mt-5 space-y-1.5 text-[12.5px] text-zinc-400">
+              <li>· No daemon to install on your laptop</li>
+              <li>· Per-agent system prompt + memory</li>
+              <li>· Same chat surface as bridge agents — mix freely</li>
+            </ul>
+            <Link
+              href="/signup"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+            >
+              Start with the cloud Agent <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 2: Bring your own runtime */}
+          <div className="relative rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
+              <span className="h-1 w-1 rounded-full bg-zinc-400" />
+              Bring your own
+            </span>
+            <h3 className="mt-4 text-xl font-medium text-white">Your CLI · Your daemon</h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Already running Claude Code, Codex, OpenClaw, or Hermes locally? Install our bridge daemon (one line) and connect them as Agents. Your repo, secrets, and provider keys never leave your machine.
+            </p>
+            <ul className="mt-5 space-y-1.5 text-[12.5px] text-zinc-400">
+              <li>· 4 supported runtimes — pick per Agent</li>
+              <li>· Code + keys stay local; only chat crosses the wire</li>
+              <li>· Off-ramp anytime — one-click revoke per machine</li>
+            </ul>
+            <Link
+              href="/signup?wizard=1"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-200 hover:text-white"
+            >
+              Set up the bridge <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        <p className="mt-6 text-center text-[12px] text-zinc-500">
+          Mix and match per Agent in the same workspace. Switch any time.
+        </p>
       </div>
     </section>
   );
@@ -1062,20 +1133,25 @@ function Footer(): React.ReactElement {
           </p>
         </div>
         <FooterCol label="Product" links={[
+          { label: "Runtimes", href: "/runtimes" },
+          { label: "Connectors", href: "/connectors" },
+          { label: "Security", href: "/security" },
           { label: "How it works", href: "#how" },
-          { label: "Use cases", href: "#use-cases" },
+        ]} />
+        <FooterCol label="Audiences" links={[
+          { label: "For indie devs", href: "/indie" },
+          { label: "For teams (waitlist)", href: "/teams" },
           { label: "Pricing", href: "#pricing" },
           { label: "FAQ", href: "#faq" },
         ]} />
-        {/* Runtimes column is empty in Phase 1 — populated in Phase 2
-            when /runtimes/* pages ship. Keeping the placeholder so the
-            footer grid layout doesn't re-flow when those links land. */}
         <FooterCol label="Get started" links={[
           { label: "Sign up", href: "/signup" },
           { label: "Sign in", href: "/login" },
           { label: "Forgot password", href: "/forgot-password" },
         ]} />
-        <FooterCol label="Status" links={[
+        <FooterCol label="Company" links={[
+          { label: "Privacy policy", href: "/privacy" },
+          { label: "Terms of service", href: "/terms" },
           { label: "All systems operational", href: "#", indicator: "green" },
           { label: "Private beta", href: "#" },
         ]} />

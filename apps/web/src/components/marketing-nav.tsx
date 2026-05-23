@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RalticLogo } from "./raltic-logo";
 
@@ -64,10 +64,14 @@ export function MarketingNav() {
           <span>Raltic</span>
         </Link>
 
-        <nav className="hidden items-center gap-7 text-sm text-zinc-400 md:flex">
+        <nav className="hidden items-center gap-6 text-sm text-zinc-400 md:flex">
           <Link href="/runtimes" className="hover:text-white">Runtimes</Link>
           <Link href="/connectors" className="hover:text-white">Connectors</Link>
           <Link href="/security" className="hover:text-white">Security</Link>
+          {/* Audience dropdown — surfaces /indie + /teams without
+              crowding the top nav. CSS-only popover via group-hover so
+              it works without JS state + closes when pointer leaves. */}
+          <ForDropdown />
           <Link href="/login" className="hover:text-white">Sign in</Link>
           <Link
             href="/signup"
@@ -85,5 +89,81 @@ export function MarketingNav() {
         </Link>
       </div>
     </header>
+  );
+}
+
+/**
+ * "For" / Audiences dropdown. Uses pointerenter / pointerleave with a
+ * small grace period so the menu doesn't snap shut when the cursor
+ * crosses the trigger→popover gap. Click outside also closes.
+ */
+function ForDropdown() {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrap = useRef<HTMLDivElement | null>(null);
+
+  function scheduleClose() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  }
+  function cancelClose() {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div
+      ref={wrap}
+      className="relative"
+      onPointerEnter={() => { cancelClose(); setOpen(true); }}
+      onPointerLeave={scheduleClose}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 hover:text-white"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        For <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)]"
+        >
+          <Link
+            role="menuitem"
+            href="/indie"
+            className="block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+            onClick={() => setOpen(false)}
+          >
+            <div className="font-medium">Indie devs</div>
+            <div className="mt-0.5 text-[11.5px] text-zinc-500">Solo dev / AI tinkerer</div>
+          </Link>
+          <Link
+            role="menuitem"
+            href="/teams"
+            className="block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+            onClick={() => setOpen(false)}
+          >
+            <div className="font-medium">
+              Teams <span className="ml-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-300">Waitlist</span>
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-zinc-500">Mid-market eng orgs</div>
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }

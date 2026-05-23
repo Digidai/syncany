@@ -34,6 +34,8 @@ export function MarketingFooter() {
         <FooterCol label="Get started" links={[
           { label: "Sign up", href: "/signup" },
           { label: "Sign in", href: "/login" },
+          { label: "Privacy policy", href: "/privacy" },
+          { label: "Terms of service", href: "/terms" },
         ]} />
       </div>
       <div className="border-t border-zinc-900">
