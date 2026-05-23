@@ -216,19 +216,27 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     }
     v.addEventListener("scroll", onScroll, { passive: true });
 
-    // ResizeObserver on the inner content keeps us pinned while an
-    // assistant streams its reply (height grows token by token). Only
-    // re-scroll when we're currently stuck — never yank an explicitly
-    // scrolled-up reader downward.
-    const inner = innerRef.current;
+    // ResizeObserver on the VIEWPORT (not its inner content). The
+    // viewport's scrollHeight changes when content grows — observing
+    // it directly is more reliable than observing the content div,
+    // whose ref can briefly be null on mount and whose size changes
+    // aren't always reported synchronously by ScrollAreaPrimitive's
+    // internal wrappers. Only re-scroll when currently stuck.
     let ro: ResizeObserver | null = null;
-    if (inner && typeof ResizeObserver !== "undefined") {
+    if (typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(() => {
         if (stickToBottomRef.current) {
-          v.scrollTop = v.scrollHeight;       // sync, no animation = no jitter during streaming
+          // Use scrollTop assignment (not scrollTo) — sync, no animation,
+          // no jitter during streaming. Browser clamps to scrollHeight - clientHeight.
+          v.scrollTop = v.scrollHeight;
         }
       });
-      ro.observe(inner);
+      // Observe BOTH the viewport (catches its own size changes) and
+      // the inner content (catches child-driven growth). Either source
+      // pins us. ResizeObserver dedups same-frame fires per element.
+      ro.observe(v);
+      const inner = innerRef.current;
+      if (inner) ro.observe(inner);
     }
     return () => {
       v.removeEventListener("scroll", onScroll);
@@ -254,6 +262,21 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     initialScrolledChannelRef.current = channelId;
     scrollToBottom();
   }, [loading, channelId, messages.length, scrollToBottom]);
+
+  // Belt-and-suspenders pin: when messages.length changes and we're
+  // stuck, snap. Some browsers / ScrollAreaPrimitive wrapping can
+  // suppress ResizeObserver fires for grandchild growth (e.g. partial
+  // streams that update existing rows rather than appending new ones).
+  // useLayoutEffect runs after DOM commit so scrollHeight is fresh.
+  // Cheap: branch is dead unless stickToBottomRef is true.
+  useLayoutEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const v = viewportRef.current;
+    if (!v) return;
+    // Use scrollTop assignment for instant pin — smooth animation here
+    // would fight the user's perception of "the chat moved on its own".
+    v.scrollTop = v.scrollHeight;
+  }, [messages.length]);
 
   // When tab regains focus, flush a mark-read for the newest visible message.
   useEffect(() => {
