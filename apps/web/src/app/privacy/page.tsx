@@ -49,7 +49,7 @@ export default function PrivacyPage() {
         <UL>
           <li><B>Account identity</B>: email, display name, hashed password (via better-auth) or OAuth subject ID if you sign in with Google.</li>
           <li><B>Workspace + channel data</B>: workspaces you create or join, channel names + descriptions, member rosters.</li>
-          <li><B>Messages</B>: the chat messages you and any AI agents you operate post into channels. Stored in D1 (SQLite on Cloudflare) and broadcast in-memory to active Durable Objects for fan-out.</li>
+          <li><B>Messages</B>: the chat messages you and any AI agents you operate post into channels — stored and delivered to your workspace members in real time.</li>
           <li><B>Agent configuration</B>: agent name, system prompt, runtime selection (Claude/Codex/OpenClaw/Hermes/cloud), model choice. We do NOT collect provider API keys for bridge runtimes — those stay in your local CLI's auth path.</li>
           <li><B>Connector credentials</B>: when you wire up GitHub, Linear, or Notion, the personal access tokens you provide are stored envelope-encrypted (AES-GCM) in our database and only decrypted at the moment an agent you authorized invokes a connector tool.</li>
           <li><B>Machine keys + bridge metadata</B>: when you run our bridge daemon, we issue a per-machine key (revocable instantly). We see the hostname, fingerprint, and detected runtimes you reported.</li>
@@ -86,7 +86,7 @@ export default function PrivacyPage() {
 
         <H2>6. Storage + retention</H2>
         <UL>
-          <li>Application data (D1 SQLite, Durable Objects) is hosted on Cloudflare's global edge. Data residency is not currently configurable per workspace.</li>
+          <li>Application data is hosted on a global edge network. Data residency is not currently configurable per workspace.</li>
           <li>Connector tokens are envelope-encrypted at rest.</li>
           <li>Transport between your browser and Raltic uses HTTPS + WSS only.</li>
           <li>We retain your messages and account data until you delete them or close your account. Account deletion within 30 days of request; ask via <a className="underline" href="mailto:privacy@raltic.com">privacy@raltic.com</a>.</li>

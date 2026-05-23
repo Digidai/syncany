@@ -41,13 +41,18 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     }
   }
 
-  // Skeleton during initial session load — fixed width so the layout
-  // doesn't jump when session resolves.
+  // Skeleton during initial session load. Reserves the same TWO-LINE
+  // height as the resolved pill (name row + status row) so hydration
+  // doesn't push the sidebar layout when the session lands. Codex
+  // review MED — without the reservation the footer jumps ~14px.
   if (isPending || !session?.user) {
     return (
       <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
         <div className="h-6 w-6 animate-pulse rounded-full bg-muted/60" />
-        <div className="h-3 w-20 animate-pulse rounded bg-muted/40" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="h-3 w-20 animate-pulse rounded bg-muted/40" />
+          <div className="h-2 w-14 animate-pulse rounded bg-muted/30" />
+        </div>
       </div>
     );
   }
@@ -59,7 +64,9 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
-        aria-label="Account menu"
+        // Accessible name combines identity + status so screen readers
+        // announce both when focus lands. Codex review LOW.
+        aria-label={`Account menu, signed in as ${user.name ?? user.email}, online`}
       >
         {user.image ? (
           // Untrusted URL → no-referrer keeps it from leaking who-uses-Raltic
@@ -78,30 +85,32 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-medium leading-tight">{user.name ?? user.email}</div>
+          {/* Visible status line so the green dot's meaning isn't
+              hover-locked. Codex review MED — "what's the dot mean?"
+              is the user's literal complaint. The dot is decorative
+              (aria-hidden) because the word "Online" carries the
+              meaning for assistive tech. */}
+          <SelfStatusLine />
         </div>
-        {/* Self-presence dot. Always green when this tab is open —
-            that's the source of truth for "am I online" since the
-            UserGateway WS we hold IS what the WorkspacePresence DO
-            counts. Other workspace members see the same green via
-            their own presence subscription. (Used to be hardcoded
-            static green with "presence not tracked yet" comment;
-            now it's still always green for SELF but it's actually
-            true — and other workspace members see it as such too.) */}
-        <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]"
-          aria-label="Online"
-          title="Online — other workspace members see this dot too."
-        />
         <ChevronUp className="h-3 w-3 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top" sideOffset={4} className="w-56">
+      <DropdownMenuContent align="end" side="top" sideOffset={4} className="w-60">
         {/* Base UI 1.4 requires MenuGroupLabel (= DropdownMenuLabel) to
             be wrapped in a MenuGroup. Without it, opening the menu throws
             "Base UI error #31: MenuGroupContext is missing" and the entire
             page hits the root error boundary. */}
         <DropdownMenuGroup>
+          {/* Status row — mirrors the inline label below the username
+              + adds the explanatory subcopy ("teammates can see this")
+              that wouldn't fit inline. Non-interactive in v1; the
+              future status picker (Online / Away / Do not disturb)
+              replaces this row's onClick. */}
+          <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+            Online · teammates can see this
+          </DropdownMenuLabel>
           <DropdownMenuLabel className="truncate text-[10.5px] font-normal text-muted-foreground">
-            Signed in as {user.email ?? user.name}
+            {user.email ?? user.name}
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -120,5 +129,27 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Inline status line shown under the user's name in the sidebar pill.
+ * Extracted so the next-iteration status picker (Online / Away / Do
+ * not disturb / Custom) can swap this for a clickable button without
+ * restructuring the pill. Codex review LOW — forward-compat.
+ *
+ * Currently always renders "Online" because the existing presence
+ * model is binary (tab open = online) — `useWorkspacePresence` shows
+ * teammates the same green while this tab holds the UserGateway WS.
+ */
+function SelfStatusLine() {
+  return (
+    <div className="mt-0.5 flex items-center gap-1 text-[10px] leading-tight text-muted-foreground">
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.55)]"
+        aria-hidden="true"
+      />
+      Online
+    </div>
   );
 }

@@ -4,6 +4,9 @@ import { ArrowRight, Laptop, Cloud, KeyRound, Sparkles } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/shell";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { SectionHeader } from "@/components/marketing/section-header";
+import { NewsletterSignup } from "@/components/marketing/newsletter-signup";
+
+const API_ORIGIN = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
 
 /**
  * Indie-dev landing — warmer tone, "your AI playground" framing,
@@ -111,6 +114,12 @@ export default function IndiePage() {
             >
               Start free <ArrowRight className="h-4 w-4" />
             </Link>
+          </div>
+          <div className="mx-auto mt-12 max-w-md">
+            <p className="mb-3 text-[11.5px] uppercase tracking-[0.18em] text-zinc-500">
+              Or just keep tabs on us
+            </p>
+            <NewsletterSignup apiOrigin={API_ORIGIN} page="/indie" />
           </div>
         </div>
       </section>

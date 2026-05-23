@@ -415,6 +415,67 @@ export const agentFacts = sqliteTable("agent_facts", {
 ]);
 
 // ---------------------------------------------------------------------------
+// Marketing — waitlist + newsletter signups
+// ---------------------------------------------------------------------------
+//
+// Public, anonymous form submissions from the marketing site. Persisted
+// so we can (a) follow up by hand during private beta, (b) export to
+// CSV when a CRM lands, (c) track conversion of UTM-tagged campaigns.
+//
+// Privacy: no PII beyond what the visitor types into the form. IP and
+// UA stored for spam-classification — TTL via a future scheduled prune
+// job (~90 days is a reasonable default).
+// ---------------------------------------------------------------------------
+
+export const waitlistSignups = sqliteTable("waitlist_signups", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  company: text("company"),
+  /** Buckets: "1-4" | "5-20" | "21-100" | "100+". Stored as plain text
+   *  so the buckets can evolve without a migration. */
+  teamSize: text("team_size"),
+  useCase: text("use_case"),
+  /** utm_source captured from the ral_utm cookie at submit time. */
+  utmSource: text("utm_source"),
+  utmCampaign: text("utm_campaign"),
+  /** Referring page path — e.g. "/teams". */
+  refererPath: text("referer_path"),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  /** Status workflow: "new" → "contacted" → "onboarded" | "declined".
+   *  Set "new" on insert; admin updates later. */
+  status: text("status", { enum: ["new", "contacted", "onboarded", "declined"] })
+    .notNull().default("new"),
+  /** Free-form admin note. NULL until somebody triages. */
+  adminNote: text("admin_note"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index("idx_waitlist_created").on(t.createdAt),
+  index("idx_waitlist_status").on(t.status),
+  // Soft de-dupe key — email + page so re-submits don't blow up the
+  // table. UNIQUE so the POST endpoint can ON CONFLICT DO NOTHING.
+  uniqueIndex("uq_waitlist_email_path").on(t.email, t.refererPath),
+]);
+
+export const newsletterSignups = sqliteTable("newsletter_signups", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  /** Where the signup happened: "/", "/indie", "/teams", etc. */
+  page: text("page"),
+  utmSource: text("utm_source"),
+  utmCampaign: text("utm_campaign"),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  // One subscription per email — no spam-resubscribe shenanigans.
+  uniqueIndex("uq_newsletter_email").on(t.email),
+  index("idx_newsletter_created").on(t.createdAt),
+]);
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -427,3 +488,5 @@ export type ChannelMember = typeof channelMembers.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type MachineKey = typeof machineKeys.$inferSelect;
+export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
+export type NewsletterSignup = typeof newsletterSignups.$inferSelect;

@@ -68,7 +68,7 @@ export default function SecurityPage() {
               <p>The zero-install option — your agent runs in a Cloudflare Container we manage.</p>
               <ul className="mt-3 space-y-2 text-sm">
                 <li>· Agent execution happens inside a per-agent sandbox container.</li>
-                <li>· Model routing goes through Cloudflare AI Gateway with rate-limited keys we own (no per-user key proxy).</li>
+                <li>· Model routing goes through our managed AI gateway with rate-limited keys we own (no per-user key proxy).</li>
                 <li>· You don't have a repo on disk in cloud mode — agentic memory is workspace-scoped files we host.</li>
                 <li>· Pick the bridge runtime instead if you want files to stay on YOUR machine.</li>
               </ul>

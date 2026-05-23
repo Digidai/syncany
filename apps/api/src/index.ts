@@ -20,6 +20,7 @@ import { wsRoutes } from "./routes/ws";
 import { inboxRoutes } from "./routes/inbox";
 import { agentWorkspaceRoutes } from "./routes/agent-workspace";
 import { connectorsRoutes } from "./routes/connectors";
+import { marketingSignupsRoutes } from "./routes/marketing-signups";
 
 export { ChatRoom, UserGateway, WorkspacePresence } from "@raltic/chat-room";
 // P0 W2: cloud-native agent runtime DO (per docs/DESIGN_agent_platform_v2.md §4.1).
@@ -94,6 +95,7 @@ app.route("/", inboxRoutes);
 app.route("/", agentWorkspaceRoutes);
 // P2: external-service connectors (per-user PATs + per-agent grants).
 app.route("/", connectorsRoutes);
+app.route("/", marketingSignupsRoutes);
 
 // Cron handlers exported alongside fetch. `scheduled` is invoked by CF
 // for every cron pattern in wrangler.jsonc — see src/scheduled.ts.

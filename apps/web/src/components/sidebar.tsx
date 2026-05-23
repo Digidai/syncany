@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { api, type Channel, type Agent } from "@/lib/api";
-import { Hash, Lock, MessageSquare, Settings, Plus, ListTodo, Inbox as InboxIcon, Cpu, Users } from "lucide-react";
+import { Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
@@ -223,25 +223,20 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         )}
       </nav>
 
-      {/* Footer:
-          • bottom-left: user identity pill (Slack/Discord pattern —
-            who am I right now). Click → Account / Workspace settings /
-            Sign out. Status dot stays static green for now; presence
-            tracking is a Phase 3 thing.
-          • bottom-right: Settings shortcut (gear) — same destination as
-            user-pill's "Workspace settings" item but one click away. */}
-      <div className="flex items-center gap-1 border-t px-2 py-2">
-        <div className="min-w-0 flex-1">
-          <UserPill serverSlug={serverSlug} />
-        </div>
-        <Link
-          href={`/s/${serverSlug}/settings/workspace`}
-          className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label="Workspace settings"
-          title="Workspace settings"
-        >
-          <Settings className="h-3.5 w-3.5" />
-        </Link>
+      {/* Footer: identity-only.
+          - bottom-left: UserPill (avatar + name + visible "Online"
+            status line + chevron). Click → account / workspace settings
+            / sign out dropdown.
+          - We used to ship a separate ⚙ shortcut here that duplicated
+            the dropdown's "Workspace settings" item — removed per
+            user feedback ("两个入口去同一个地方，多余"). Workspace
+            settings is still reachable via the dropdown menu (and
+            via URL: /s/{slug}/settings/workspace).
+          - Workspace presence is real (useWorkspacePresence hook is
+            wired); the inline "Online" label reflects the fact that
+            other teammates see you as online when this tab is open. */}
+      <div className="border-t px-2 py-2">
+        <UserPill serverSlug={serverSlug} />
       </div>
 
       <CreateChannelDialog

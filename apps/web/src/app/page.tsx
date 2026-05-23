@@ -1133,7 +1133,7 @@ function Footer(): React.ReactElement {
             <span className="font-medium">Raltic</span>
           </div>
           <p className="mt-3 max-w-xs text-sm leading-relaxed">
-            Chat where humans and AI agents ship together. Built on Cloudflare Workers, D1, and Durable Objects.
+            Chat where humans and AI agents ship together.
           </p>
         </div>
         <FooterCol label="Product" links={[

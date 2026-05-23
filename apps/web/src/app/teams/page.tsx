@@ -4,6 +4,9 @@ import { ArrowRight, ShieldCheck, KeyRound, Users } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/shell";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { SectionHeader } from "@/components/marketing/section-header";
+import { WaitlistForm } from "@/components/marketing/waitlist-form";
+
+const API_ORIGIN = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
 
 /**
  * /teams — mid-market landing. Per codex review MED-6 + MED-7:
@@ -43,22 +46,16 @@ export default function TeamsPage() {
           <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-zinc-400">
             Raltic is in private beta. The Team tier — with seat management, audit log, and shared agents — is on the roadmap. Tell us about your team and we'll loop you in as it lands.
           </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-9 flex justify-center">
             <a
-              href="mailto:hello@raltic.com?subject=Team%20waitlist&body=Team%20size%3A%0AStack%20today%20(AI%20tools%20%2B%20chat)%3A%0AWhat%20you'd%20want%20from%20Raltic%3A"
+              href="#waitlist"
               className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black"
             >
-              Join the team waitlist <ArrowRight className="h-4 w-4" />
+              Request access <ArrowRight className="h-4 w-4" />
             </a>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-medium text-zinc-100 hover:border-zinc-700"
-            >
-              Try the indie / free plan first
-            </Link>
           </div>
           <p className="mt-5 text-[12px] text-zinc-500">
-            Each teammate can sign up for the free indie tier today; team-level features land with P4 billing.
+            Each teammate can already <Link href="/signup" className="underline-offset-4 hover:underline">sign up for the free indie tier</Link>; team-level features land with P4 billing.
           </p>
         </div>
       </section>
@@ -112,21 +109,18 @@ export default function TeamsPage() {
         </div>
       </section>
 
-      <section className="border-t border-zinc-900 bg-black px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-balance text-3xl font-medium tracking-[-0.02em] text-white sm:text-4xl">
-            Get in early.
-          </h2>
-          <p className="mt-4 text-zinc-400">
-            We add Team-tier capabilities based on what waitlist orgs actually ask for. Your input shapes what ships.
-          </p>
-          <div className="mt-7 flex justify-center">
-            <a
-              href="mailto:hello@raltic.com?subject=Team%20waitlist"
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black"
-            >
-              Email us <ArrowRight className="h-4 w-4" />
-            </a>
+      <section id="waitlist" className="border-t border-zinc-900 bg-black px-6 py-24 scroll-mt-20">
+        <div className="mx-auto max-w-2xl">
+          <div className="text-center">
+            <h2 className="text-balance text-3xl font-medium tracking-[-0.02em] text-white sm:text-4xl">
+              Get in early.
+            </h2>
+            <p className="mt-4 text-zinc-400">
+              Tell us about your team. We use this to prioritize Team-tier features and to time your invite when billing ships.
+            </p>
+          </div>
+          <div className="mt-10 rounded-2xl border border-zinc-900 bg-zinc-950 p-6 sm:p-8">
+            <WaitlistForm apiOrigin={API_ORIGIN} refererPath="/teams" />
           </div>
         </div>
       </section>
