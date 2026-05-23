@@ -3,11 +3,35 @@ import type { NextRequest } from "next/server";
 
 // Routes that DON'T require a session cookie. They handle their own auth
 // (return 401 JSON instead of being middleware-redirected to /login).
+//
+// Add new public marketing pages to PUBLIC_MARKETING below — not here —
+// so the auth-flow surfaces stay grouped separately from public marketing.
 const PUBLIC_PATHS = [
   "/login", "/signup", "/forgot-password", "/reset-password", "/verify-email",
   "/invite",
   "/api/auth",   // better-auth handler
   "/api/me",     // api-token endpoint must return 401 not redirect (web client parses JSON)
+];
+
+// Public marketing pages — anyone can visit without signing in. Every
+// new top-level marketing route MUST be added here, otherwise the
+// middleware 307s anonymous visitors to /login, which:
+//   • breaks signup funnels (visitor → /runtimes link from a tweet
+//     bounces to login → friction)
+//   • breaks SEO (Googlebot has no cookie → indexes the /login page
+//     instead of the runtime/indie/etc page that should rank)
+//   • breaks paid landing pages (UTM-tagged visit bounces to login)
+//
+// Prefix match (startsWith) — so /runtimes ALSO covers /runtimes/claude etc.
+const PUBLIC_MARKETING = [
+  "/runtimes",          // hub + /runtimes/{claude,codex,openclaw,hermes}
+  "/indie",             // indie-dev landing
+  "/teams",             // mid-market waitlist (noindex but still public)
+  "/connectors",        // connector overview
+  "/security",          // security/privacy disclosures
+  "/privacy",           // privacy policy
+  "/terms",             // terms of service
+  "/api/marketing",     // beacon sink (POST /api/marketing/event)
 ];
 
 // SEO / crawler files served as-is. Without this carve-out, the middleware
@@ -34,7 +58,8 @@ function isPublicPath(pathname: string): boolean {
   return pathname === "/"
     || PUBLIC_FILES.has(pathname)
     || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}-`) || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}?`))
-    || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+    || PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+    || PUBLIC_MARKETING.some((p) => pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}?`));
 }
 // better-auth cookie names are like "better-auth.session_token" in plain
 // HTTP and "__Secure-better-auth.session_token" / "__Host-..." over HTTPS.
