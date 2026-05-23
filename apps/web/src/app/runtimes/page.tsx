@@ -9,7 +9,11 @@ import { RUNTIME_DOCS, type RuntimeDoc } from "@/components/marketing/runtime-da
 export const metadata: Metadata = {
   title: "Runtimes · Raltic — Claude, Codex, OpenClaw, Hermes",
   description: "Four AI agent runtimes, one chat surface. Bring your own daemon, or run on Raltic's cloud. No provider lock-in.",
+  // Codex 3 HIGH — every other runtime sub-page declared canonical,
+  // this hub was missed.
+  alternates: { canonical: "https://raltic.com/runtimes" },
   openGraph: {
+    type: "website",
     title: "Raltic — four runtimes, one team chat",
     description: "Claude Code, OpenAI Codex, OpenClaw, Hermes — pick per agent, mix in the same workspace.",
     url: "https://raltic.com/runtimes",

@@ -59,14 +59,20 @@ const PUBLIC_PREFIXES = ["/icon", "/apple-icon", "/opengraph-image", "/twitter-i
 // `/` is the public marketing landing — rendered for everyone.
 //
 // Note: req.nextUrl.pathname NEVER contains "?" or "#" (those live on
-// nextUrl.search / .hash). Earlier draft included `startsWith(${p}?)`
-// matchers — invalid; removed per codex review LOW.
+// nextUrl.search / .hash).
+//
+// All non-PREFIX entries now use boundary match (`===` or `startsWith(p+"/")`)
+// so e.g. /login-helper or /api/me-internal don't slip past auth via raw
+// prefix match. Codex 7 MED.
+function matchesBoundary(pathname: string, p: string): boolean {
+  return pathname === p || pathname.startsWith(`${p}/`);
+}
 function isPublicPath(pathname: string): boolean {
   return pathname === "/"
     || PUBLIC_FILES.has(pathname)
     || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}-`) || pathname.startsWith(`${p}/`))
-    || PUBLIC_PATHS.some((p) => pathname.startsWith(p))
-    || PUBLIC_MARKETING.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    || PUBLIC_PATHS.some((p) => matchesBoundary(pathname, p))
+    || PUBLIC_MARKETING.some((p) => matchesBoundary(pathname, p));
 }
 // better-auth cookie names are like "better-auth.session_token" in plain
 // HTTP and "__Secure-better-auth.session_token" / "__Host-..." over HTTPS.

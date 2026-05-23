@@ -71,8 +71,12 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
 
   if (state === "done") {
     return (
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+      <div
+        role="status"
+        aria-live="polite"
+        className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center"
+      >
+        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden="true" />
         <h3 className="mt-4 text-xl font-medium text-white">You're on the list</h3>
         <p className="mt-3 text-sm text-zinc-400">
           We'll reply within 1–2 business days. If it's urgent, write us at{" "}
@@ -83,7 +87,11 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      aria-busy={state === "submitting"}
+      className="space-y-5"
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Your name" required>
           <input
@@ -149,7 +157,7 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
       </Field>
 
       {state === "error" && errorMsg && (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
+        <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
           {errorMsg}
         </div>
       )}

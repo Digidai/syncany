@@ -52,25 +52,40 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
 
   if (state === "done") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300">
-        <CheckCircle2 className="h-4 w-4" />
+      <div
+        role="status"
+        aria-live="polite"
+        className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300"
+      >
+        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
         {msg}
       </div>
     );
   }
 
   return (
-    // Position relative on the form so any absolutely-positioned
-    // status text (the sm:absolute error below) anchors to THIS
-    // form and not the nearest positioned ancestor (the page
-    // section). Claude review L6.
-    <form onSubmit={handleSubmit} className="relative flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+    <form
+      onSubmit={handleSubmit}
+      // position:relative so absolute error overlay anchors here (Claude L6).
+      // aria-busy so AT announces the in-flight state (codex 5 MED).
+      aria-busy={state === "submitting"}
+      className="relative flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+    >
+      {/* sr-only label is required for a11y — placeholders are not
+          accessible names per WCAG 2.5.3. Codex 5 HIGH. */}
+      <label htmlFor="newsletter-email" className="sr-only">Your email address</label>
       <input
+        id="newsletter-email"
         type="email"
         required
         autoComplete="email"
+        inputMode="email"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={e => {
+          setEmail(e.target.value);
+          // Clear stale error the moment user edits — codex 8 LOW.
+          if (state === "error") { setState("idle"); setMsg(null); }
+        }}
         placeholder="you@example.com"
         disabled={state === "submitting"}
         className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-60"
@@ -81,13 +96,13 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
         className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-60"
       >
         {state === "submitting" ? (
-          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> …</>
+          <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Sending…</>
         ) : (
-          <>Keep me in the loop <ArrowRight className="h-3.5 w-3.5" /></>
+          <>Keep me in the loop <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></>
         )}
       </button>
       {state === "error" && msg && (
-        <p className="text-[12px] text-rose-300 sm:absolute sm:mt-12">{msg}</p>
+        <p role="alert" className="text-[12px] text-rose-300 sm:absolute sm:mt-12">{msg}</p>
       )}
     </form>
   );

@@ -51,13 +51,36 @@ const BRIDGE_LIVENESS_WINDOW_MS = 45_000;
  */
 export class UserGateway extends DurableObject<UserGatewayEnv> {
   private sessions = new Map<WebSocket, AttachedSession>();
+  /**
+   * Per-serverId broadcast-subscription refcount across all of THIS
+   * user's active tabs/sessions. WorkspacePresence DO only needs to
+   * know this user once for fanout purposes — we tell it /presence/sub
+   * on the FIRST tab and /presence/unsub on the LAST tab. Individual
+   * tab opens still bump /presence/note (that's the per-tab ref-count
+   * used for online/offline detection).
+   *
+   * Earlier draft sent unsub on every tab close, which removed the
+   * userId from WorkspacePresence.subscribers → other tabs of the
+   * same user stopped getting deltas (codex 2 HIGH).
+   *
+   * Rehydrate on DO restart from persisted session attachments so
+   * the count survives eviction.
+   */
+  private presenceSubCounts = new Map<string, number>();
 
   constructor(ctx: DurableObjectState, env: UserGatewayEnv) {
     super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment() as AttachedSession | null;
-      if (a) this.sessions.set(ws, a);
+      if (a) {
+        this.sessions.set(ws, a);
+        // Rebuild presence sub-counts from each session's recorded
+        // serverIds so a DO restart doesn't lose multi-tab state.
+        for (const sid of a.presenceSubs ?? []) {
+          this.presenceSubCounts.set(sid, (this.presenceSubCounts.get(sid) ?? 0) + 1);
+        }
+      }
     }
   }
 
@@ -240,62 +263,100 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     this.sendErr(ws, msg.id, "UNSUPPORTED", `gateway DO does not handle ${msg.t}`);
   }
 
-  /** WorkspacePresence subscribe path:
-   *    1. Note +1 connection in the target server's WorkspacePresence DO
-   *       (this triggers offline→online broadcast to peers if first conn).
-   *    2. Subscribe THIS user to future presence updates for that server.
-   *    3. Get the current snapshot back and send it down THIS WS so the
-   *       client can seed its presence map immediately.
-   *    4. Record the serverId on the attached session so webSocketClose
-   *       can clean up.
-   *  Steps 1+2 are folded into the WorkspacePresence DO's `/presence/sub`
-   *  contract to keep this client roundtrip-cheap. */
+  /** WorkspacePresence subscribe path. Per-tab semantics:
+   *   - /presence/note +1 fires on EVERY tab subscribe (tab-level
+   *     ref-count for the online/offline detection in the DO).
+   *   - /presence/sub fires only on the FIRST tab for this user
+   *     (broadcast registration is per-user, not per-tab — codex 2 HIGH).
+   *   - On partial failure (note succeeded, sub failed), roll back
+   *     note(-1) so we don't leak online state (codex 2 HIGH).
+   *   - Idempotent — re-subscribing from the same already-subbed tab
+   *     just refreshes the snapshot.
+   */
   private async handlePresenceSubscribe(
     ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
   ): Promise<void> {
     const stub = this.env.WORKSPACE_PRESENCE.get(
       this.env.WORKSPACE_PRESENCE.idFromName(serverId)
     );
-    try {
-      // Already subscribed on a different tab? Don't double-count.
-      const subs = sess.presenceSubs ?? [];
-      if (!subs.includes(serverId)) {
-        await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: 1 });
+    const subs = sess.presenceSubs ?? [];
+
+    // Re-subscribe from same tab: idempotent snapshot refresh, no ref change.
+    if (subs.includes(serverId)) {
+      try {
         const snapRes = await this.callPresence(stub, "/presence/sub", { userId: sess.userId, serverId });
         const snap = await snapRes.json() as { users: { userId: string; online: boolean; lastSeenAt: number }[] };
-        sess.presenceSubs = [...subs, serverId];
-        this.sessions.set(ws, sess);
-        ws.serializeAttachment(sess);
-        this.send(ws, {
-          v: PROTOCOL_VERSION, t: "presence_snapshot",
-          serverId, users: snap.users ?? [],
-        });
-      } else {
-        // Already subscribed — just refresh the snapshot for this tab.
-        const snapRes = await this.callPresence(stub, "/presence/sub", { userId: sess.userId, serverId });
-        const snap = await snapRes.json() as { users: { userId: string; online: boolean; lastSeenAt: number }[] };
-        this.send(ws, {
-          v: PROTOCOL_VERSION, t: "presence_snapshot",
-          serverId, users: snap.users ?? [],
-        });
+        this.send(ws, { v: PROTOCOL_VERSION, t: "presence_snapshot", serverId, users: snap.users ?? [] });
+        this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
+      } catch (e) {
+        console.warn("[UserGateway] presence_subscribe re-snapshot failed", { serverId, error: String(e) });
+        this.sendErr(ws, id, "INTERNAL", "presence subscribe failed");
       }
+      return;
+    }
+
+    // First subscribe for THIS tab.
+    let noted = false;
+    try {
+      await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: 1 });
+      noted = true;
+      // /presence/sub registers this user for broadcasts on the DO.
+      // The DO's subscribers is a Set<userId>, so it's idempotent —
+      // safe to call from every tab. But we only NEED to call it on
+      // first tab; subsequent tabs piggyback on the user's existing
+      // registration. We call anyway (cheap) to also get the snapshot
+      // back, but track refcount locally so unsubscribe can fan-in.
+      const snapRes = await this.callPresence(stub, "/presence/sub", { userId: sess.userId, serverId });
+      const snap = await snapRes.json() as { users: { userId: string; online: boolean; lastSeenAt: number }[] };
+      sess.presenceSubs = [...subs, serverId];
+      this.sessions.set(ws, sess);
+      ws.serializeAttachment(sess);
+      this.presenceSubCounts.set(serverId, (this.presenceSubCounts.get(serverId) ?? 0) + 1);
+      this.send(ws, { v: PROTOCOL_VERSION, t: "presence_snapshot", serverId, users: snap.users ?? [] });
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
     } catch (e) {
       console.warn("[UserGateway] presence_subscribe failed", { serverId, error: String(e) });
+      if (noted) {
+        // Roll back the +1 so we don't leak online state on partial failure.
+        await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: -1 })
+          .catch(() => { /* logged once is enough */ });
+      }
       this.sendErr(ws, id, "INTERNAL", "presence subscribe failed");
     }
   }
 
+  /**
+   * Per-tab unsubscribe. Sends /presence/note -1 to drop this tab's
+   * online ref-count, but only sends /presence/unsub when this is the
+   * LAST tab of THIS user subscribed to this server — otherwise we'd
+   * wipe broadcast delivery for the user's other open tabs (codex 2 HIGH).
+   *
+   * Idempotent: if this tab isn't actually subscribed, ack and return.
+   */
   private async handlePresenceUnsubscribe(
     ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
   ): Promise<void> {
+    const subs = sess.presenceSubs ?? [];
+    if (!subs.includes(serverId)) {
+      // Codex 2 HIGH: pre-fix, repeat unsubscribe would still send -1
+      // and corrupt another tab's ref count. Now: ack noop.
+      this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
+      return;
+    }
     const stub = this.env.WORKSPACE_PRESENCE.get(
       this.env.WORKSPACE_PRESENCE.idFromName(serverId)
     );
     try {
       await this.callPresence(stub, "/presence/note", { userId: sess.userId, serverId, delta: -1 });
-      await this.callPresence(stub, "/presence/unsub", { userId: sess.userId, serverId });
-      sess.presenceSubs = (sess.presenceSubs ?? []).filter(s => s !== serverId);
+      const nextCount = Math.max(0, (this.presenceSubCounts.get(serverId) ?? 1) - 1);
+      this.presenceSubCounts.set(serverId, nextCount);
+      // Only tell the DO to drop broadcast registration when this was
+      // the user's last subscribed tab on this server.
+      if (nextCount === 0) {
+        await this.callPresence(stub, "/presence/unsub", { userId: sess.userId, serverId });
+        this.presenceSubCounts.delete(serverId);
+      }
+      sess.presenceSubs = subs.filter(s => s !== serverId);
       this.sessions.set(ws, sess);
       ws.serializeAttachment(sess);
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id });
@@ -321,16 +382,14 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   async webSocketClose(ws: WebSocket): Promise<void> {
     const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
     const wasBridge = sess?.isBridge ?? false;
-    // Drop this tab's presence subscriptions before forgetting the session.
-    // Each subscribed serverId gets a -1 + unsubscribe; the WorkspacePresence
-    // DO collapses to offline only when conns hits 0 (other tabs may still
-    // be holding the user online).
+    // AWAIT the presence cleanup so the DO runtime keeps this handler
+    // alive until decrement HTTPs complete. Earlier draft used void
+    // fire-and-forget which could exit before the decrement fired,
+    // leaving WorkspacePresence with stale +1 refs (codex 2 HIGH).
     if (sess?.presenceSubs?.length) {
-      for (const serverId of sess.presenceSubs) {
-        void this.decrementPresence(sess.userId, serverId).catch((e) => {
-          console.warn("[UserGateway] presence cleanup on close failed", { serverId, error: String(e) });
-        });
-      }
+      const userId = sess.userId;
+      const cleanups = sess.presenceSubs.map((serverId) => this.decrementPresenceOnClose(userId, serverId));
+      await Promise.allSettled(cleanups);
     }
     this.sessions.delete(ws);
     if (wasBridge) this.broadcastLeaderStatus();
@@ -339,23 +398,34 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
     const wasBridge = sess?.isBridge ?? false;
     if (sess?.presenceSubs?.length) {
-      for (const serverId of sess.presenceSubs) {
-        void this.decrementPresence(sess.userId, serverId).catch(() => { /* logged once is enough */ });
-      }
+      const userId = sess.userId;
+      const cleanups = sess.presenceSubs.map((serverId) => this.decrementPresenceOnClose(userId, serverId));
+      await Promise.allSettled(cleanups);
     }
     this.sessions.delete(ws);
     if (wasBridge) this.broadcastLeaderStatus();
   }
 
-  /** Called on WS close — sends a single -1 + unsubscribe to the
-   *  workspace's WorkspacePresence DO. Best-effort; failures only
-   *  delay reap until the alarm sweeps. */
-  private async decrementPresence(userId: string, serverId: string): Promise<void> {
+  /**
+   * Called on WS close/error per subscribed serverId. Mirrors
+   * handlePresenceUnsubscribe's last-tab semantics so we don't wipe
+   * broadcast delivery for the user's still-open tabs.
+   */
+  private async decrementPresenceOnClose(userId: string, serverId: string): Promise<void> {
     const stub = this.env.WORKSPACE_PRESENCE.get(
       this.env.WORKSPACE_PRESENCE.idFromName(serverId)
     );
-    await this.callPresence(stub, "/presence/note", { userId, serverId, delta: -1 });
-    await this.callPresence(stub, "/presence/unsub", { userId, serverId });
+    try {
+      await this.callPresence(stub, "/presence/note", { userId, serverId, delta: -1 });
+      const nextCount = Math.max(0, (this.presenceSubCounts.get(serverId) ?? 1) - 1);
+      this.presenceSubCounts.set(serverId, nextCount);
+      if (nextCount === 0) {
+        await this.callPresence(stub, "/presence/unsub", { userId, serverId });
+        this.presenceSubCounts.delete(serverId);
+      }
+    } catch (e) {
+      console.warn("[UserGateway] presence cleanup on close failed", { serverId, error: String(e) });
+    }
   }
 
   /** Delegates to auth-core's single canonical HS256 verifier. */

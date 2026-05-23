@@ -97,13 +97,20 @@ function flattenError(e: unknown): string {
   return parts.join(" | ");
 }
 
-/** UNIQUE-constraint detector resilient to Drizzle's wrapper. Matches
- *  any of: "UNIQUE", "constraint failed", "D1_ERROR:" (Cloudflare's
- *  wrapped error prefix). Earlier draft only matched "UNIQUE", which
- *  Drizzle's "Failed query: insert into..." wrapper hides. */
+/** UNIQUE-constraint detector resilient to Drizzle's wrapper.
+ *  Tightened to ONLY match the explicit SQLite "UNIQUE constraint
+ *  failed" string. Earlier draft also matched bare "D1_ERROR" and
+ *  "constraint failed" — both too broad: any non-UNIQUE D1 error
+ *  (CHECK constraint, FK violation, generic D1_ERROR for I/O failure)
+ *  would have been silently swallowed as "deduped". Codex 1 review
+ *  HIGH — could mask real DB failures as visitor success.
+ *
+ *  D1 + Drizzle's emitted error chain ALWAYS includes the SQLite
+ *  detail in either e.message or e.cause.message when it's a real
+ *  UNIQUE collision (verified via wrangler tail on prod). */
 function isUniqueViolation(e: unknown): boolean {
   const msg = flattenError(e);
-  return /UNIQUE|constraint failed|D1_ERROR/i.test(msg);
+  return /UNIQUE constraint failed/i.test(msg);
 }
 
 marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
@@ -134,7 +141,11 @@ marketingSignupsRoutes.post("/api/v1/marketing/waitlist", async (c) => {
       useCase: parsed.useCase?.trim() || null,
       utmSource: parsed.utmSource ?? null,
       utmCampaign: parsed.utmCampaign ?? null,
-      refererPath: parsed.refererPath ?? null,
+      // Fall back to "/" when caller omits — SQLite's UNIQUE(email,
+      // referer_path) treats NULL as distinct, so (foo@x, NULL)
+      // dedupe silently fails and same-email submits with no path
+      // can stack. Codex 6 HIGH.
+      refererPath: parsed.refererPath ?? "/",
       ip,
       userAgent: ua,
       status: "new",

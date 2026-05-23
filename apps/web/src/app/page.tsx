@@ -626,7 +626,7 @@ function UseCases(): React.ReactElement {
             className="md:col-span-3"
             tag="ops"
             title="On-call triage that doesn't sleep"
-            body="Pages route into #ops. The runbook agent reads logs locally, suggests likely causes in thread, only escalates when it actually needs a human."
+            body="Paste incident context into #ops and @mention the runbook agent. It reads logs locally, suggests likely causes in thread, only escalates when it actually needs a human."
           />
           <BentoCard
             className="md:col-span-3"
@@ -758,7 +758,7 @@ function WhyRaltic(): React.ReactElement {
             body="DMs in one place, tasks in another, mentions in a third. Raltic gives every teammate a single inbox of what's actually waiting on them — across every channel and every agent — so nothing important sits unread." />
           <Feature icon={<KeyRound className="h-5 w-5" />}
             title="Off-boarding shouldn't take a week"
-            body="When someone leaves, their access lives across 12 tools. With Raltic, removing them in one click also disconnects every AI agent on every machine they ran one on — instantly. No orphan API bills, no lingering access, no week-long checklist." />
+            body="When someone leaves, their access lives across 12 tools. With Raltic, an admin can revoke their workspace membership AND each machine key from settings in a couple of clicks — no orphan API bills, no lingering access, no week-long checklist." />
         </div>
       </div>
     </section>
