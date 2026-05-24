@@ -7,7 +7,7 @@ import { and, desc, eq, lt, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
-import { notifyGateway, kickFromChannel } from "../lib/notify";
+import { notifyGateway, kickFromChannel, kickNonMembers } from "../lib/notify";
 import { z } from "zod";
 
 // Validated patch payload — replaces an unsafe `as Partial<{...}>` cast.
@@ -195,13 +195,23 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
       }
     }
   }
+  // Codex G1 MED 3 — scrub members payload so we don't leak every
+  // peer's mutedAt/starredAt/lastReadSeq via `select *`. Those columns
+  // are per-user preferences that the viewer has no business seeing
+  // for other members. Only id/type/joinedAt are returned.
+  const safeMembers = members.map((m) => ({
+    channelId: m.channelId,
+    memberId: m.memberId,
+    memberType: m.memberType,
+    joinedAt: m.joinedAt,
+  }));
   return c.json({
     // Channel base record + viewer's mute flag (Phase A codex PA3 HIGH
     // fix). Spreading lets the web client just read channel.mutedAt
     // without a separate field — the sidebar already does this via
     // getServerBySlug, keeping the two shapes aligned.
     channel: { ...channel, mutedAt: viewerMutedAt, starredAt: viewerStarredAt },
-    members, peer, viewerCanManage, viewerCanAddMembers,
+    members: safeMembers, peer, viewerCanManage, viewerCanAddMembers,
   });
 });
 
@@ -343,6 +353,29 @@ channelsRoutes.patch("/api/v1/channels/:id/visibility", requireAuth, async (c) =
     return c.json({ ok: true, unchanged: true });
   }
   await db.update(channels).set({ type: body.type }).where(eq(channels.id, id));
+  // Codex G1 HIGH 2 — when converting public → private, drop any WS
+  // sessions held by users who are NOT current channel members.
+  // Without this, prior workspace-strangers who happened to have the
+  // channel open keep receiving the newly-private broadcasts.
+  if (body.type === "private") {
+    const [humanMembers, agentMembers] = await Promise.all([
+      db.select({ memberId: channelMembers.memberId })
+        .from(channelMembers).where(and(
+          eq(channelMembers.channelId, id),
+          eq(channelMembers.memberType, "human"),
+        )),
+      db.select({ memberId: channelMembers.memberId })
+        .from(channelMembers).where(and(
+          eq(channelMembers.channelId, id),
+          eq(channelMembers.memberType, "agent"),
+        )),
+    ]);
+    void kickNonMembers(
+      c.env, id,
+      humanMembers.map((r) => r.memberId),
+      agentMembers.map((r) => r.memberId),
+    ).catch(() => { /* swallow — best-effort */ });
+  }
   return c.json({ ok: true, type: body.type });
 });
 

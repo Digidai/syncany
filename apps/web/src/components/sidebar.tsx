@@ -23,7 +23,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
   const [openCreate, setOpenCreate] = useState(false);
   const [openNewDm, setOpenNewDm] = useState(false);
   const activities = useAgentActivities();
-  const { seedChannel } = useGateway();
+  const { seedChannel, setMutedChannelIds } = useGateway();
   const params = useParams();
   const pathname = usePathname();
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -50,6 +50,12 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         if (cancelled) return;
         setChannels(data.channels);
         setAgents((agentData?.agents ?? data.agents).filter((a) => a.serverId === data.server.id));
+        // Phase F HIGH (codex G2) — publish muted channel set to the
+        // gateway so the channel_new Notification gate suppresses
+        // toasts for channels the user has muted.
+        setMutedChannelIds(new Set(
+          data.channels.filter((c) => c.mutedAt != null).map((c) => c.id),
+        ));
         // Seed gateway with initial unread state so the sidebar can render
         // accurate badges from the first paint.
         for (const c of data.channels) {
@@ -449,10 +455,10 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
     >
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 truncate leading-tight">{displayName}</span>
-      {channel.starredAt != null && (
+      {channel.type !== "dm" && channel.starredAt != null && (
         <Star className="h-3 w-3 shrink-0 fill-current text-amber-500" aria-label="Starred" />
       )}
-      {isMuted && (
+      {channel.type !== "dm" && isMuted && (
         <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Muted" />
       )}
       {/* For human DMs: emerald dot if peer's online, zinc dot if seen

@@ -142,15 +142,34 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
       return new Response("forbidden", { status: 403 });
     }
-    const body = await req.json() as { memberId: string; memberType: "human" | "agent" };
+    const body = await req.json() as
+      | { memberId: string; memberType: "human" | "agent" }
+      | { mode: "retain-only"; allowedUserIds: string[]; allowedAgentIds: string[] };
     let closed = 0;
+    // Retain-only mode (codex G1 HIGH 2): used by visibility convert
+    // public→private to drop sessions of users who are NO LONGER
+    // members. Anyone whose attachment ids are absent from BOTH allow
+    // lists gets kicked.
+    const isRetain = "mode" in body && body.mode === "retain-only";
+    const allowUsers = isRetain ? new Set((body as { allowedUserIds: string[] }).allowedUserIds) : null;
+    const allowAgents = isRetain ? new Set((body as { allowedAgentIds: string[] }).allowedAgentIds) : null;
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const att = ws.deserializeAttachment() as AttachedSession | null;
         if (!att) continue;
-        const isMatch =
-          (body.memberType === "human" && att.userId === body.memberId)
-          || (body.memberType === "agent" && att.agentIds?.includes(body.memberId));
+        let isMatch = false;
+        if (isRetain) {
+          // Kick if this session's user isn't in the user allow-list
+          // AND none of its agent ids are in the agent allow-list.
+          const userOk = !!att.userId && allowUsers!.has(att.userId);
+          const agentOk = (att.agentIds ?? []).some((a) => allowAgents!.has(a));
+          isMatch = !userOk && !agentOk;
+        } else {
+          const m = body as { memberId: string; memberType: "human" | "agent" };
+          isMatch =
+            (m.memberType === "human" && att.userId === m.memberId)
+            || (m.memberType === "agent" && (att.agentIds?.includes(m.memberId) ?? false));
+        }
         if (!isMatch) continue;
         // 4001 = custom "kicked from channel". Bridge should NOT
         // auto-reconnect on this code; web tabs will fall through to
@@ -256,6 +275,29 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
           { status: 403, headers: { "content-type": "application/json" } },
         );
       }
+    }
+    // Phase D codex G1 HIGH — archive gate at the DO send path (not
+    // just REST). Internal-send is called by api/messages.ts (REST),
+    // tasks.ts (task posts), AND the agent runtime (postFinal). The
+    // REST gate I added in Phase B only covers the first; all other
+    // callers reach here and would silently write to archived channels.
+    // One D1 read per send (~3-5ms) is acceptable for the correctness
+    // win; can promote to DO-storage cache if it shows up in p99.
+    try {
+      const archivedRow = await this.env.DB.prepare(
+        `SELECT archived_at FROM channels WHERE id = ?`,
+      ).bind(body.channelId).first<{ archived_at: number | null }>();
+      if (archivedRow?.archived_at != null) {
+        return new Response(
+          JSON.stringify({ error: { code: "ARCHIVED", message: "channel is archived" } }),
+          { status: 423, headers: { "content-type": "application/json" } },
+        );
+      }
+    } catch (e) {
+      // If the lookup itself fails, fail-open ON SEND (we'd rather
+      // accept the message than block a healthy channel because of
+      // a transient D1 hiccup). Logged for the operator to see.
+      console.warn("chat-room: archive lookup failed, falling through", e);
     }
     this.channelId = body.channelId;
     const sql = this.ctx.storage.sql;

@@ -83,10 +83,40 @@ export async function kickFromChannel(
 ): Promise<void> {
   try {
     const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(channelId));
-    await stub.fetch("https://chat-room/internal/kick", {
+    const res = await stub.fetch("https://chat-room/internal/kick", {
       method: "POST",
       headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
       body: JSON.stringify({ memberId, memberType }),
     });
+    // Codex G1 MED 4 — failure to kick is a real security issue
+    // (removed user keeps receiving). Log loudly so a misconfigured
+    // secret surfaces fast instead of silently leaking.
+    if (!res.ok) {
+      console.error("kickFromChannel non-ok", channelId, memberId, res.status, await res.text().catch(() => ""));
+    }
   } catch (e) { console.warn("kickFromChannel failed", channelId, memberId, e); }
+}
+
+/**
+ * Phase D + codex G1 HIGH 2 — drop every WS session NOT in the
+ * provided allow lists. Used by visibility convert public→private to
+ * disconnect prior public-channel readers who are no longer entitled.
+ */
+export async function kickNonMembers(
+  env: Env,
+  channelId: string,
+  allowedUserIds: string[],
+  allowedAgentIds: string[],
+): Promise<void> {
+  try {
+    const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(channelId));
+    const res = await stub.fetch("https://chat-room/internal/kick", {
+      method: "POST",
+      headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+      body: JSON.stringify({ mode: "retain-only", allowedUserIds, allowedAgentIds }),
+    });
+    if (!res.ok) {
+      console.error("kickNonMembers non-ok", channelId, res.status, await res.text().catch(() => ""));
+    }
+  } catch (e) { console.warn("kickNonMembers failed", channelId, e); }
 }

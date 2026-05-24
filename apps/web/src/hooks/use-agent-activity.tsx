@@ -43,6 +43,10 @@ interface GatewayValue {
    *  hits zero — components that mount the same hook on different DM
    *  pages don't fight each other. */
   unsubscribePresence: (serverId: string) => void;
+  /** Phase F HIGH (codex G2) — sidebar publishes the set of muted
+   *  channel ids so the channel_new Notification gate can suppress
+   *  toasts for muted channels. */
+  setMutedChannelIds: (ids: Set<string>) => void;
 }
 
 const Ctx = createContext<GatewayValue>({
@@ -54,6 +58,7 @@ const Ctx = createContext<GatewayValue>({
   seedChannel: () => {},
   subscribePresence: () => {},
   unsubscribePresence: () => {},
+  setMutedChannelIds: () => {},
 });
 
 export function useAgentActivities(): Record<string, AgentActivity> {
@@ -112,6 +117,11 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
   const [channelMaxSeq, setChannelMaxSeq] = useState<Record<string, number>>({});
   const [channelLastRead, setChannelLastRead] = useState<Record<string, number>>({});
   const [presenceByServer, setPresenceByServer] = useState<Record<string, Record<string, UserPresence>>>({});
+  // Phase F HIGH fix (codex G2) — sidebar publishes the set of muted
+  // channel ids here so the channel_new Notification gate can suppress
+  // toasts for muted channels. Ref so the check inside the WS handler
+  // sees the latest set without depending on stale closure state.
+  const mutedChannelIdsRef = useRef<Set<string>>(new Set());
   const wsRef = useRef<WebSocket | null>(null);
   /** serverId → reference count. Mounted hook = +1, unmount = -1.
    *  Send presence_subscribe on 0→1 transition; presence_unsubscribe
@@ -169,6 +179,13 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
   const seedChannel = useCallback((channelId: string, maxSeq: number, lastReadSeq: number) => {
     setChannelMaxSeq((prev) => ({ ...prev, [channelId]: Math.max(prev[channelId] ?? 0, maxSeq) }));
     setChannelLastRead((prev) => ({ ...prev, [channelId]: Math.max(prev[channelId] ?? 0, lastReadSeq) }));
+  }, []);
+
+  /** Sidebar pushes the set of currently-muted channel ids here so
+   *  the channel_new Notification gate can suppress muted-channel
+   *  toasts (codex G2 HIGH). Called every getServerBySlug reload. */
+  const setMutedChannelIds = useCallback((ids: Set<string>) => {
+    mutedChannelIdsRef.current = ids;
   }, []);
 
   useEffect(() => {
@@ -236,7 +253,11 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
                 if (typeof window !== "undefined"
                     && typeof Notification !== "undefined"
                     && Notification.permission === "granted"
-                    && document.visibilityState === "hidden") {
+                    && document.visibilityState === "hidden"
+                    // Codex G2 HIGH — respect per-user channel mute.
+                    // mutedChannelIdsRef is maintained by the sidebar
+                    // off the latest getServerBySlug response.
+                    && !mutedChannelIdsRef.current.has(msg.channelId)) {
                   const n = new Notification("Raltic", {
                     body: "New message in a channel",
                     tag: `ch:${msg.channelId}`, // collapse runs of messages
@@ -317,6 +338,7 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
       activities, channelMaxSeq, channelLastRead, presenceByServer,
       bumpRead, seedChannel,
       subscribePresence, unsubscribePresence,
+      setMutedChannelIds,
     }}>
       {children}
     </Ctx.Provider>
