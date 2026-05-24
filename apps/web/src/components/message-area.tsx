@@ -53,6 +53,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const inputRef = useRef<TiptapMessageInputHandle | null>(null);
   // ScrollArea wrapper element — we query the actual overflow viewport
@@ -96,20 +97,21 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const [uploadingCount, setUploadingCount] = useState(0);
 
   // Only mark messages as read when this tab is actually visible.
-  function isVisible(): boolean {
+  const isVisible = useCallback((): boolean => {
     return typeof document === "undefined" || document.visibilityState === "visible";
-  }
-  function markReadIfVisible(seq: number) {
+  }, []);
+  const markReadIfVisible = useCallback((seq: number) => {
     if (!channelId || seq <= 0) return;
     bumpRead(channelId, seq);                                  // optimistic local
     if (!isVisible()) return;                                  // server only when foreground
     api.markRead(channelId, seq).catch(() => {});
-  }
+  }, [bumpRead, channelId, isVisible]);
 
   useEffect(() => {
     if (!channelId) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     setMessages([]);
     setToken(null);
     // Fresh channel — assume the user wants to land at the bottom.
@@ -147,14 +149,17 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           markReadIfVisible(lastSeq);
         }
       } catch (e) {
+        if (cancelled) return;
+        const message = e instanceof ApiError ? e.message : String(e);
+        setLoadError(message);
         if (e instanceof ApiError) console.error("MessageArea load failed", e.code, e.message);
-        else throw e;
+        else console.error("MessageArea load failed", e);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [channelId]);
+  }, [channelId, markReadIfVisible, seedChannel]);
 
   // Pixel distance from the bottom that still counts as "at the bottom"
   // for sticky-scroll purposes. Slightly bigger than one message row so
@@ -175,7 +180,6 @@ export function MessageArea({ channelId }: MessageAreaProps) {
       if (process.env.NODE_ENV !== "production") {
         // Codex a11y LOW: silent no-op makes diagnosis hard. Logged
         // in dev only so prod bundles stay quiet.
-        // eslint-disable-next-line no-console
         console.warn("[message-area] scrollToBottom: viewport not found (ScrollArea data-slot may have changed)");
       }
       return;
@@ -205,7 +209,27 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   }, [scrollToBottom]);
 
   const handleNew = useCallback((m: MessageRow) => {
-    setMessages((prev) => (prev.some((p) => p.id === m.id) ? prev : [...prev, m]));
+    let inserted = false;
+    setMessages((prev) => {
+      const partialId = `agent-partial:${m.senderId}`;
+      if (prev.some((p) => p.id === m.id)) {
+        return prev
+          .filter((p) => p.id !== partialId || p.id === m.id)
+          .map((p) => {
+            if (p.id !== m.id) return p;
+            const merged = { ...p, ...m };
+            if (m.attachments === undefined) merged.attachments = p.attachments;
+            if (m.reactions === undefined) merged.reactions = p.reactions;
+            return merged;
+          });
+      }
+      inserted = true;
+      return [...prev.filter((p) => p.id !== `agent-partial:${m.senderId}`), m];
+    });
+    if (!inserted) {
+      markReadIfVisible(m.seq);
+      return;
+    }
     // Defer the scroll/unread decision until after React commits the
     // new row — otherwise scrollHeight reflects the old DOM and the
     // sticky check misjudges. scheduleSmoothScrollToBottom() coalesces
@@ -217,6 +241,34 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     }
     markReadIfVisible(m.seq);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, scheduleSmoothScrollToBottom]);
+
+  const handleAgentTextDelta = useCallback((ev: { agentId: string; text: string }) => {
+    if (!ev.text.trim()) return;
+    const now = Date.now();
+    const partialId = `agent-partial:${ev.agentId}`;
+    let added = false;
+    setMessages((prev) => {
+      const maxSeq = prev.reduce((max, m) => Math.max(max, m.seq), 0);
+      const partial: MessageRow = {
+        id: partialId,
+        channelId: channelId ?? "",
+        senderId: ev.agentId,
+        senderType: "agent",
+        content: ev.text,
+        seq: maxSeq,
+        threadParentId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (prev.some((p) => p.id === partialId)) {
+        return prev.map((p) => p.id === partialId ? { ...p, ...partial } : p);
+      }
+      added = true;
+      return [...prev, partial];
+    });
+    if (stickToBottomRef.current) scheduleSmoothScrollToBottom();
+    else if (added) setUnreadBelow(n => n + 1);
   }, [channelId, scheduleSmoothScrollToBottom]);
 
   // Resolve the real overflow viewport out of the ScrollArea wrapper,
@@ -347,6 +399,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     channelId, token,
     onMessage: handleNew,
     onMessageUpdate: handleUpdate,
+    onAgentTextDelta: handleAgentTextDelta,
     onReaction: handleReaction,
   });
 
@@ -442,7 +495,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
       let ok: boolean;
       if (hasAttachments) {
         try {
-          await api.sendMessage({
+          const res = await api.sendMessage({
             channelId,
             content,
             threadParentId: replyTo?.id ?? null,
@@ -450,6 +503,28 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             attachmentIds: pendingAttachmentsRef.current.map((a) => a.attachmentId),
           });
           ok = true;
+          if (res.messageId) {
+            const staged = pendingAttachmentsRef.current;
+            const now = Date.now();
+            handleNew({
+              id: res.messageId,
+              channelId,
+              senderId: userId,
+              senderType: "human",
+              content,
+              seq: res.seq,
+              threadParentId: replyTo?.id ?? null,
+              createdAt: now,
+              updatedAt: now,
+              attachments: staged.map((a) => ({
+                id: a.attachmentId,
+                filename: a.filename,
+                contentType: a.contentType,
+                sizeBytes: a.sizeBytes,
+                url: a.url,
+              })),
+            });
+          }
           pendingAttachmentsRef.current = [];
           setPendingAttachments([]);
         } catch (e) {
@@ -673,7 +748,12 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               (codex a11y MED). 64px = pill height + breathing room. */}
           <div ref={innerRef} className="space-y-6 px-6 pt-6 pb-16">
             {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
-          {!loading && messages.length === 0 && (
+          {!loading && loadError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-foreground">
+              Couldn&apos;t load this conversation: {loadError}
+            </div>
+          )}
+          {!loading && !loadError && messages.length === 0 && (
             <div className="flex h-full min-h-64 items-center justify-center">
               <p className="text-sm text-muted-foreground">No messages yet — say hi.</p>
             </div>
@@ -862,6 +942,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
   const isSystem = m.senderType === "system";
   const isMine = m.senderId === currentUserId;
   const isDeleted = !!m.deletedAt;
+  const isPartial = m.id.startsWith("agent-partial:");
   const [showPicker, setShowPicker] = useState(false);
   return (
     <div className={
@@ -899,7 +980,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             </span>
           )}
           {isSystem && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">system</span>}
-          {!isDeleted && (
+          {!isDeleted && !isPartial && (
             <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <button onClick={() => setShowPicker(p => !p)} title="Add reaction"
                 className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">

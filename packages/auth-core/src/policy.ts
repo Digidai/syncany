@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import {
   servers,
@@ -30,7 +30,8 @@ import {
  *     bypass where requireUser accepted bridge tokens as user sessions.
  */
 export type Subject =
-  | { kind: "user"; userId: string; via: "cookie" | "api_token" | "bridge_token" }
+  | { kind: "user"; userId: string; via: "cookie" | "api_token" }
+  | { kind: "bridge"; userId: string; serverId: string; keyId: string; agentIds: string[]; via: "bridge_token" }
   | { kind: "machine"; userId: string; serverId: string; keyId: string };
 
 type DB = DrizzleD1Database<Record<string, unknown>>;
@@ -187,6 +188,24 @@ export async function agentIsChannelMember(ctx: AuthCtx, agentId: string, channe
   });
 }
 
+export async function bridgeHasAgentInChannel(ctx: AuthCtx, channelId: string): Promise<boolean> {
+  if (ctx.subject.kind !== "bridge") return false;
+  const allowed = ctx.subject.agentIds.filter(Boolean);
+  if (allowed.length === 0) return false;
+  return memo(ctx, `bac:${channelId}`, async () => {
+    const rows = await ctx.db
+      .select({ id: channelMembers.channelId })
+      .from(channelMembers)
+      .where(and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.memberType, "agent"),
+        inArray(channelMembers.memberId, allowed),
+      ))
+      .limit(1);
+    return rows.length > 0;
+  });
+}
+
 export async function channelIsPublic(ctx: AuthCtx, channelId: string): Promise<boolean> {
   return memo(ctx, `cpub:${channelId}`, async () => {
     const rows = await ctx.db
@@ -230,6 +249,7 @@ async function publicAndServerMember(ctx: AuthCtx, channelId: string): Promise<b
  *  matches subject.serverId. Use this before any server-scoped read/write
  *  whose `serverId` we know directly. */
 function machineScoped(ctx: AuthCtx, targetServerId: string): boolean {
+  if (ctx.subject.kind === "bridge") return ctx.subject.serverId === targetServerId;
   if (ctx.subject.kind !== "machine") return true;
   return ctx.subject.serverId === targetServerId;
 }
@@ -238,12 +258,21 @@ function machineScoped(ctx: AuthCtx, targetServerId: string): boolean {
  *  channels table. Returns true when subject is a user OR when the bound
  *  server contains this channel. */
 async function machineScopedByChannel(ctx: AuthCtx, channelId: string): Promise<boolean> {
+  if (ctx.subject.kind === "bridge") return channelInServer(ctx, channelId, ctx.subject.serverId);
   if (ctx.subject.kind !== "machine") return true;
   return channelInServer(ctx, channelId, ctx.subject.serverId);
 }
 
 /** Same for an agentId. */
 async function machineScopedByAgent(ctx: AuthCtx, agentId: string): Promise<boolean> {
+  if (ctx.subject.kind === "bridge") {
+    if (!ctx.subject.agentIds.includes(agentId)) return false;
+    const rows = await ctx.db
+      .select({ serverId: agents.serverId })
+      .from(agents).where(eq(agents.id, agentId)).limit(1);
+    if (rows.length === 0) return false;
+    return rows[0].serverId === ctx.subject.serverId;
+  }
   if (ctx.subject.kind !== "machine") return true;
   const rows = await ctx.db
     .select({ serverId: agents.serverId })
@@ -266,8 +295,10 @@ export const policy = {
     /** Highest-trust mutations: owner only. Used for slug change (link-
      *  breaking) and any policy/billing changes if we add them later. */
     canUpdate: async (ctx: AuthCtx, id: string) =>
+      ctx.subject.kind === "user" &&
       machineScoped(ctx, id) && (await userIsServerOwner(ctx, id)),
     canDelete: async (ctx: AuthCtx, id: string) =>
+      ctx.subject.kind === "user" &&
       machineScoped(ctx, id) && (await userIsServerOwner(ctx, id)),
     /** Day-to-day workspace mgmt: rename, set icon, remove members. Owner
      *  OR admin. Machine subjects always denied (this is human-initiated). */
@@ -284,15 +315,24 @@ export const policy = {
     },
   },
   agents: {
-    canRead:   async (ctx: AuthCtx, id: string) =>
-      (await machineScopedByAgent(ctx, id))
-        && (await agentBelongsToVisibleServer(ctx, id)),
+    canRead:   async (ctx: AuthCtx, id: string) => {
+      if (!(await machineScopedByAgent(ctx, id))) return false;
+      if (ctx.subject.kind === "bridge") return ctx.subject.agentIds.includes(id);
+      return agentBelongsToVisibleServer(ctx, id);
+    },
     canCreate: async (ctx: AuthCtx, serverId: string) =>
+      ctx.subject.kind === "user" &&
       machineScoped(ctx, serverId) && (await userIsServerMember(ctx, serverId)),
     canUpdate: async (ctx: AuthCtx, id: string) =>
+      ctx.subject.kind === "user" &&
       (await machineScopedByAgent(ctx, id)) && (await userOwnsAgent(ctx, id)),
     canDelete: async (ctx: AuthCtx, id: string) =>
+      ctx.subject.kind === "user" &&
       (await machineScopedByAgent(ctx, id)) && (await userOwnsAgent(ctx, id)),
+    canReportActivity: async (ctx: AuthCtx, id: string) => {
+      if (ctx.subject.kind === "bridge") return ctx.subject.agentIds.includes(id) && await machineScopedByAgent(ctx, id);
+      return policy.agents.canUpdate(ctx, id);
+    },
   },
   channels: {
     /** Read = member of the channel OR has an owned agent in the channel OR
@@ -300,15 +340,18 @@ export const policy = {
      *  pre-fix hole where `channelIsPublic` short-circuited server scoping. */
     canRead: async (ctx: AuthCtx, id: string) => {
       if (!(await machineScopedByChannel(ctx, id))) return false;
+      if (ctx.subject.kind === "bridge") return bridgeHasAgentInChannel(ctx, id);
       return (await userIsChannelMember(ctx, id))
         || (await userHasAgentInChannel(ctx, id))
         || (await publicAndServerMember(ctx, id));
     },
     canCreate: async (ctx: AuthCtx, serverId: string) =>
+      ctx.subject.kind === "user" &&
       machineScoped(ctx, serverId) && (await userIsServerMember(ctx, serverId)),
     /** Write metadata (rename, description). Tighter than read: must be the
      *  channel creator OR the server owner. Replaces the old reuse-of-canRead. */
     canUpdate: async (ctx: AuthCtx, channelId: string) => {
+      if (ctx.subject.kind !== "user") return false;
       if (!(await machineScopedByChannel(ctx, channelId))) return false;
       const rows = await ctx.db
         .select({ createdBy: channels.createdBy, serverId: channels.serverId })
@@ -341,6 +384,7 @@ export const policy = {
      */
     canAddMember: async (ctx: AuthCtx, channelId: string): Promise<boolean> => {
       if (!(await machineScopedByChannel(ctx, channelId))) return false;
+      if (ctx.subject.kind === "bridge") return bridgeHasAgentInChannel(ctx, channelId);
       return (await userIsChannelMember(ctx, channelId))
         || (await userHasAgentInChannel(ctx, channelId));
     },
@@ -370,6 +414,7 @@ export const policy = {
      */
     canLeave: async (ctx: AuthCtx, channelId: string): Promise<boolean> => {
       if (!(await machineScopedByChannel(ctx, channelId))) return false;
+      if (ctx.subject.kind === "bridge") return bridgeHasAgentInChannel(ctx, channelId);
       return (await userIsChannelMember(ctx, channelId))
         || (await userHasAgentInChannel(ctx, channelId));
     },
@@ -383,10 +428,16 @@ export const policy = {
     }): Promise<boolean> => {
       if (!(await machineScopedByChannel(ctx, args.channelId))) return false;
       if (args.senderType === "human") {
+        if (ctx.subject.kind !== "user") return false;
         return args.senderId === ctx.subject.userId
           && (await userIsChannelMember(ctx, args.channelId));
       }
       if (args.senderType === "agent") {
+        if (ctx.subject.kind === "bridge") {
+          return ctx.subject.agentIds.includes(args.senderId)
+            && (await machineScopedByAgent(ctx, args.senderId))
+            && (await agentIsChannelMember(ctx, args.senderId, args.channelId));
+        }
         return (await machineScopedByAgent(ctx, args.senderId))
           && (await userOwnsAgent(ctx, args.senderId))
           && (await agentIsChannelMember(ctx, args.senderId, args.channelId));
@@ -397,10 +448,22 @@ export const policy = {
     /** Edit/delete a specific message — only the original sender (or the
      *  agent's owner) can touch it. */
     canEdit: async (ctx: AuthCtx, args: {
-      senderId: string; senderType: "human" | "agent" | "system";
+      channelId: string; senderId: string; senderType: "human" | "agent" | "system";
     }): Promise<boolean> => {
-      if (args.senderType === "human") return args.senderId === ctx.subject.userId;
-      if (args.senderType === "agent") return userOwnsAgent(ctx, args.senderId);
+      if (!(await machineScopedByChannel(ctx, args.channelId))) return false;
+      if (args.senderType === "human") {
+        return ctx.subject.kind === "user"
+          && args.senderId === ctx.subject.userId
+          && (await userIsChannelMember(ctx, args.channelId));
+      }
+      if (args.senderType === "agent") {
+        if (ctx.subject.kind === "bridge") {
+          return ctx.subject.agentIds.includes(args.senderId)
+            && (await agentIsChannelMember(ctx, args.senderId, args.channelId));
+        }
+        return (await userOwnsAgent(ctx, args.senderId))
+          && (await agentIsChannelMember(ctx, args.senderId, args.channelId));
+      }
       return false;
     },
   },
@@ -411,6 +474,7 @@ export const policy = {
      *  channel readers can't manage tasks anymore. */
     canManage: async (ctx: AuthCtx, channelId: string) => {
       if (!(await machineScopedByChannel(ctx, channelId))) return false;
+      if (ctx.subject.kind === "bridge") return bridgeHasAgentInChannel(ctx, channelId);
       return (await userIsChannelMember(ctx, channelId))
         || (await userHasAgentInChannel(ctx, channelId));
     },

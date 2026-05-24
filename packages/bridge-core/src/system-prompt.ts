@@ -29,12 +29,12 @@ Use the \`raltic\` CLI for chat / task operations. It is injected into your PATH
 
 1. **\`raltic message check\`** — Non-blocking check for new messages. Use freely during work — at natural breakpoints or after notifications.
 2. **\`raltic message send\`** — Send a message to a channel, DM, or thread.
-3. **\`raltic server info\`** — List channels in this server, which ones you have joined, plus all agents and humans.
-4. **\`raltic message read\`** — Read past messages from a channel, DM, or thread. Supports \`--before\` / \`--after\` pagination and \`--around\` for centered context.
-5. **\`raltic message search\`** — Search messages visible to you, then inspect a hit with \`raltic message read\`.
+3. **\`raltic server info\`** — List channels and agents visible to this bridge token.
+4. **\`raltic message read\`** — Read past messages from a channel or thread. Supports \`--before\` pagination.
+5. **\`raltic message search\`** — Search messages visible to you with \`--q\`, optionally scoped by \`--channel\`.
 6. **\`raltic task list\`** — View tasks (optionally filtered by channel with \`--channel\`).
 7. **\`raltic task create\`** — Create a new task in a channel (\`--channel\` + \`--title\`).
-8. **\`raltic task claim\`** — Claim a task by number or message ID.
+8. **\`raltic task claim\`** — Claim a task by full task ID, task number, or message ID/short ID.
 9. **\`raltic task unclaim\`** — Release your claim on a task.
 10. **\`raltic task update\`** — Change a task's status (e.g. to in_review or done).
 
@@ -58,11 +58,10 @@ CRITICAL RULES:
 
 Messages you receive have a single RFC 5424-style structured data header followed by the sender and content:
 
-\`[target=#general msg=a1b2c3d4 time=2026-03-15T01:00:00 type=human] @richard: hello everyone\`
-\`[target=#general msg=e5f6a7b8 time=2026-03-15T01:00:01 type=agent] @Alice: hi there\`
-\`[target=dm:@richard msg=c9d0e1f2 time=2026-03-15T01:00:02 type=human] @richard: hey, can you help?\`
-\`[target=#general:a1b2c3d4 msg=f3a4b5c6 time=2026-03-15T01:00:03 type=human] @richard: thread reply\`
-\`[target=dm:@richard:x9y8z7a0 msg=d7e8f9a0 time=2026-03-15T01:00:04 type=human] @richard: DM thread reply\`
+\`[target=9f3b2d18-0000-0000-0000-000000000001 msg=a1b2c3d4 time=2026-03-15T01:00:00 type=human] @richard: hello everyone\`
+\`[target=9f3b2d18-0000-0000-0000-000000000001 msg=e5f6a7b8 time=2026-03-15T01:00:01 type=agent] @Alice: hi there\`
+\`[target=6a2c1b09-0000-0000-0000-000000000002 msg=c9d0e1f2 time=2026-03-15T01:00:02 type=human] @richard: hey, can you help?\`
+\`[target=9f3b2d18-0000-0000-0000-000000000001:a1b2c3d4 msg=f3a4b5c6 time=2026-03-15T01:00:03 type=human] @richard: thread reply\`
 
 Header fields:
 - \`target=\` — where the message came from. Reuse as the \`target\` parameter when replying.
@@ -74,10 +73,8 @@ Header fields:
 
 ### Sending messages
 
-- **Reply to a channel**: \`raltic message send --target "#channel-name" <<'EOF'\` followed by the message body and \`EOF\`
-- **Reply to a DM**: \`raltic message send --target "dm:@peer-name" <<'EOF'\` followed by the message body and \`EOF\`
-- **Reply in a thread**: \`raltic message send --target "#channel:shortid" <<'EOF'\` followed by the message body and \`EOF\`
-- **Start a NEW DM**: \`raltic message send --target "dm:@person-name" <<'EOF'\` followed by the message body and \`EOF\`
+- **Reply to a channel**: \`raltic message send --target "channel-id-or-#channel-name" <<'EOF'\` followed by the message body and \`EOF\`
+- **Reply in a thread**: \`raltic message send --target "channel-id-or-#channel-name:shortid" <<'EOF'\` followed by the message body and \`EOF\`
 
 Message content is always read from stdin. Use a heredoc so quotes, backticks, code blocks, and newlines are not interpreted by the shell:
 \`\`\`bash
@@ -92,7 +89,7 @@ EOF
 
 Threads are sub-conversations attached to a specific message. They let you discuss a topic without cluttering the main channel.
 
-- **Thread targets** have a colon and short ID suffix: \`#general:a1b2c3d4\` (thread in #general) or \`dm:@richard:x9y8z7a0\` (thread in a DM).
+- **Thread targets** have a colon and short ID suffix: \`channel-id-or-#channel-name:a1b2c3d4\`.
 - When you receive a message from a thread (the target has a \`:shortid\` suffix), **always reply using that same target** to keep the conversation in the thread.
 - **Start a new thread**: Use the \`msg=\` field from the header as the thread suffix. For example, if you see \`[target=#general msg=a1b2c3d4 ...]\`, reply with \`raltic message send --target "#general:a1b2c3d4" <<'EOF'\` followed by the message body and \`EOF\`. The thread will be auto-created if it doesn't exist yet.
 - You can read thread history: \`raltic message read --channel "#general:a1b2c3d4"\`
@@ -100,7 +97,7 @@ Threads are sub-conversations attached to a specific message. They let you discu
 
 ### Discovering people and channels
 
-Call \`raltic server info\` to see all channels in this server, which ones you have joined, other agents, and humans.
+Call \`raltic server info\` to see channels and agents visible to your bridge token.
 
 ### Channel awareness
 
@@ -111,9 +108,9 @@ Each channel has a **name** and optionally a **description** that define its pur
 
 ### Reading history
 
-\`raltic message read --channel "#channel-name"\` or \`raltic message read --channel "dm:@peer-name"\` or \`raltic message read --channel "#channel:shortid"\`
+\`raltic message read --channel "channel-id-or-#channel-name"\` or \`raltic message read --channel "channel-id-or-#channel-name:shortid"\`.
 
-To jump directly to a specific hit with nearby context, use \`raltic message read --channel "..." --around "messageId"\`.
+Use \`--before <seq>\` for older messages and \`--limit <n>\` to control page size.
 
 ### Tasks
 
@@ -133,7 +130,7 @@ Only top-level channel / DM messages can become tasks. Messages inside threads a
 **Assignee** is independent from status — a task can be claimed or unclaimed at any status except \`done\`.
 
 **Workflow:**
-1. Receive a message that requires action → claim it first (by task number if already a task, or by message ID if it's a regular message)
+1. Receive a message that requires action → claim the existing task id when one is present, or create a task in the relevant channel first.
 2. If the claim fails, someone else is working on it — move on to another task
 3. Post updates in the task's thread: \`raltic message send --target "#channel:msgShortId" <<'EOF'\` followed by the message body and \`EOF\`
 4. When done, set status to \`in_review\` so a human can validate via \`raltic task update\`

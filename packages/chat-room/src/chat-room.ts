@@ -36,16 +36,20 @@ interface AttachedSession {
   userId: string;
   agentIds: string[];
   channelId: string;
+  serverId?: string;
   /** Bridge id from sy_bridge_ token — used for membership re-checks +
    *  revocation across the WS lifetime. */
   bridgeId?: string;
+  jti?: string;
 }
 
 interface VerifiedToken {
   userId: string;
   agentIds: string[];
+  serverId?: string;
   channelId: string;
   bridgeId?: string;
+  jti?: string;
   exp: number;
 }
 
@@ -189,7 +193,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as ServerMessage;
-    this.broadcast(body);
+    await this.broadcast(body);
     return Response.json({ ok: true });
   }
 
@@ -211,13 +215,26 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
 
     const channelId = new URL(req.url).searchParams.get("channelId");
     if (!channelId) return new Response("channel param required", { status: 400 });
-    // claims.channelId is set for web-issued tokens (channel-scoped) but is
-    // omitted for bridge tokens (which cover all channels the bridge's agents
-    // are members of). For bridge tokens we accept any channelId — the api
-    // Worker only routes bridges to channels they've been listed in by
-    // /api/v1/bridge/connect, which itself enforces ownership.
     if (claims.channelId && claims.channelId !== channelId) {
       return new Response("channel mismatch", { status: 403 });
+    }
+    if (!claims.channelId) {
+      if (!claims.bridgeId || !claims.serverId || claims.agentIds.length === 0) {
+        return new Response("bridge token missing scope", { status: 403 });
+      }
+      const db = drizzle(this.env.DB);
+      const rows = await db
+        .select({ channelId: channelMembers.channelId })
+        .from(channelMembers)
+        .innerJoin(channels, eq(channels.id, channelMembers.channelId))
+        .where(and(
+          eq(channelMembers.channelId, channelId),
+          eq(channelMembers.memberType, "agent"),
+          inArray(channelMembers.memberId, claims.agentIds),
+          eq(channels.serverId, claims.serverId),
+        ))
+        .limit(1);
+      if (rows.length === 0) return new Response("bridge channel forbidden", { status: 403 });
     }
     this.channelId = channelId;
 
@@ -228,14 +245,16 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       userId: claims.userId,
       agentIds: claims.agentIds,
       channelId,
+      serverId: claims.serverId,
       bridgeId: claims.bridgeId,
+      jti: claims.jti,
     };
     server.serializeAttachment(attached);
     this.ctx.acceptWebSocket(server, [`u:${claims.userId}`, `c:${channelId}`]);
     this.sessions.set(server, attached);
 
     // Notify peers
-    this.broadcast({
+    await this.broadcast({
       v: PROTOCOL_VERSION,
       t: "presence",
       userId: claims.userId,
@@ -264,6 +283,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       content: string; threadParentId: string | null;
       idempotencyKey: string;
     };
+    this.channelId = body.channelId;
     // Agent posts MUST be by an agent that is a member of this channel.
     // The internal secret only proves the caller is our own Worker
     // (or RalticAgent DO) — it doesn't prove the senderId is authorised.
@@ -299,7 +319,6 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       // a transient D1 hiccup). Logged for the operator to see.
       console.warn("chat-room: archive lookup failed, falling through", e);
     }
-    this.channelId = body.channelId;
     const sql = this.ctx.storage.sql;
 
     const dup = sql.exec(
@@ -331,7 +350,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     sql.exec(`INSERT INTO idem(user_id, key, seq) VALUES(?, ?, ?)`, body.senderId, body.idempotencyKey, seq);
     await this.scheduleFlush();
 
-    this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
+    await this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
     // Fanout to every channel member's UserGateway so sidebar unread badges
     // can update without re-fetching. Don't await — best-effort.
     // ctx.waitUntil keeps the fanout Promise alive even if the DO is
@@ -389,13 +408,18 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     if (!body.agentId || typeof body.text !== "string") {
       return new Response("bad request", { status: 400 });
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.broadcast({
+    if (!(await this.isCurrentMember(body.agentId, "agent"))) {
+      return new Response(
+        JSON.stringify({ error: { code: "FORBIDDEN", message: "agent not in this channel" } }),
+        { status: 403, headers: { "content-type": "application/json" } },
+      );
+    }
+    await this.broadcast({
       v: PROTOCOL_VERSION,
-      t: "agent_text_delta" as never,
+      t: "agent_text_delta",
       agentId: body.agentId,
       text: body.text,
-    } as any);
+    });
     return Response.json({ ok: true });
   }
 
@@ -421,7 +445,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     await this.scheduleFlush();
     // Broadcast newly-seeded messages too, so live tabs see them without refresh.
     for (const r of persisted) {
-      this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq: r.seq, message: r });
+      await this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq: r.seq, message: r });
     }
     return Response.json({ ok: true, seqs: persisted.map(p => p.seq) });
   }
@@ -473,9 +497,9 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
           return;
         }
         if (msg.t === "typing") {
-          this.broadcast({ v: PROTOCOL_VERSION, t: "typing", userId: sess.userId, on: msg.on }, ws);
+          await this.broadcast({ v: PROTOCOL_VERSION, t: "typing", userId: sess.userId, on: msg.on }, ws);
         } else {
-          this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: msg.status }, ws);
+          await this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: msg.status }, ws);
         }
         this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
         return;
@@ -499,7 +523,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     const sess = this.sessions.get(ws);
     this.sessions.delete(ws);
     if (sess) {
-      this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: "offline" });
+      await this.broadcast({ v: PROTOCOL_VERSION, t: "presence", userId: sess.userId, status: "offline" });
     }
   }
 
@@ -584,7 +608,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     await this.scheduleFlush();
 
     // Broadcast then ack (durability is from DO SQLite buffer, not D1 write)
-    this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
+    await this.broadcast({ v: PROTOCOL_VERSION, t: "message", seq, message: row });
     this.ctx.waitUntil(this.fanoutToGateways(this.channelId, seq, senderId).catch(() => {}));
     this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id, seq, messageId });
 
@@ -597,6 +621,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
       this.ctx.waitUntil(this.dispatchToCloudAgents({
         channelId: this.channelId,
         messageId,
+        threadParentId: msg.threadParentId ?? null,
         text: msg.content,
         callerId: senderId,
       }).catch((e) => {
@@ -617,6 +642,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   private async dispatchToCloudAgents(input: {
     channelId: string;
     messageId: string;
+    threadParentId: string | null;
     text: string;
     callerId: string;
   }): Promise<void> {
@@ -684,6 +710,7 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
           source: "channel_mention",
           channelId: input.channelId,
           messageId: input.messageId,
+          threadParentId: input.threadParentId,
           text: input.text,
           callerId: input.callerId,
           callerType: "human",
@@ -895,6 +922,9 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   private async verifyToken(token: string): Promise<VerifiedToken> {
     const payload = await verifyWsToken(token, this.env.CHAT_ROOM_AUTH_SECRET);
     if (!payload) throw new Error("invalid token");
+    if (payload.aud !== undefined && payload.aud !== "channel" && payload.aud !== "bridge") {
+      throw new Error("wrong token audience");
+    }
     // KV deny-list check — same as REST resolveSubject. Without this, a
     // revoked machine key's still-open WS keeps working until the 7-day
     // token TTL elapses (P1 from 6-agent diagnostic).
@@ -917,8 +947,10 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     return {
       userId: payload.sub,
       agentIds: Array.isArray(payload.agents) ? payload.agents : [],
+      serverId: typeof payload.serverId === "string" ? payload.serverId : undefined,
       channelId: typeof payload.channelId === "string" ? payload.channelId : "",
       bridgeId: typeof payload.bridgeId === "string" ? payload.bridgeId : undefined,
+      jti: payload.jti,
       exp: payload.exp,
     };
   }
@@ -926,11 +958,28 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
   // -------------------------------------------------------------------------
   // Broadcast helpers
   // -------------------------------------------------------------------------
-  private broadcast(msg: ServerMessage, exclude?: WebSocket): void {
+  private async broadcast(msg: ServerMessage, exclude?: WebSocket): Promise<void> {
     const text = encode(msg);
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === exclude) continue;
+      const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
+      if (sess?.bridgeId && await this.isBridgeSessionRevoked(sess)) {
+        try { ws.close(4001, "bridge revoked"); } catch { /* ignore */ }
+        this.sessions.delete(ws);
+        continue;
+      }
       try { ws.send(text); } catch { /* will GC on close */ }
+    }
+  }
+
+  private async isBridgeSessionRevoked(sess: AttachedSession): Promise<boolean> {
+    if (!this.env.RATE_LIMITS || !sess.bridgeId) return false;
+    try {
+      if (sess.jti && await isTokenRevoked(this.env.RATE_LIMITS, sess.jti)) return true;
+      return await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${sess.bridgeId}`);
+    } catch (e) {
+      console.warn("[ChatRoom] KV revocation recheck failed, allowing", { error: String(e) });
+      return false;
     }
   }
 

@@ -17,6 +17,9 @@
 import { Agent } from "agents";
 import { generateText, streamText, stepCountIs } from "ai";
 import type { ModelMessage } from "ai";
+import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
+import { agents as agentsTable } from "@raltic/db";
 import { SandboxClient } from "./sandbox-client.js";
 import { resolveModel } from "./ai-gateway.js";
 import { buildToolRegistry } from "./tools/registry.js";
@@ -118,6 +121,7 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
 
   private async runInvocation(invocation: AgentInvocation): Promise<{ ok: true; messageId?: string } | { ok: false; error: string }> {
     const policy = await this.loadPolicy();
+    const agentConfig = await this.loadAgentConfig();
 
     // Quota check (D1) — short-circuit BEFORE hitting AI Gateway. Saves
     // round-trip + clearly distinguishes our 429 from provider 429.
@@ -176,10 +180,14 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     });
 
     // Model selection — first allowed model in the user's tier; the agent
-    // creation form will let users pick within their tier later.
+    // creation/edit forms persist the user's selected cloud model; keep
+    // plan enforcement here so a stale DB row cannot bypass tier policy.
+    const selectedModel = agentConfig.model && policy.allowedModels.includes(agentConfig.model)
+      ? agentConfig.model
+      : policy.allowedModels[0] ?? "claude-haiku-4-5";
     const model = resolveModel({
       env: this.env,
-      model: policy.allowedModels[0] ?? "claude-haiku-4-5",
+      model: selectedModel,
     });
 
     // Wall-clock task timeout (D3) — drive via an AbortController so the
@@ -192,11 +200,12 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
 
     let assistantText = "";
     let tokensUsed = 0;
+    let partialChain = Promise.resolve();
     try {
       const result = streamText({
         model,
         messages: toAiSdkMessages(compactedHistory),
-        system: await this.systemPrompt(invocation),
+        system: await this.systemPrompt(invocation, agentConfig.systemPrompt),
         tools,
         // v6 replaced `maxSteps` with stopWhen + stepCountIs.
         stopWhen: stepCountIs(MAX_STEPS),
@@ -205,11 +214,14 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
 
       for await (const delta of result.textStream) {
         assistantText += delta;
+        const partialText = assistantText;
         // Stream partial text to ChatRoom DO so the UI sees the agent
         // typing in real time. We don't await — fire-and-forget is fine,
         // any single dropped delta is recovered on the next chunk (the
         // ChatRoom protocol uses replace-semantics, not delta-append).
-        void this.postPartial(invocation.channelId, assistantText).catch(() => {});
+        partialChain = partialChain
+          .then(() => this.postPartial(invocation.channelId, partialText))
+          .catch(() => {});
       }
       const usage = await result.usage;
       tokensUsed = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
@@ -227,7 +239,8 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     // Final post (full text, replaces the streaming partial).
     let messageId: string | undefined;
     try {
-      const posted = await this.postFinal(invocation.channelId, assistantText);
+      await partialChain;
+      const posted = await this.postFinal(invocation.channelId, assistantText, invocation.threadParentId ?? null);
       messageId = posted.messageId;
     } catch (e) {
       console.error("[raltic-agent] postFinal failed:", e);
@@ -576,6 +589,21 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
     return TIER_POLICIES.free;
   }
 
+  private async loadAgentConfig(): Promise<{ model: string | null; systemPrompt: string | null }> {
+    try {
+      const db = drizzle(this.env.DB);
+      const row = await db
+        .select({ model: agentsTable.model, systemPrompt: agentsTable.systemPrompt })
+        .from(agentsTable)
+        .where(eq(agentsTable.id, this.state.agentId))
+        .limit(1);
+      return row[0] ?? { model: null, systemPrompt: null };
+    } catch (e) {
+      console.warn("[raltic-agent] loadAgentConfig failed:", e);
+      return { model: null, systemPrompt: null };
+    }
+  }
+
   /**
    * Build the per-invocation system prompt. Includes:
    *   - Base persona + tool usage hints
@@ -587,7 +615,7 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
    * memory section — the agent can still operate, it just doesn't have
    * cross-session context until it calls memory_remember at least once.
    */
-  private async systemPrompt(invocation: AgentInvocation): Promise<string> {
+  private async systemPrompt(invocation: AgentInvocation, customPrompt: string | null): Promise<string> {
     const base = [
       "You are a Raltic Agent — a long-running AI assistant embedded in the user's workspace.",
       "You can use the provided tools to read/write files, run shell commands, search messages, manage memory, and post replies.",
@@ -598,6 +626,10 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
         "don't ask the user for context you've stored before.",
       "Respond in the language the user used.",
     ];
+
+    if (customPrompt?.trim()) {
+      base.push("", "## Agent instructions", customPrompt.trim());
+    }
 
     const memoryBootstrap = await this.readMemoryBootstrap();
     if (memoryBootstrap) {
@@ -653,7 +685,7 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
   }
 
   /** Final post — replaces partial, allocates seq, persists to D1. */
-  private async postFinal(channelId: string, text: string): Promise<{ messageId: string; seq: number }> {
+  private async postFinal(channelId: string, text: string, threadParentId: string | null): Promise<{ messageId: string; seq: number }> {
     const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(channelId));
     // Reuse the existing /internal/send handler. Agent posts MUST go
     // through this path (not /internal/agent-post) so they share
@@ -670,7 +702,7 @@ export class RalticAgent extends Agent<AgentEnv, AgentState> {
         senderId: this.state.agentId,
         senderType: "agent",
         content: text,
-        threadParentId: null,
+        threadParentId,
         idempotencyKey,
       }),
     });

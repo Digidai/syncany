@@ -30,8 +30,16 @@ function stubDb(rows: { table: string; data: Record<string, unknown>[] }[]) {
   return make() as any;
 }
 
-const human: Subject = { kind: "user", userId: "u1" };
+const human: Subject = { kind: "user", userId: "u1", via: "cookie" };
 const machineSrvA: Subject = { kind: "machine", userId: "u1", serverId: "srvA", keyId: "k1" };
+const bridgeSrvA: Subject = {
+  kind: "bridge",
+  userId: "u1",
+  serverId: "srvA",
+  keyId: "k1",
+  agentIds: ["a1"],
+  via: "bridge_token",
+};
 
 describe("policy.servers.canRead", () => {
   it("allows a user who is a server member", async () => {
@@ -131,6 +139,65 @@ describe("policy.servers.canEdit (owner+admin)", () => {
   });
   it("denies machine subjects entirely (workspace admin is human-only)", async () => {
     expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("owner"), machineSrvA), "srvA")).toBe(false);
+  });
+  it("denies bridge subjects entirely (workspace admin is human-only)", async () => {
+    expect(await policy.servers.canEdit(newAuthCtx(dbWithRole("owner"), bridgeSrvA), "srvA")).toBe(false);
+  });
+});
+
+describe("bridge subject channel/message scope", () => {
+  const scopedDb = stubDb([
+    { table: "channels", data: [{ id: "ch1", serverId: "srvA" }] },
+    { table: "channel_members", data: [{ id: "ch1", channelId: "ch1" }] },
+    { table: "agents", data: [{ id: "a1", serverId: "srvA" }] },
+  ]);
+
+  it("allows bridge read only when a token-bound agent is in the channel", async () => {
+    expect(await policy.channels.canRead(newAuthCtx(scopedDb, bridgeSrvA), "ch1")).toBe(true);
+    const noAgentMemberDb = stubDb([
+      { table: "channels", data: [{ id: "ch1", serverId: "srvA" }] },
+      { table: "channel_members", data: [] },
+      { table: "agents", data: [{ id: "a1", serverId: "srvA" }] },
+    ]);
+    expect(await policy.channels.canRead(newAuthCtx(noAgentMemberDb, bridgeSrvA), "ch1")).toBe(false);
+  });
+
+  it("allows bridge to send as its bound agent but never as the human user", async () => {
+    const ctx = newAuthCtx(scopedDb, bridgeSrvA);
+    expect(await policy.messages.canSendAs(ctx, {
+      channelId: "ch1",
+      senderId: "a1",
+      senderType: "agent",
+    })).toBe(true);
+    expect(await policy.messages.canSendAs(ctx, {
+      channelId: "ch1",
+      senderId: "u1",
+      senderType: "human",
+    })).toBe(false);
+    expect(await policy.messages.canSendAs(ctx, {
+      channelId: "ch1",
+      senderId: "a2",
+      senderType: "agent",
+    })).toBe(false);
+  });
+
+  it("denies bridge editing human messages and allows only token-bound agent messages", async () => {
+    const ctx = newAuthCtx(scopedDb, bridgeSrvA);
+    expect(await policy.messages.canEdit(ctx, {
+      channelId: "ch1",
+      senderId: "u1",
+      senderType: "human",
+    })).toBe(false);
+    expect(await policy.messages.canEdit(ctx, {
+      channelId: "ch1",
+      senderId: "a1",
+      senderType: "agent",
+    })).toBe(true);
+    expect(await policy.messages.canEdit(ctx, {
+      channelId: "ch1",
+      senderId: "a2",
+      senderType: "agent",
+    })).toBe(false);
   });
 });
 

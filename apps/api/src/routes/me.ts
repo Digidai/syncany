@@ -27,7 +27,7 @@ meRoutes.post("/api/v1/agent-activity", requireAuth, async (c) => {
   // enum already validated by zod, so no manual check needed.)
   void subject;
   const ctx = ctxFor(c);
-  await requirePolicy(policy.agents.canUpdate(ctx, body.agentId));
+  await requirePolicy(policy.agents.canReportActivity(ctx, body.agentId));
 
   // Persist a coarse online/offline state on the agent row. The fine-grained
   // per-message status (thinking/working/error/idle) only lives in

@@ -69,7 +69,7 @@ undo). Before submitting to https://hstspreload.org:
 
 ```bash
 cd apps/api
-npx wrangler triggers run --cron "0 5 * * *"   # in dev
+npx wrangler triggers run --cron "0 3 * * *"   # in dev
 ```
 
 In prod, force a trigger via the Cloudflare dashboard → Workers → raltic-api

@@ -20,7 +20,7 @@
  *     workspace is the natural target. Channel with multiple agents
  *     would need a picker — defer to P1+.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Folder, FileText, ChevronRight, ChevronDown, Loader2, FolderTree, Terminal, RefreshCw, Brain } from "lucide-react";
 import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
@@ -44,6 +44,7 @@ interface TreeNode {
 export function WorkspacePane({ agent }: Props) {
   // Cloud-only — bridge agents render the empty state.
   const isCloud = agent && agent.runtimeMode !== "bridge";
+  const agentId = agent?.id ?? null;
 
   const [tree, setTree] = useState<TreeNode | null>(null);
   // Tri-state: null = loading, TreeNode = loaded, Error = failed.
@@ -65,7 +66,7 @@ export function WorkspacePane({ agent }: Props) {
 
   // Reset when agent changes.
   useEffect(() => {
-    if (agent?.id !== lastAgentIdRef.current) {
+    if (agentId !== lastAgentIdRef.current) {
       setTree(null);
       setTreeError(null);
       setActiveFile(null);
@@ -73,15 +74,15 @@ export function WorkspacePane({ agent }: Props) {
       setTerminalTail("");
       setMemoryEntries(null);
       setMemoryError(null);
-      lastAgentIdRef.current = agent?.id ?? null;
+      lastAgentIdRef.current = agentId;
     }
-  }, [agent?.id]);
+  }, [agentId]);
 
   // Load memory entries when the Memory tab is active. Cheap (one
   // listAgentWorkspace call per category) and we don't auto-poll
   // (memory changes are agent-driven; refresh button handles it).
   useEffect(() => {
-    if (!isCloud || !agent || view !== "memory") return;
+    if (!isCloud || !agentId || view !== "memory") return;
     let cancelled = false;
     setMemoryError(null);
     (async () => {
@@ -90,7 +91,7 @@ export function WorkspacePane({ agent }: Props) {
       const realErrors: Error[] = [];
       for (const c of cats) {
         try {
-          const { entries } = await api.listAgentWorkspace(agent.id, `.memory/${c}`);
+          const { entries } = await api.listAgentWorkspace(agentId, `.memory/${c}`);
           for (const e of entries) {
             if (e.kind !== "file") continue;
             out.push({ category: c, name: e.name, path: `.memory/${c}/${e.name}` });
@@ -116,14 +117,14 @@ export function WorkspacePane({ agent }: Props) {
       setMemoryEntries(out);
     })();
     return () => { cancelled = true; };
-  }, [agent?.id, isCloud, view, refreshKey]);
+  }, [agentId, isCloud, view, refreshKey]);
 
   // Load root tree on mount + on agent change + on refresh.
   useEffect(() => {
-    if (!isCloud || !agent) return;
+    if (!isCloud || !agentId) return;
     let cancelled = false;
     setTreeError(null);
-    api.listAgentWorkspace(agent.id, ".").then(({ entries }) => {
+    api.listAgentWorkspace(agentId, ".").then(({ entries }) => {
       if (cancelled) return;
       setTree({
         name: "/workspace",
@@ -142,17 +143,18 @@ export function WorkspacePane({ agent }: Props) {
       setTreeError(e instanceof Error ? e : new Error(String(e)));
     });
     return () => { cancelled = true; };
-  }, [agent?.id, isCloud, refreshKey]);
+  }, [agentId, isCloud, refreshKey]);
 
   // Poll recent terminal output every 5s (low-frequency; users mostly
   // glance at this rather than watch). Replace with WS stream in P1+.
   useEffect(() => {
-    if (!isCloud || !agent) return;
+    if (!isCloud || !agentId) return;
+    const currentAgentId = agentId;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     async function poll() {
       try {
-        const { tail } = await api.getAgentTerminal(agent!.id);
+        const { tail } = await api.getAgentTerminal(currentAgentId);
         if (cancelled) return;
         setTerminalTail(tail);
       } catch { /* swallow — terminal is best-effort */ }
@@ -164,7 +166,7 @@ export function WorkspacePane({ agent }: Props) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [agent?.id, isCloud]);
+  }, [agentId, isCloud]);
 
   // Track in-flight dir listings so rapid open/close/reopen doesn't fan
   // out duplicate requests (codex MED). Cleared after settle.

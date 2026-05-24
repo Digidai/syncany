@@ -16,13 +16,17 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadServer() {
       try {
         const { server } = await api.getServerBySlug(slug);
         if (!server) throw new Error("Server payload missing");
+        if (cancelled) return;
         setServer(server);
         setLoadErr(null);
       } catch (e) {
+        if (cancelled) return;
         if (e instanceof ApiError && e.status === 401) { router.push("/login"); return; }
         if (e instanceof ApiError && e.status === 404) { router.push("/"); return; }
         // Surface the failure as in-page UI rather than re-throwing into
@@ -32,13 +36,15 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
         console.error("[workspace layout] loadServer failed", e);
         setLoadErr(e instanceof Error ? e.message : "Failed to load workspace");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadServer();
+    return () => { cancelled = true; };
   }, [slug, router]);
 
-  if (loading) {
+  const showingStaleServer = server?.slug !== slug;
+  if (loading || (!loadErr && showingStaleServer)) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-sm text-muted-foreground">Loading…</div>

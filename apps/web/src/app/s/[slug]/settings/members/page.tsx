@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Users, UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
@@ -33,7 +33,7 @@ export default function MembersSettingsPage() {
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ userId: string; name: string } | null>(null);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     try {
       const [m, i] = await Promise.all([
         api.listMembers(server.id),
@@ -47,9 +47,9 @@ export default function MembersSettingsPage() {
     } finally {
       setMembersLoaded(true);
     }
-  }
+  }, [server.id]);
 
-  useEffect(() => { reload(); }, [server.id]);
+  useEffect(() => { reload(); }, [reload]);
 
   const canManage = viewerRole === "owner" || viewerRole === "admin";
 

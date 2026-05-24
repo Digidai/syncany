@@ -161,7 +161,7 @@ function applySecurityHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (isPublicPath(pathname)) return applySecurityHeaders(NextResponse.next());
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {

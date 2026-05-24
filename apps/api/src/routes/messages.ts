@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@raltic/protocol";
-import { agents, channels, channelMembers, messages, messageAttachments, reactions } from "@raltic/db";
+import { channels, messages, messageAttachments, reactions } from "@raltic/db";
 import { and, eq, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
@@ -74,6 +74,11 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
         messageId: messageAttachments.messageId,
         channelId: messageAttachments.channelId,
         uploaderId: messageAttachments.uploaderId,
+        filename: messageAttachments.filename,
+        contentType: messageAttachments.contentType,
+        sizeBytes: messageAttachments.sizeBytes,
+        width: messageAttachments.width,
+        height: messageAttachments.height,
       }).from(messageAttachments)
         .where(inArray(messageAttachments.id, body.attachmentIds));
       // All must (a) belong to caller, (b) live in this channel,
@@ -110,6 +115,27 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
               sqlFn`${messageAttachments.messageId} IS NULL`,
             ));
         }
+        const origin = new URL(c.req.url).origin;
+        await broadcastMessageUpdate(c.env, body.channelId, {
+          id: data.messageId,
+          channelId: body.channelId,
+          senderId,
+          senderType,
+          content: body.content,
+          seq: data.seq,
+          threadParentId: body.threadParentId ?? null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          attachments: valid.map((a) => ({
+            id: a.id,
+            filename: a.filename,
+            contentType: a.contentType,
+            sizeBytes: a.sizeBytes,
+            url: `${origin}/uploads/attachments/${a.channelId}/${a.id}`,
+            width: a.width,
+            height: a.height,
+          })),
+        });
       }
     } catch (e) {
       console.error(JSON.stringify({
@@ -127,11 +153,7 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
   // /agents API surface is per-workspace, but here we lazily expand
   // the candidate set to all agents @mention syntax may target.
   if (data.messageId && senderType === "human") {
-    // P0 debug: dispatch inline (await) instead of waitUntil. Slower for
-    // the user (response blocks on agent completion ~1-3s) but rules out
-    // cross-isolate waitUntil tracking issues. TODO: switch back to
-    // waitUntil after we've verified end-to-end works at least once.
-    try {
+    c.executionCtx.waitUntil((async () => {
       // Resolve channel-member agents (id + name).
       const candidates = await resolveChannelAgents(c.env, body.channelId);
       if (candidates.length > 0) {
@@ -155,6 +177,7 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
           await dispatchToAgents(c.env, {
             channelId: body.channelId,
             messageId: data.messageId!,
+            threadParentId: body.threadParentId ?? null,
             text: body.content,
             callerId: senderId,
             callerType: senderType,
@@ -162,9 +185,9 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
           });
         }
       }
-    } catch (e) {
+    })().catch((e) => {
       console.error("[messages.post] agent dispatch failed:", e);
-    }
+    }));
   }
 
   return c.json(data);
@@ -188,7 +211,7 @@ messagesRoutes.patch("/api/v1/messages/:id", requireAuth, async (c) => {
   const m = rows[0];
   // Edit permission goes through policy.messages.canEdit — same enforcement
   // surface as the other routes (covers machine-key serverId scoping too).
-  await requirePolicy(policy.messages.canEdit(ctx, { senderId: m.senderId, senderType: m.senderType }));
+  await requirePolicy(policy.messages.canEdit(ctx, { channelId: m.channelId, senderId: m.senderId, senderType: m.senderType }));
   if (m.deletedAt) return c.json({ error: { code: "GONE", message: "message deleted" } }, 410);
 
   const editedAt = new Date();
@@ -210,7 +233,7 @@ messagesRoutes.delete("/api/v1/messages/:id", requireAuth, async (c) => {
   const rows = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
   if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
   const m = rows[0];
-  await requirePolicy(policy.messages.canEdit(ctx, { senderId: m.senderId, senderType: m.senderType }));
+  await requirePolicy(policy.messages.canEdit(ctx, { channelId: m.channelId, senderId: m.senderId, senderType: m.senderType }));
 
   const deletedAt = new Date();
   await db.update(messages).set({
@@ -308,15 +331,15 @@ messagesRoutes.post("/api/v1/messages/:id/reactions", requireAuth, async (c) => 
   // was never invited to).
   let reactorId: string;
   if (reactorType === "human") {
+    if (subject.kind !== "user") {
+      return c.json({ error: { code: "FORBIDDEN", message: "human reactions require a human session" } }, 403);
+    }
     reactorId = subject.userId;
   } else {
     if (!body.reactorId) {
       return c.json({ error: { code: "INVALID", message: "reactorId required for agent reactions" } }, 400);
     }
     reactorId = body.reactorId;
-    const own = await db.select({ id: agents.id }).from(agents)
-      .where(and(eq(agents.id, reactorId), eq(agents.ownerId, subject.userId))).limit(1);
-    if (own.length === 0) return c.json({ error: { code: "FORBIDDEN", message: "not your agent" } }, 403);
   }
   // Find the channel via the message — channel membership = react permission.
   const m = await db.select({ channelId: messages.channelId }).from(messages).where(eq(messages.id, messageId)).limit(1);
@@ -327,17 +350,11 @@ messagesRoutes.post("/api/v1/messages/:id/reactions", requireAuth, async (c) => 
   // otherwise an owner could "react" via an agent that isn't actually in
   // the conversation, bypassing the agent's normal channel-membership gate.
   if (reactorType === "agent") {
-    const isMember = await db.select({ channelId: channelMembers.channelId })
-      .from(channelMembers)
-      .where(and(
-        eq(channelMembers.channelId, m[0].channelId),
-        eq(channelMembers.memberId, reactorId),
-        eq(channelMembers.memberType, "agent"),
-      ))
-      .limit(1);
-    if (isMember.length === 0) {
-      return c.json({ error: { code: "FORBIDDEN", message: "agent not in this channel" } }, 403);
-    }
+    await requirePolicy(policy.messages.canSendAs(ctx, {
+      channelId: m[0].channelId,
+      senderId: reactorId,
+      senderType: "agent",
+    }), "agent not allowed in this channel");
   }
 
   // Toggle: if exists, remove; else add.

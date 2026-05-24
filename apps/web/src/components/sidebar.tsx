@@ -8,7 +8,7 @@ import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon,
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
-import { useAgentActivities, useGateway, useChannelUnread, useWorkspacePresence } from "@/hooks/use-agent-activity";
+import { useGateway, useChannelUnread, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { UserPill } from "./user-pill";
 
@@ -22,15 +22,14 @@ interface SidebarProps {
 export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: SidebarProps) {
   const [openCreate, setOpenCreate] = useState(false);
   const [openNewDm, setOpenNewDm] = useState(false);
-  const activities = useAgentActivities();
   const { seedChannel, setMutedChannelIds } = useGateway();
   const params = useParams();
   const pathname = usePathname();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedServerSlug, setLoadedServerSlug] = useState<string | null>(null);
   const activeChannelId = params.channelId as string | undefined;
-  const activeAgentId = params.agentId as string | undefined;
 
   // refreshKey bumps trigger a re-fetch from child actions that
   // mutate workspace channels — currently:
@@ -43,6 +42,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
       try {
         const data = await api.getServerBySlug(serverSlug);
@@ -64,13 +64,20 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           const lastReadSeq = c.lastReadSeq ?? Math.max(0, maxSeq - unread);
           seedChannel(c.id, maxSeq, lastReadSeq);
         }
+        setLoadedServerSlug(serverSlug);
+      } catch {
+        if (cancelled) return;
+        setChannels([]);
+        setAgents([]);
+        setMutedChannelIds(new Set());
+        setLoadedServerSlug(serverSlug);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => { cancelled = true; };
-  }, [serverSlug, seedChannel, refreshKey]);
+  }, [serverSlug, seedChannel, setMutedChannelIds, refreshKey]);
 
   // Cross-component channel-mutation signal. The Channels browse page
   // dispatches `raltic:channels-changed` on join/leave so the sidebar
@@ -94,6 +101,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
   const publicChannels = channels.filter((c) => c.type === "public").sort(sortStarredFirst);
   const dmChannels = channels.filter((c) => c.type === "dm").sort(sortStarredFirst);
   const privateChannels = channels.filter((c) => c.type === "private").sort(sortStarredFirst);
+  const isLoading = loading || loadedServerSlug !== serverSlug;
 
   return (
     <aside className="flex w-64 shrink-0 flex-col">
@@ -117,7 +125,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-2 text-sm">
-        {loading ? (
+        {isLoading ? (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
         ) : (
           <>
@@ -353,59 +361,6 @@ function TopLevelLink({ href, icon, label, active }: {
       <span className={active ? undefined : "text-muted-foreground"}>{icon}</span>
       <span className="flex-1 truncate leading-tight">{label}</span>
     </Link>
-  );
-}
-
-function SidebarFooterLink({ href, icon, children }: { href: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <Link href={href}
-      className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground">
-      {icon} {children}
-    </Link>
-  );
-}
-
-function AgentRow({ agent: a, activity: act, serverSlug, active }: {
-  agent: Agent; activity: { status?: string; label?: string } | undefined;
-  serverSlug: string; active: boolean;
-}) {
-  return (
-    <div className={cn(ROW_BASE, "p-0", active && ROW_ACTIVE)}>
-      {/* Click the row → agent profile (status, history, edit). DM is a
-          dedicated icon button — clicking the name shouldn't drop you
-          straight into a chat without context. */}
-      <Link
-        href={`/s/${serverSlug}/agents/${a.id}`}
-        className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2.5 py-1.5", !active && ROW_HOVER)}
-        title={`${a.displayName} — view profile`}
-      >
-        <span className={cn("h-2 w-2 shrink-0 rounded-full",
-          act?.status === "thinking" ? "bg-violet-500 animate-pulse" :
-          act?.status === "working"  ? "bg-blue-500 animate-pulse" :
-          act?.status === "error"    ? "bg-red-500" :
-          a.status === "online"      ? "bg-success" :
-          a.status === "sleeping"    ? "bg-warning" : "bg-zinc-400")} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate leading-tight">{a.displayName}</span>
-            <RuntimeDot runtime={a.runtime} />
-          </div>
-          {act?.label && <span className="truncate text-[10px] leading-tight text-muted-foreground">{act.label}</span>}
-        </div>
-      </Link>
-      {a.dmChannelId && (
-        <Link
-          href={`/s/${serverSlug}/dm/${a.dmChannelId}`}
-          // focus-visible:opacity-100 keeps keyboard users from chasing
-          // an invisible-but-tabbable button.
-          className="mr-1.5 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-          title={`Open DM with ${a.displayName}`}
-          aria-label={`Open DM with ${a.displayName}`}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-        </Link>
-      )}
-    </div>
   );
 }
 

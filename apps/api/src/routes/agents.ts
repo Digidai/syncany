@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
-import { createAgentRequest, RUNTIME_MODELS } from "@raltic/protocol";
+import { createAgentRequest, CLOUD_RUNTIME_MODELS, RUNTIME_MODELS } from "@raltic/protocol";
 import { agents, channels, channelMembers } from "@raltic/db";
-import { and, eq, sql as sqlFn } from "drizzle-orm";
+import { and, eq, inArray, sql as sqlFn } from "drizzle-orm";
 import { z } from "zod";
 
 // Validated patch payload — replaces an unsafe `as Partial<{...}>` cast.
@@ -22,6 +22,7 @@ const updateAgentBody = z.object({
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
+import { notifyGateway } from "../lib/notify";
 
 export const agentsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 const AGENT_STATUS_STALE_MS = 2 * 60_000;
@@ -58,9 +59,18 @@ function computedAgentStatus<T extends {
 agentsRoutes.get("/api/v1/agents", requireAuth, async (c) => {
   const subject = c.get("subject");
   const db = drizzle(c.env.DB);
-  const where = subject.kind === "machine"
-    ? and(eq(agents.ownerId, subject.userId), eq(agents.serverId, subject.serverId))
-    : eq(agents.ownerId, subject.userId);
+  if (subject.kind === "bridge" && subject.agentIds.length === 0) {
+    return c.json({ agents: [] });
+  }
+  const where = subject.kind === "bridge"
+    ? and(
+      eq(agents.ownerId, subject.userId),
+      eq(agents.serverId, subject.serverId),
+      inArray(agents.id, subject.agentIds),
+    )
+    : subject.kind === "machine"
+      ? and(eq(agents.ownerId, subject.userId), eq(agents.serverId, subject.serverId))
+      : eq(agents.ownerId, subject.userId);
 
   // Fetch agents + DM channel id in two cheap queries (D1 doesn't optimize
   // correlated subqueries well).
@@ -215,6 +225,15 @@ agentsRoutes.post("/api/v1/agents", requireAuth, async (c) => {
     }));
   }));
 
+  c.executionCtx.waitUntil(Promise.allSettled([
+    notifyGateway(c.env, subject.userId, {
+      v: 1, t: "member_add", channelId: dmChannelId, memberId: subject.userId, memberType: "human" as const,
+    }),
+    notifyGateway(c.env, subject.userId, {
+      v: 1, t: "member_add", channelId: dmChannelId, memberId: id, memberType: "agent" as const,
+    }),
+  ]).catch(() => { /* best-effort live refresh */ }));
+
   return c.json({ id, dmChannelId });
 });
 
@@ -273,32 +292,28 @@ agentsRoutes.patch("/api/v1/agents/:id", requireAuth, async (c) => {
   // resolve the FINAL combo by reading the current row first when only
   // one of (runtime, model) is in the patch.
   if (body.runtime !== undefined || body.model !== undefined) {
-    let finalRuntime = body.runtime;
-    let finalModel = body.model;
-    if (finalRuntime === undefined || finalModel === undefined) {
-      const current = await db.select({ runtime: agents.runtime, model: agents.model })
-        .from(agents).where(eq(agents.id, id)).limit(1);
-      if (current.length === 0) {
-        return c.json({ error: { code: "NOT_FOUND", message: "no such agent" } }, 404);
-      }
-      // current[0].runtime is plain TEXT after S2 — cast to the
-      // narrow request union. Legacy gemini/copilot rows will fall
-      // through to the RUNTIME_MODELS lookup below and get a clean
-      // 400 INVALID_RUNTIME_MODEL.
-      finalRuntime = finalRuntime ?? (current[0].runtime as unknown as typeof finalRuntime);
-      finalModel = finalModel ?? current[0].model;
+    const current = await db.select({ runtime: agents.runtime, model: agents.model, runtimeMode: agents.runtimeMode })
+      .from(agents).where(eq(agents.id, id)).limit(1);
+    if (current.length === 0) {
+      return c.json({ error: { code: "NOT_FOUND", message: "no such agent" } }, 404);
     }
-    // Narrow finalRuntime (string from DB after the S2 enum drop) to
-    // a known RuntimeId key before indexing RUNTIME_MODELS. An older
-    // gemini/copilot row would land in the `!allowed` branch and 400
-    // — the only safe behaviour, since those runtimes were removed.
-    const runtimeKey = finalRuntime as keyof typeof RUNTIME_MODELS;
-    const allowed = RUNTIME_MODELS[runtimeKey];
+    // current[0].runtime is plain TEXT after S2 — cast to the
+    // narrow request union. Legacy gemini/copilot rows will fall
+    // through to the RUNTIME_MODELS lookup below and get a clean
+    // 400 INVALID_RUNTIME_MODEL.
+    const finalRuntime = body.runtime ?? (current[0].runtime as unknown as typeof body.runtime);
+    const finalModel = body.model ?? current[0].model;
+    const finalRuntimeMode = current[0].runtimeMode as AgentRuntimeMode;
+    const allowed = finalRuntimeMode && finalRuntimeMode !== "bridge"
+      ? CLOUD_RUNTIME_MODELS
+      : RUNTIME_MODELS[finalRuntime as keyof typeof RUNTIME_MODELS];
     if (!allowed || finalModel === undefined || !allowed.includes(finalModel)) {
       return c.json({
         error: {
           code: "INVALID_RUNTIME_MODEL",
-          message: `model "${finalModel}" is not valid for runtime "${finalRuntime}" (allowed: ${allowed?.join(", ") ?? "none"})`,
+          message: finalRuntimeMode && finalRuntimeMode !== "bridge"
+            ? `model "${finalModel}" is not valid for cloud agents (allowed: ${allowed.join(", ")})`
+            : `model "${finalModel}" is not valid for runtime "${finalRuntime}" (allowed: ${allowed?.join(", ") ?? "none"})`,
         },
       }, 400);
     }
@@ -323,6 +338,8 @@ agentsRoutes.delete("/api/v1/agents/:id", requireAuth, async (c) => {
   const ctx = ctxFor(c);
   await requirePolicy(policy.agents.canDelete(ctx, id));
   const db = drizzle(c.env.DB);
+  const agentRows = await db.select({ ownerId: agents.ownerId }).from(agents).where(eq(agents.id, id)).limit(1);
+  const ownerId = agentRows[0]?.ownerId ?? null;
 
   // Find the DM channel(s) this agent was a member of — those are now
   // orphaned (a single-human DM with no peer). Drop them so the sidebar
@@ -337,6 +354,11 @@ agentsRoutes.delete("/api/v1/agents/:id", requireAuth, async (c) => {
     ))
     .where(eq(channels.type, "dm"));
   const dmChannelIds = dmRows.map(r => r.channelId);
+  const memberRows = await db
+    .select({ channelId: channelMembers.channelId })
+    .from(channelMembers)
+    .where(and(eq(channelMembers.memberId, id), eq(channelMembers.memberType, "agent")));
+  const affectedChannelIds = [...new Set(memberRows.map(r => r.channelId))];
 
   // Two sequential awaits — D1 has no transaction across batched
   // statements anyway, and we don't need atomicity here (a partial
@@ -349,5 +371,12 @@ agentsRoutes.delete("/api/v1/agents/:id", requireAuth, async (c) => {
     await db.delete(channels).where(eq(channels.id, cid));
   }
   await db.delete(agents).where(eq(agents.id, id));
+  if (ownerId) {
+    c.executionCtx.waitUntil(Promise.allSettled(
+      affectedChannelIds.map(channelId => notifyGateway(c.env, ownerId, {
+        v: 1, t: "member_remove", channelId, memberId: id, memberType: "agent" as const,
+      })),
+    ).catch(() => { /* best-effort live refresh */ }));
+  }
   return c.json({ ok: true, removedDmChannels: dmChannelIds.length });
 });

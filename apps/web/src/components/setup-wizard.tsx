@@ -421,10 +421,6 @@ export function SetupWizard({
       ? `raltic-bridge ${issued}`
       : `raltic-bridge ${issued} --server-url ${API_URL}`
     : "";
-  // Legacy alias kept so any code paths still passing `cmd` keep
-  // compiling; new render path uses quickCmd directly.
-  const cmd = quickCmd;
-
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-xl mx-4">

@@ -61,7 +61,11 @@ bridgeRoutes.post("/api/v1/bridge/connect", async (c) => {
   // serverB's agents/channels. Cross-server isolation is enforced here.
   const [myAgents, myChannels] = await Promise.all([
     db.select().from(agents).where(
-      and(eq(agents.ownerId, mk.userId), eq(agents.serverId, mk.serverId)),
+      and(
+        eq(agents.ownerId, mk.userId),
+        eq(agents.serverId, mk.serverId),
+        eq(agents.runtimeMode, "bridge"),
+      ),
     ),
     db.select({ ch: channels, agentId: channelMembers.memberId })
       .from(channels)
@@ -70,6 +74,7 @@ bridgeRoutes.post("/api/v1/bridge/connect", async (c) => {
       .where(and(
         eq(agents.ownerId, mk.userId),
         eq(agents.serverId, mk.serverId),
+        eq(agents.runtimeMode, "bridge"),
         eq(channels.serverId, mk.serverId),
       )),
   ]);
@@ -84,7 +89,9 @@ bridgeRoutes.post("/api/v1/bridge/connect", async (c) => {
 
   const wsToken = await signWsToken(c.env.CHAT_ROOM_AUTH_SECRET, {
     sub: mk.userId,
+    aud: "bridge",
     agents: myAgents.map(a => a.id),
+    serverId: mk.serverId,
     bridgeId: mk.id,
     ttlSeconds: 60 * 60 * 24 * 7,
   });

@@ -7,7 +7,8 @@ import { updateServerRequest } from "@raltic/protocol";
 import { and, eq, inArray, or, sql as sqlFn } from "drizzle-orm";
 import type { Env } from "../lib/env";
 import type { Variables } from "../lib/env";
-import { requireAuth, ctxFor } from "../lib/auth";
+import { requireAuth, requireUser, ctxFor } from "../lib/auth";
+import { kickFromChannel } from "../lib/notify";
 
 /**
  * Shared cleanup for leave + kick. CRITICAL SECURITY: removing a human
@@ -39,6 +40,26 @@ async function cleanupServerMembership(
   targetUserId: string,
 ): Promise<void> {
   const db = drizzle(env.DB);
+  const [humanChannelRows, agentChannelRows] = await Promise.all([
+    db
+      .select({ channelId: channelMembers.channelId })
+      .from(channelMembers)
+      .innerJoin(channels, eq(channels.id, channelMembers.channelId))
+      .where(and(
+        eq(channelMembers.memberId, targetUserId),
+        eq(channelMembers.memberType, "human"),
+        eq(channels.serverId, serverId),
+      )),
+    db
+      .select({ channelId: channelMembers.channelId, agentId: channelMembers.memberId })
+      .from(channelMembers)
+      .innerJoin(agents, eq(agents.id, channelMembers.memberId))
+      .where(and(
+        eq(channelMembers.memberType, "agent"),
+        eq(agents.ownerId, targetUserId),
+        eq(agents.serverId, serverId),
+      )),
+  ]);
   // First read which machine keys are about to be revoked — needed so we
   // can ALSO push their bridgeId onto the JWT denylist (the per-key revoke
   // endpoint at /machine-keys/:id does this; the cleanup path used to miss
@@ -88,19 +109,36 @@ async function cleanupServerMembership(
         db.select({ id: channels.id }).from(channels).where(eq(channels.serverId, serverId)),
       ),
     )),
-    // 4. Destroy owned agents in this workspace.
+    // 4. Null out tasks assigned to agents owned by the removed user.
+    // tasks.assigneeId has no FK, so deleting agents alone would leave
+    // ghost assignees in the board.
+    db.update(tasks).set({ assigneeId: null, assigneeType: null }).where(and(
+      eq(tasks.assigneeType, "agent"),
+      inArray(
+        tasks.assigneeId,
+        db.select({ id: agents.id }).from(agents).where(and(
+          eq(agents.ownerId, targetUserId),
+          eq(agents.serverId, serverId),
+        )),
+      ),
+      inArray(
+        tasks.channelId,
+        db.select({ id: channels.id }).from(channels).where(eq(channels.serverId, serverId)),
+      ),
+    )),
+    // 5. Destroy owned agents in this workspace.
     db.delete(agents).where(and(
       eq(agents.ownerId, targetUserId),
       eq(agents.serverId, serverId),
     )),
-    // 5. Soft-revoke machine keys for this workspace (preserves audit trail).
+    // 6. Soft-revoke machine keys for this workspace (preserves audit trail).
     db.update(machineKeys)
       .set({ revokedAt: new Date() })
       .where(and(
         eq(machineKeys.userId, targetUserId),
         eq(machineKeys.serverId, serverId),
       )),
-    // 6. Server membership last.
+    // 7. Server membership last.
     db.delete(serverMembers).where(and(
       eq(serverMembers.serverId, serverId),
       eq(serverMembers.memberId, targetUserId),
@@ -118,6 +156,11 @@ async function cleanupServerMembership(
       }),
     ),
   );
+
+  await Promise.all([
+    ...humanChannelRows.map((r) => kickFromChannel(env, r.channelId, targetUserId, "human")),
+    ...agentChannelRows.map((r) => kickFromChannel(env, r.channelId, r.agentId, "agent")),
+  ]);
 }
 
 export const serversRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -159,7 +202,7 @@ serversRoutes.get("/api/v1/servers", requireAuth, async (c) => {
     eq(serverMembers.memberId, subject.userId),
     eq(serverMembers.memberType, "human"),
   ];
-  if (subject.kind === "machine") memberConds.push(eq(servers.id, subject.serverId));
+  if (subject.kind === "machine" || subject.kind === "bridge") memberConds.push(eq(servers.id, subject.serverId));
   const rows = await db
     .select({ s: servers, role: serverMembers.role })
     .from(servers)
@@ -186,7 +229,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
   // Machine-subject scope check: only the server whose serverId matches
   // the machine key. Otherwise a key for serverA could enumerate serverB
   // by its slug.
-  if (subject.kind === "machine" && server.s.id !== subject.serverId) {
+  if ((subject.kind === "machine" || subject.kind === "bridge") && server.s.id !== subject.serverId) {
     return c.json({ error: { code: "NOT_FOUND", message: "no such server" } }, 404);
   }
 
@@ -220,28 +263,46 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
       }
     }
   }
+  const bridgeAgentIds = subject.kind === "bridge" ? subject.agentIds : [];
   const [chans, ags, unreadRows] = await Promise.all([
-    db.select().from(channels).where(and(
-      eq(channels.serverId, server.s.id),
-      // Phase B: hide archived channels from the default sidebar listing.
-      // Settings → Archived will surface them via a separate endpoint.
-      sqlFn`${channels.archivedAt} IS NULL`,
-      or(
-        eq(channels.type, "public"),
-        sqlFn`${channels.id} IN (
-          SELECT channel_id FROM channel_members
-          WHERE member_id = ${subject.userId} AND member_type = 'human'
-        )`,
-        sqlFn`${channels.id} IN (
-          SELECT cm.channel_id FROM channel_members cm
-          INNER JOIN agents a ON a.id = cm.member_id
-          WHERE cm.member_type = 'agent'
-            AND a.owner_id = ${subject.userId}
-            AND a.server_id = ${server.s.id}
-        )`,
-      ),
-    )),
-    db.select().from(agents).where(eq(agents.serverId, server.s.id)),
+    subject.kind === "bridge" && bridgeAgentIds.length === 0
+      ? Promise.resolve([] as Array<typeof channels.$inferSelect>)
+      : db.select().from(channels).where(and(
+        eq(channels.serverId, server.s.id),
+        // Phase B: hide archived channels from the default sidebar listing.
+        // Settings → Archived will surface them via a separate endpoint.
+        sqlFn`${channels.archivedAt} IS NULL`,
+        subject.kind === "bridge"
+          ? inArray(
+            channels.id,
+            db.select({ channelId: channelMembers.channelId })
+              .from(channelMembers)
+              .where(and(
+                eq(channelMembers.memberType, "agent"),
+                inArray(channelMembers.memberId, bridgeAgentIds),
+              )),
+          )
+          : or(
+            eq(channels.type, "public"),
+            sqlFn`${channels.id} IN (
+              SELECT channel_id FROM channel_members
+              WHERE member_id = ${subject.userId} AND member_type = 'human'
+            )`,
+            sqlFn`${channels.id} IN (
+              SELECT cm.channel_id FROM channel_members cm
+              INNER JOIN agents a ON a.id = cm.member_id
+              WHERE cm.member_type = 'agent'
+                AND a.owner_id = ${subject.userId}
+                AND a.server_id = ${server.s.id}
+            )`,
+          ),
+      )),
+    subject.kind === "bridge" && bridgeAgentIds.length === 0
+      ? Promise.resolve([] as Array<typeof agents.$inferSelect>)
+      : db.select().from(agents).where(and(
+        eq(agents.serverId, server.s.id),
+        subject.kind === "bridge" ? inArray(agents.id, bridgeAgentIds) : undefined,
+      )),
     // For each channel the user is a member of, max(seq) - lastReadSeq = unread.
     // Also picks up the per-user mutedAt flag (Phase A) so the client can
     // suppress the unread badge / bold weight without a second round-trip.
@@ -253,6 +314,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
     }).from(channelMembers).where(and(
       eq(channelMembers.memberId, subject.userId),
       eq(channelMembers.memberType, "human"),
+      subject.kind === "bridge" ? eq(channelMembers.channelId, "__bridge_no_human_unread__") : undefined,
     )),
   ]);
   // Compute unread per channel via a single SQL aggregation.
@@ -370,7 +432,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 // Workspace member management — list humans + remove. Owner-only for delete.
 // ---------------------------------------------------------------------------
-serversRoutes.get("/api/v1/servers/:id/members", requireAuth, async (c) => {
+serversRoutes.get("/api/v1/servers/:id/members", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   const ctx = ctxFor(c);
@@ -409,7 +471,7 @@ serversRoutes.get("/api/v1/servers/:id/members", requireAuth, async (c) => {
   return c.json({ members: out, viewerRole: myRole });
 });
 
-serversRoutes.delete("/api/v1/servers/:id/members/:userId", requireAuth, async (c) => {
+serversRoutes.delete("/api/v1/servers/:id/members/:userId", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const targetUserId = c.req.param("userId");
   const subject = c.get("subject");
@@ -444,7 +506,7 @@ serversRoutes.delete("/api/v1/servers/:id/members/:userId", requireAuth, async (
 // reserved-slugs.ts for the rationale + add-a-new-reserved checklist.
 import { RESERVED_SLUG_SET as RESERVED_SLUGS } from "@raltic/protocol";
 
-serversRoutes.patch("/api/v1/servers/:id", requireAuth, async (c) => {
+serversRoutes.patch("/api/v1/servers/:id", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   // 60 server-patches/hr/user — workspace rename + icon updates are
@@ -525,7 +587,7 @@ serversRoutes.patch("/api/v1/servers/:id", requireAuth, async (c) => {
 // DELETE /api/v1/servers/:id — owner-only. Cascades via FK ON DELETE CASCADE
 // down to channels / agents / members / messages / invites.
 // ---------------------------------------------------------------------------
-serversRoutes.delete("/api/v1/servers/:id", requireAuth, async (c) => {
+serversRoutes.delete("/api/v1/servers/:id", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const ctx = ctxFor(c);
   await requirePolicy(policy.servers.canDelete(ctx, id));
@@ -539,7 +601,7 @@ serversRoutes.delete("/api/v1/servers/:id", requireAuth, async (c) => {
 // owner must transfer or delete instead. Mirrors the kick-member cleanup
 // (channel memberships + server membership).
 // ---------------------------------------------------------------------------
-serversRoutes.post("/api/v1/servers/:id/leave", requireAuth, async (c) => {
+serversRoutes.post("/api/v1/servers/:id/leave", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   const ctx = ctxFor(c);
@@ -560,7 +622,7 @@ serversRoutes.post("/api/v1/servers/:id/leave", requireAuth, async (c) => {
 // Race-safe: a conditional UPDATE WHERE seeded=0 acts as the lock —
 // the second concurrent call sees changes=0 and exits without seeding.
 // ---------------------------------------------------------------------------
-serversRoutes.post("/api/v1/servers/:id/seed", requireAuth, async (c) => {
+serversRoutes.post("/api/v1/servers/:id/seed", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   // 10/hr/user — bounds accidental restore-button mashing.

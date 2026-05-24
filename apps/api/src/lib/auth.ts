@@ -28,6 +28,13 @@ export async function resolveSubject(c: Ctx): Promise<Subject | null> {
     const token = authz.slice("Bearer sy_api_".length);
     const claims = await verifyWsToken(token, c.env.CHAT_ROOM_AUTH_SECRET);
     if (!claims) return null;
+    const legacyApiToken =
+      claims.aud === undefined
+      && !claims.bridgeId
+      && !claims.serverId
+      && !claims.channelId
+      && (!claims.agents || claims.agents.length === 0);
+    if (claims.aud !== "api" && !legacyApiToken) return null;
     // Same revocation surface as bridge tokens — a leaked sy_api_ token
     // can be invalidated by writing its jti into the KV deny-list.
     if (claims.jti && await isTokenRevoked(c.env.RATE_LIMITS, claims.jti)) return null;
@@ -38,12 +45,18 @@ export async function resolveSubject(c: Ctx): Promise<Subject | null> {
     const token = authz.slice("Bearer sy_bridge_".length);
     const claims = await verifyWsToken(token, c.env.CHAT_ROOM_AUTH_SECRET);
     if (!claims) return null;
+    if (claims.aud !== undefined && claims.aud !== "bridge") return null;
     if (claims.jti && await isTokenRevoked(c.env.RATE_LIMITS, claims.jti)) return null;
     if (claims.bridgeId && await isTokenRevoked(c.env.RATE_LIMITS, `bridge:${claims.bridgeId}`)) return null;
-    // `via: "bridge_token"` — requireUser rejects this to prevent a
-    // bridge from masquerading as the user it represents on identity-
-    // level write paths (e.g. PATCH /me/default-server).
-    return { kind: "user", userId: claims.sub, via: "bridge_token" };
+    if (!claims.bridgeId || !claims.serverId || !Array.isArray(claims.agents)) return null;
+    return {
+      kind: "bridge",
+      userId: claims.sub,
+      serverId: claims.serverId,
+      keyId: claims.bridgeId,
+      agentIds: claims.agents.filter((id): id is string => typeof id === "string" && id.length > 0),
+      via: "bridge_token",
+    };
   }
 
   return null;
@@ -75,14 +88,6 @@ export const requireUser: MiddlewareHandler<{ Bindings: Env; Variables: { subjec
   if (!subject) return c.json({ error: { code: "UNAUTHENTICATED", message: "sign in" } }, 401);
   if (subject.kind !== "user") {
     return c.json({ error: { code: "FORBIDDEN", message: "user session required" } }, 403);
-  }
-  // Reject bridge-minted tokens on user-only surfaces. A bridge token
-  // is the user's WS upgrade credential; allowing it to PATCH the
-  // user's identity (e.g. default workspace, profile fields) means a
-  // compromised bridge can grief the user's account. Cookie + api_token
-  // are the only acceptable ways to act AS the user.
-  if (subject.via === "bridge_token") {
-    return c.json({ error: { code: "FORBIDDEN", message: "this endpoint requires a human session, not a bridge token" } }, 403);
   }
   await next();
 };

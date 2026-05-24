@@ -81,7 +81,7 @@ export class WorkspacePresence extends DurableObject<WorkspacePresenceEnv> {
     if (url.pathname.endsWith("/presence/note")) {
       const delta: Delta = body.delta === 1 ? 1 : body.delta === -1 ? -1 : 0 as never;
       if (delta !== 1 && delta !== -1) return new Response("delta must be ±1", { status: 400 });
-      this.noteConnection(userId, delta, serverId);
+      await this.noteConnection(userId, delta, serverId);
       return new Response(null, { status: 204 });
     }
     if (url.pathname.endsWith("/presence/sub")) {
@@ -95,7 +95,7 @@ export class WorkspacePresence extends DurableObject<WorkspacePresenceEnv> {
     return new Response("not found", { status: 404 });
   }
 
-  private noteConnection(userId: string, delta: Delta, serverId: string): void {
+  private async noteConnection(userId: string, delta: Delta, serverId: string): Promise<void> {
     const cur = this.users.get(userId) ?? { conns: 0, lastSeenAt: 0 };
     const wasOnline = cur.conns > 0;
     cur.conns = Math.max(0, cur.conns + delta);
@@ -103,7 +103,7 @@ export class WorkspacePresence extends DurableObject<WorkspacePresenceEnv> {
     this.users.set(userId, cur);
     const isOnline = cur.conns > 0;
     if (wasOnline !== isOnline) {
-      void this.broadcast({
+      await this.broadcast({
         v: 1, t: "presence_update",
         serverId, userId,
         online: isOnline,

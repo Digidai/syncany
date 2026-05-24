@@ -8,7 +8,9 @@
 
 export interface WsTokenPayload {
   sub: string;            // userId
+  aud?: "api" | "channel" | "gateway" | "bridge";
   agents?: string[];      // bridge-only: agentIds this connection represents
+  serverId?: string;      // bridge-only: server this token is scoped to
   channelId?: string;     // ChatRoom DO requires this
   bridgeId?: string;      // UserGateway DO uses this for routing
   jti: string;            // per-token id used for KV deny-list revocation

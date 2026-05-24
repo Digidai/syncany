@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ChevronUp, LogOut, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
 import {
@@ -26,7 +25,6 @@ import { notifyThrown } from "@/lib/notify";
  * without restructuring.
  */
 export function UserPill({ serverSlug }: { serverSlug: string }) {
-  const router = useRouter();
   const { data: session, isPending } = useSession();
 
   async function handleSignOut() {

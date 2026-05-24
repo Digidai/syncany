@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { listMessagesQuery, createChannelRequest, markReadRequest, addChannelMembersRequest } from "@raltic/protocol";
 import { servers, serverMembers, agents, channels, channelMembers, messages, messageAttachments, reactions, user } from "@raltic/db";
-import { and, desc, eq, lt, inArray, sql as sqlFn } from "drizzle-orm";
+import { and, desc, eq, lt, inArray, like, or, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
@@ -37,7 +37,7 @@ export const channelsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>(
 // ---------------------------------------------------------------------------
 // /api/v1/channels/:id/read — bump last_read_seq
 // ---------------------------------------------------------------------------
-channelsRoutes.post("/api/v1/channels/:id/read", requireAuth, async (c) => {
+channelsRoutes.post("/api/v1/channels/:id/read", requireAuth, requireUser, async (c) => {
   const channelId = c.req.param("id");
   const body = markReadRequest.parse(await c.req.json());
   const subject = c.get("subject");
@@ -94,12 +94,20 @@ channelsRoutes.get("/api/v1/channels/:id/messages", requireAuth, async (c) => {
   await requirePolicy(policy.messages.canRead(ctx, channelId));
 
   const db = drizzle(c.env.DB);
+  const conds = [eq(messages.channelId, channelId)];
+  if (q.before) conds.push(lt(messages.seq, q.before));
+  if (q.messageIdPrefix) conds.push(like(messages.id, `${q.messageIdPrefix}%`));
+  if (q.threadParentId) {
+    const threadCond = or(
+      eq(messages.id, q.threadParentId),
+      eq(messages.threadParentId, q.threadParentId),
+    );
+    if (threadCond) conds.push(threadCond);
+  }
   const rows = await db
     .select()
     .from(messages)
-    .where(q.before
-      ? and(eq(messages.channelId, channelId), lt(messages.seq, q.before))
-      : eq(messages.channelId, channelId))
+    .where(and(...conds))
     .orderBy(desc(messages.seq))
     .limit(q.limit);
   // Attach reactions grouped by emoji.
@@ -246,7 +254,7 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
 // added to in the sidebar, so without this surface they have no way to
 // discover the workspace's #general / #design / etc.
 // ---------------------------------------------------------------------------
-channelsRoutes.get("/api/v1/servers/:serverId/channels/browse", requireAuth, async (c) => {
+channelsRoutes.get("/api/v1/servers/:serverId/channels/browse", requireAuth, requireUser, async (c) => {
   const serverId = c.req.param("serverId");
   const subject = c.get("subject");
   const ctx = ctxFor(c);
@@ -947,21 +955,32 @@ channelsRoutes.post("/api/v1/channels", requireAuth, async (c) => {
 
   // Notify each affected user's UserGateway DO so live bridges/web tabs can
   // pick up the new channel without waiting for the next token refresh.
-  const userIdsToNotify = new Set<string>([subject.userId, ...(body.initialMemberIds ?? [])]);
-  // Each agent's owner also needs to know.
+  const notifications: Array<{
+    userId: string;
+    ev: { v: 1; t: "member_add"; channelId: string; memberId: string; memberType: "human" | "agent" };
+  }> = [];
+  for (const uid of new Set([subject.userId, ...(body.initialMemberIds ?? [])])) {
+    notifications.push({
+      userId: uid,
+      ev: { v: 1, t: "member_add", channelId: id, memberId: uid, memberType: "human" },
+    });
+  }
+  // Each agent's owner also needs an agent membership event so local bridges
+  // can open the channel immediately, including for newly token-visible agents.
   if (body.initialAgentIds && body.initialAgentIds.length > 0) {
-    const agentRows = await db.select({ ownerId: agents.ownerId }).from(agents)
+    const agentRows = await db.select({ id: agents.id, ownerId: agents.ownerId }).from(agents)
       .where(inArray(agents.id, body.initialAgentIds));
-    for (const r of agentRows) userIdsToNotify.add(r.ownerId);
+    for (const r of agentRows) {
+      notifications.push({
+        userId: r.ownerId,
+        ev: { v: 1, t: "member_add", channelId: id, memberId: r.id, memberType: "agent" },
+      });
+    }
   }
   // allSettled — a notification fan-out failure shouldn't turn a
   // successful channel-create into a 500. Members will see the channel
   // on their next sidebar refresh anyway.
-  const results = await Promise.allSettled([...userIdsToNotify].map(uid =>
-    notifyGateway(c.env, uid, {
-      v: 1, t: "member_add", channelId: id, memberId: uid, memberType: "human" as const,
-    }),
-  ));
+  const results = await Promise.allSettled(notifications.map(n => notifyGateway(c.env, n.userId, n.ev)));
   for (const r of results) {
     if (r.status === "rejected") {
       console.warn(JSON.stringify({
@@ -1019,6 +1038,7 @@ channelsRoutes.post("/api/v1/dm", requireAuth, requireUser, async (c) => {
 
   // Verify the peer is part of the same workspace — prevents using
   // the endpoint to enumerate user/agent ids across workspaces.
+  let peerAgentOwnerId: string | null = null;
   if (body.peerType === "human") {
     const peerRow = await db.select({ id: serverMembers.serverId })
       .from(serverMembers)
@@ -1031,13 +1051,14 @@ channelsRoutes.post("/api/v1/dm", requireAuth, requireUser, async (c) => {
       return c.json({ error: { code: "NOT_FOUND", message: "peer not in this workspace" } }, 404);
     }
   } else {
-    const peerAgent = await db.select({ id: agents.id })
+    const peerAgent = await db.select({ id: agents.id, ownerId: agents.ownerId })
       .from(agents)
       .where(and(eq(agents.id, body.peerId), eq(agents.serverId, body.serverId)))
       .limit(1);
     if (peerAgent.length === 0) {
       return c.json({ error: { code: "NOT_FOUND", message: "agent not in this workspace" } }, 404);
     }
+    peerAgentOwnerId = peerAgent[0].ownerId;
   }
 
   // Find existing DM containing EXACTLY (me, peer). The query: list
@@ -1135,9 +1156,16 @@ channelsRoutes.post("/api/v1/dm", requireAuth, requireUser, async (c) => {
 
   // Best-effort gateway notification so the peer's web tab + bridge
   // (if they're an agent owner) see the new channel immediately.
-  void notifyGateway(c.env, body.peerType === "human" ? body.peerId : subject.userId, {
-    v: 1, t: "member_add", channelId: keeperId, memberId: subject.userId, memberType: "human" as const,
-  }).catch(() => { /* swallow — channel still exists on next refresh */ });
+  void Promise.allSettled([
+    notifyGateway(c.env, body.peerType === "human" ? body.peerId : subject.userId, {
+      v: 1, t: "member_add", channelId: keeperId, memberId: subject.userId, memberType: "human" as const,
+    }),
+    body.peerType === "agent" && peerAgentOwnerId
+      ? notifyGateway(c.env, peerAgentOwnerId, {
+        v: 1, t: "member_add", channelId: keeperId, memberId: body.peerId, memberType: "agent" as const,
+      })
+      : Promise.resolve(),
+  ]).catch(() => { /* swallow — channel still exists on next refresh */ });
 
   return c.json({ channelId: keeperId, created: keeperId === channelId });
 });

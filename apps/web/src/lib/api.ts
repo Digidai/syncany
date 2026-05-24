@@ -299,8 +299,18 @@ export const RUNTIME_MODELS: Record<RuntimeId, readonly string[]> = {
   // openclaw + hermes routes via the user's daemon configuration —
   // "auto" lets the daemon's router pick based on installed providers.
   openclaw: ["auto", "claude-sonnet-4-6", "gpt-5.4", "gemini-2.5-pro"],
-  hermes:   ["auto"],
+  hermes:   ["auto", "router-default"],
 };
+
+export const CLOUD_MODELS = [
+  "claude-haiku-4-5",
+  "claude-sonnet-4-6",
+  "claude-opus-4-7",
+  "gpt-5.4",
+  "gpt-5.5",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+] as const;
 
 /**
  * Phase C — fetch the bearer-protected attachment bytes and return a
@@ -517,7 +527,7 @@ export const api = {
 
   // ---- messages ----
   sendMessage: (req: SendMessageRequest) =>
-    call<{ ok: true }>("/api/v1/messages", { method: "POST", body: JSON.stringify(req) }),
+    call<{ ok: true; seq: number; messageId?: string }>("/api/v1/messages", { method: "POST", body: JSON.stringify(req) }),
 
   listMessages: (channelId: string, opts?: { before?: number; limit?: number }) => {
     const q = new URLSearchParams();
@@ -598,10 +608,12 @@ export const api = {
     call<{ ok: true }>(`/api/v1/machine-keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   // ---- tasks ----
-  listTasks: (opts?: { channelId?: string; status?: string }) => {
+  listTasks: (opts?: { serverId?: string; channelId?: string; status?: string; assigneeId?: string }) => {
     const q = new URLSearchParams();
+    if (opts?.serverId) q.set("serverId", opts.serverId);
     if (opts?.channelId) q.set("channelId", opts.channelId);
     if (opts?.status) q.set("status", opts.status);
+    if (opts?.assigneeId) q.set("assigneeId", opts.assigneeId);
     return call<{ tasks: Array<{ id: string; channelId: string; messageId: string | null; taskNumber: number; title?: string; status: "todo" | "in_progress" | "in_review" | "done"; assigneeId: string | null; assigneeType: "human" | "agent" | null; createdAt: number; updatedAt: number }> }>(`/api/v1/tasks?${q}`);
   },
 

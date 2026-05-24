@@ -203,7 +203,7 @@ describe("ChatRoom DO - WebSocket upgrade auth", () => {
     expect(res.webSocket).toBeDefined();
   });
 
-  it("accepts a bridge token (no channelId in claims) for any channel", async () => {
+  it("rejects a bridge token missing bridge/server scope", async () => {
     const token = await signWsToken(SECRET, {
       sub: USER, agents: ["agent_1"], ttlSeconds: 60,
     });
@@ -214,7 +214,93 @@ describe("ChatRoom DO - WebSocket upgrade auth", () => {
         "Sec-WebSocket-Protocol": token,
       },
     });
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects a bridge token whose bound agents are not in the channel", async () => {
+    const token = await signWsToken(SECRET, {
+      sub: USER, bridgeId: "mk_1", serverId: SERVER, agents: ["agent_missing"], ttlSeconds: 60,
+    });
+    const stub = getStub();
+    const res = await stub.fetch(`https://chat-room/ws?channelId=${CHANNEL}`, {
+      headers: {
+        Upgrade: "websocket",
+        "Sec-WebSocket-Protocol": token,
+      },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("accepts a scoped bridge token for a token-bound agent in this channel", async () => {
+    await env.DB.prepare(`INSERT OR IGNORE INTO channel_members (channel_id, member_id, member_type, joined_at)
+                          VALUES (?, ?, ?, ?)`)
+      .bind(CHANNEL, "agent_1", "agent", Date.now())
+      .run();
+    const token = await signWsToken(SECRET, {
+      sub: USER, bridgeId: "mk_1", serverId: SERVER, agents: ["agent_1"], ttlSeconds: 60,
+    });
+    const stub = getStub();
+    const res = await stub.fetch(`https://chat-room/ws?channelId=${CHANNEL}`, {
+      headers: {
+        Upgrade: "websocket",
+        "Sec-WebSocket-Protocol": token,
+      },
+    });
     expect(res.status).toBe(101);
+  });
+});
+
+describe("UserGateway DO - WebSocket upgrade auth", () => {
+  function getGatewayStub(userId = USER) {
+    return env.USER_GATEWAY.get(env.USER_GATEWAY.idFromName(userId));
+  }
+
+  it("accepts legacy unscoped gateway tokens", async () => {
+    const token = await signWsToken(SECRET, {
+      sub: USER,
+      ttlSeconds: 60,
+    });
+    const res = await getGatewayStub().fetch(`https://user-gateway/ws?expectedUserId=${USER}`, {
+      headers: {
+        Upgrade: "websocket",
+        "Sec-WebSocket-Protocol": token,
+      },
+    });
+    expect(res.status).toBe(101);
+  });
+
+  it("rejects scoped no-audience gateway tokens", async () => {
+    const token = await signWsToken(SECRET, {
+      sub: USER,
+      bridgeId: "mk_legacy_scope",
+      serverId: SERVER,
+      agents: ["agent_legacy_scope"],
+      ttlSeconds: 60,
+    });
+    const res = await getGatewayStub().fetch(`https://user-gateway/ws?expectedUserId=${USER}`, {
+      headers: {
+        Upgrade: "websocket",
+        "Sec-WebSocket-Protocol": token,
+      },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects bridge-audience tokens missing server or agent scope", async () => {
+    const token = await signWsToken(SECRET, {
+      sub: USER,
+      aud: "bridge",
+      bridgeId: "mk_bad_scope",
+      agents: ["agent_bad_scope"],
+      ttlSeconds: 60,
+    });
+    const res = await getGatewayStub().fetch(`https://user-gateway/ws?expectedUserId=${USER}`, {
+      headers: {
+        Upgrade: "websocket",
+        "Sec-WebSocket-Protocol": token,
+      },
+    });
+    expect(res.status).toBe(401);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Hash, ArrowRight, Check } from "lucide-react";
@@ -24,14 +24,12 @@ type Row = Awaited<ReturnType<typeof api.browseChannels>>["channels"][number];
 
 export default function ChannelsBrowsePage() {
   const { slug } = useParams<{ slug: string }>();
-  const [serverId, setServerId] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [joining, setJoining] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const { server } = await api.getServerBySlug(slug);
-      setServerId(server.id);
       const { channels } = await api.browseChannels(server.id);
       // Stable sort: oldest first (createdAt asc). New channels float
       // to the end so the directory order doesn't shift on every visit.
@@ -40,8 +38,8 @@ export default function ChannelsBrowsePage() {
       notifyThrown("Couldn't load channels", e);
       setRows([]);
     }
-  }
-  useEffect(() => { load(); }, [slug]);
+  }, [slug]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleJoin(row: Row) {
     if (joining) return;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Check, Search, UserMinus, UserPlus, X } from "lucide-react";
+import { Check, Search, UserMinus, UserPlus } from "lucide-react";
 import { useWorkspacePresence } from "@/hooks/use-agent-activity";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,

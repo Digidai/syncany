@@ -136,20 +136,25 @@ export async function scheduled(
 async function runDailyBackup(env: Env): Promise<void> {
   const start = Date.now();
   const today = new Date();
-  const dateKey = today.toISOString().slice(0, 10); // YYYY-MM-DD
-  const r2Key = `${today.getUTCFullYear()}/${String(today.getUTCMonth() + 1).padStart(2, "0")}/${dateKey}.sql`;
+  const timestamp = today.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/:/g, "-");
+  const r2Key = `d1/${timestamp}.sql.gz`;
 
   try {
     const sql = await exportD1ToString(env);
-    const bytes = new TextEncoder().encode(sql).length;
-    await uploadToR2Bucket(env, r2Key, sql);
+    const originalBytes = new TextEncoder().encode(sql).length;
+    const gzipped = await gzipString(sql);
+    await uploadToR2Bucket(env, r2Key, gzipped, {
+      contentType: "application/gzip",
+      originalBytes,
+    });
     // eslint-disable-next-line no-console
     console.log(JSON.stringify({
       ts: new Date().toISOString(),
       level: "info",
       msg: "backup.complete",
       key: r2Key,
-      bytes,
+      bytes: gzipped.byteLength,
+      original_bytes: originalBytes,
       dur_ms: Date.now() - start,
     }));
 
@@ -272,17 +277,28 @@ async function exportD1ToString(env: Env): Promise<string> {
   return await dumpRes.text();
 }
 
-async function uploadToR2Bucket(env: Env, key: string, content: string): Promise<void> {
+async function gzipString(content: string): Promise<ArrayBuffer> {
+  const stream = new Blob([content]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Response(stream).arrayBuffer();
+}
+
+async function uploadToR2Bucket(
+  env: Env,
+  key: string,
+  content: string | ArrayBuffer,
+  opts?: { contentType?: string; originalBytes?: number },
+): Promise<void> {
   // BACKUPS binding declared in wrangler.jsonc → R2 binding.
   // Note: env has no static typing for BACKUPS because the bucket is
   // optional in tests. Runtime-narrow.
   const bucket = (env as unknown as { BACKUPS?: R2Bucket }).BACKUPS;
   if (!bucket) throw new Error("BACKUPS R2 binding missing — add to wrangler.jsonc");
-  const opts: R2PutOptions = {
-    httpMetadata: { contentType: "application/sql; charset=utf-8" },
+  const putOpts: R2PutOptions = {
+    httpMetadata: { contentType: opts?.contentType ?? "application/sql; charset=utf-8" },
     customMetadata: {
       generated_at: new Date().toISOString(),
       source_db: env.D1_DATABASE_ID ?? "unknown",
+      ...(opts?.originalBytes ? { original_bytes: String(opts.originalBytes) } : {}),
     },
   };
   // Retry with jittered backoff — a single .put() that transient-fails
@@ -291,7 +307,7 @@ async function uploadToR2Bucket(env: Env, key: string, content: string): Promise
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await bucket.put(key, content, opts);
+      await bucket.put(key, content, putOpts);
       return;
     } catch (e) {
       lastErr = e;
@@ -305,8 +321,9 @@ async function uploadToR2Bucket(env: Env, key: string, content: string): Promise
     : new Error(`R2 put failed after 3 attempts: ${String(lastErr)}`);
 }
 
-/** Delete backups older than RETENTION_DAYS. Uses prefix listing — R2's
- *  list API caps at 1000 keys per call which is enough for 30 days. */
+/** Delete backups older than RETENTION_DAYS. Handles both current
+ *  `d1/YYYY-MM-DDTHH-MM-SSZ.sql.gz` keys and legacy
+ *  `YYYY/MM/YYYY-MM-DD.sql` keys from the pre-gzip layout. */
 async function pruneOldBackups(env: Env): Promise<void> {
   const bucket = (env as unknown as { BACKUPS?: R2Bucket }).BACKUPS;
   if (!bucket) return;
@@ -319,8 +336,7 @@ async function pruneOldBackups(env: Env): Promise<void> {
   do {
     const page = await bucket.list({ cursor, limit: 1000 });
     for (const obj of page.objects) {
-      // Key format: YYYY/MM/DD.sql — string-compare against cutoff.
-      const datePart = obj.key.split("/").pop()?.replace(/\.sql$/, "") ?? "";
+      const datePart = backupDatePart(obj.key);
       if (datePart && datePart < cutoffStr) toDelete.push(obj.key);
     }
     cursor = page.truncated ? page.cursor : undefined;
@@ -337,6 +353,14 @@ async function pruneOldBackups(env: Env): Promise<void> {
       cutoff: cutoffStr,
     }));
   }
+}
+
+function backupDatePart(key: string): string {
+  if (key.startsWith("d1/")) {
+    return key.split("/").pop()?.slice(0, 10) ?? "";
+  }
+  const legacy = /^\d{4}\/\d{2}\/(\d{4}-\d{2}-\d{2})\.sql(?:\.gz)?$/.exec(key);
+  return legacy?.[1] ?? "";
 }
 
 // ─── Vectorize backfill ─────────────────────────────────────────────────────

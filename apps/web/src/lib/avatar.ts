@@ -39,7 +39,7 @@ export function getAvatarColor(id: string): {
   const fgLight = 25 + (h % 15); // 25-39% — dark fg for contrast
 
   return {
-    bg: `hsl(${hue}, ${sat}%, ${fgLight}%)`,
+    bg: `hsl(${hue}, ${sat}%, ${light}%)`,
     fg: `hsl(${hue}, ${sat}%, ${fgLight}%)`,
   };
 }

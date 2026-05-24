@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.E2E_BASE_URL ?? (process.env.CI ? "" : "https://raltic.com");
+if (!baseURL) {
+  throw new Error("E2E_BASE_URL must be set in CI; do not default Playwright E2E to production.");
+}
+
 /**
  * Raltic E2E suite.
  *
@@ -17,7 +22,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "https://raltic.com",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-const API_URL = process.env.E2E_API_URL ?? "https://api.raltic.com";
+const API_URL = process.env.E2E_API_URL;
+if (!API_URL) throw new Error("E2E_API_URL must be set; do not default API smoke tests to production.");
 
 /**
  * Coverage for the audit-fix + collab batch (commit 6609b5e):

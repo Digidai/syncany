@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Users, MessageSquare, ArrowRight, Crown, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
@@ -40,7 +40,7 @@ export default function PeoplePage() {
   const [serverId, setServerId] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const { server } = await api.getServerBySlug(slug);
       setServerId(server.id);
@@ -57,8 +57,8 @@ export default function PeoplePage() {
       notifyThrown("Couldn't load workspace members", e);
       setMembers([]);
     }
-  }
-  useEffect(() => { load(); }, [slug]);
+  }, [slug]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleMessage(member: Member) {
     if (!serverId || opening || member.userId === meId) return;

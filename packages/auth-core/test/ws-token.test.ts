@@ -45,9 +45,10 @@ describe("verifyWsToken", () => {
     expect(await verifyWsToken(`${h}.${newPayloadB64}.${s}`, SECRET)).toBeNull();
   });
 
-  it("preserves bridgeId, agents, channelId in payload", async () => {
+  it("preserves audience, bridgeId, agents, channelId in payload", async () => {
     const t = await signWsToken(SECRET, {
       sub: "u1",
+      aud: "bridge",
       agents: ["a1", "a2"],
       channelId: "c1",
       bridgeId: "b1",
@@ -55,6 +56,7 @@ describe("verifyWsToken", () => {
     });
     const claims = await verifyWsToken(t, SECRET);
     expect(claims).not.toBeNull();
+    expect(claims!.aud).toBe("bridge");
     expect(claims!.agents).toEqual(["a1", "a2"]);
     expect(claims!.channelId).toBe("c1");
     expect(claims!.bridgeId).toBe("b1");

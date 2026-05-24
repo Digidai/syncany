@@ -115,6 +115,7 @@ export class Bridge {
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private gcTimer: ReturnType<typeof setInterval> | null = null;
+  private refreshInFlight: Promise<void> | null = null;
   private stopped = false;
   /**
    * Set by the UserGateway DO via leader_status events. When false, this
@@ -254,13 +255,25 @@ export class Bridge {
   }
 
   private async refreshToken(): Promise<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = this.doRefreshToken().finally(() => {
+      this.refreshInFlight = null;
+    });
+    return this.refreshInFlight;
+  }
+
+  private async doRefreshToken(): Promise<void> {
     if (this.stopped) return;
     // Re-detect runtimes too — bridge has been up for hours, the user
     // may have installed/uninstalled/logged-in to Codex in the meantime.
     const runtimes = await this.agentManager.detectRuntimes();
     const fresh = await this.connect(runtimes);
+    if (this.stopped) return;
     this.boot = fresh;
     this.agentManager.setBootContext(fresh);
+    this.agentManager.setDetectedRuntimes(runtimes);
+    await this.agentManager.reconcileAgents(fresh.agents);
+    await this.agentManager.broadcastLifecycle("idle");
     for (const ws of this.channelSockets.values()) try { ws.close(); } catch { /* ignore */ }
     this.channelSockets.clear();
     if (this.gatewaySocket) try { this.gatewaySocket.close(); } catch { /* ignore */ }
@@ -302,10 +315,14 @@ export class Bridge {
         this.agentManager.dispatchInboundMessage(channelId, msg.message).catch(console.error);
       }
     });
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (e) => {
+      const ce = e as { code?: number };
       this.stopHeartbeat(ws);
+      if (this.channelSockets.get(channelId) !== ws) return;
       this.channelSockets.delete(channelId);
-      if (!this.stopped) setTimeout(() => this.openChannelWs(channelId), 1500);
+      if (!this.stopped && ce.code !== 4001 && this.agentManager.hasAgentsForChannel(channelId)) {
+        setTimeout(() => this.openChannelWs(channelId), 1500);
+      }
     });
     ws.addEventListener("error", (e) => {
       if (isHibernationNoise(e)) return;
@@ -315,6 +332,7 @@ export class Bridge {
       const ce = e as { code?: number; reason?: string; wasClean?: boolean };
       // 1006 = abnormal close, almost always an isolate hibernation cycle —
       // bridge will reconnect in 1.5s, no need to log the noise.
+      if (ce.code === 4001) return;
       if (ce.code === 1006 && (!ce.reason || ce.reason.length === 0)) return;
       console.error(`[bridge] channel ws close (${channelId}) code=${ce.code} reason=${JSON.stringify(ce.reason ?? "")} clean=${ce.wasClean}`);
     });
@@ -341,7 +359,24 @@ export class Bridge {
       try { msg = decodeServer(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data as ArrayBuffer)); }
       catch { return; }
       if (msg.t === "member_add") {
-        if (!this.channelSockets.has(msg.channelId)) this.openChannelWs(msg.channelId);
+        if (msg.memberType === "agent") {
+          if (this.agentManager.addAgentToChannel(msg.channelId, msg.memberId)) {
+            if (!this.channelSockets.has(msg.channelId)) this.openChannelWs(msg.channelId);
+          } else {
+            this.refreshToken().catch(console.error);
+          }
+        }
+      } else if (msg.t === "member_remove") {
+        if (msg.memberType === "agent") {
+          this.agentManager.removeAgentFromChannel(msg.channelId, msg.memberId);
+          if (!this.agentManager.hasAgentsForChannel(msg.channelId)) {
+            const sock = this.channelSockets.get(msg.channelId);
+            if (sock) {
+              this.channelSockets.delete(msg.channelId);
+              try { sock.close(4001, "removed from channel"); } catch { /* ignore */ }
+            }
+          }
+        }
       } else if (msg.t === "leader_status") {
         const wasLeader = this.isLeader;
         const wasKnown = this.leaderKnown;
@@ -362,7 +397,11 @@ export class Bridge {
     });
     ws.addEventListener("close", () => {
       this.stopHeartbeat(ws);
+      if (this.gatewaySocket !== ws) return;
       this.gatewaySocket = null;
+      this.leaderKnown = false;
+      this.isLeader = false;
+      this.pendingDispatches = [];
       if (!this.stopped) setTimeout(() => this.openGatewayWs(), 1500);
     });
     ws.addEventListener("error", (e) => {

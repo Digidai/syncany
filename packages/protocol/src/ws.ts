@@ -180,6 +180,12 @@ export const serverActivity = z.object({
   detail: z.string().optional(),
 });
 
+export const serverAgentTextDelta = z.object({
+  v: z.literal(1), t: z.literal("agent_text_delta"),
+  agentId: z.string(),
+  text: z.string(),
+});
+
 export const serverMessageUpdate = z.object({
   v: z.literal(1), t: z.literal("message_update"),
   message: messageRow,
@@ -259,7 +265,7 @@ export const serverRpc = z.object({
 export const serverMessage = z.discriminatedUnion("t", [
   serverAck, serverErr, serverMessageEvent, serverTyping, serverPresence,
   serverMemberAdd, serverMemberRemove, serverHistory, serverRpc, serverActivity,
-  serverMessageUpdate, serverReaction, serverChannelNew, serverRead,
+  serverAgentTextDelta, serverMessageUpdate, serverReaction, serverChannelNew, serverRead,
   serverLeaderStatus,
   serverPresenceSnapshot, serverPresenceUpdate,
 ]);

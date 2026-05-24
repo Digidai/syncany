@@ -33,7 +33,6 @@ export function notifyError(title: string, description?: string): void {
  * the browser devtools even when the toast says something friendlier.
  */
 export function notifyThrown(fallbackTitle: string, e: unknown): void {
-  // eslint-disable-next-line no-console
   console.error(`[${fallbackTitle}]`, e);
 
   if (e instanceof ApiError) {

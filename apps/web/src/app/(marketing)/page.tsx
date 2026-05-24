@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
-  ArrowRight, MessageSquare, ShieldCheck, Zap, Terminal, Hash, Cpu, User,
-  Laptop, Cloud, Globe, Lock, GitBranch, CheckCircle2, KeyRound, Code2, Workflow, AtSign,
+  ArrowRight, MessageSquare, ShieldCheck, Zap, Hash, Cpu, User,
+  Laptop, Cloud, Globe, Lock, CheckCircle2, KeyRound, Workflow,
   X, Minus,
 } from "lucide-react";
 import { HomeCta } from "@/components/home-cta";

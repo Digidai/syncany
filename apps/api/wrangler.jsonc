@@ -26,6 +26,13 @@
     }
   ],
 
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["noreply@raltic.com"]
+    }
+  ],
+
   "r2_buckets": [
     {
       "binding": "UPLOADS",
@@ -143,7 +150,8 @@
     // and maps model name → upstream provider (Anthropic / OpenAI / Google).
     // Later: switch to a CF AI Gateway universal endpoint that proxies to
     // easyrouter (gives us caching + per-tenant metrics on top of router).
-    "AI_GATEWAY_BASE": "https://easyrouter.io/v1"
+    "AI_GATEWAY_BASE": "https://easyrouter.io/v1",
+    "EMAIL_FROM": "Raltic <noreply@raltic.com>"
     // Secrets to set via `wrangler secret put`:
     //   LLM_API_KEY          — router platform key (easyrouter sk-...)
     //   AI_GATEWAY_TOKEN     — only when AI_GATEWAY_BASE is a CF gateway URL

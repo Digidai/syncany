@@ -9,7 +9,7 @@ import { Button } from "@raltic/ui/components/ui/button";
 import { Input } from "@raltic/ui/components/ui/input";
 import { Textarea } from "@raltic/ui/components/ui/textarea";
 import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { api, ApiError, RUNTIME_LABEL, RUNTIME_MODELS, type Agent, type RuntimeId } from "@/lib/api";
+import { api, ApiError, CLOUD_MODELS, RUNTIME_LABEL, RUNTIME_MODELS, type Agent, type RuntimeId } from "@/lib/api";
 import { GeneratedAvatar } from "./generated-avatar";
 import { randomAvatarSeed } from "@/lib/avatar";
 import { Shuffle } from "lucide-react";
@@ -34,6 +34,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
 
   useEffect(() => {
     if (agent && open) {
+      const isCloud = agent.runtimeMode !== undefined && agent.runtimeMode !== "bridge";
       setDisplayName(agent.displayName);
       setDescription(agent.description ?? "");
       setSystemPrompt(agent.systemPrompt ?? "");
@@ -46,11 +47,11 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
         ? (agent.runtime as RuntimeId)
         : "claude";
       setRuntime(effectiveRuntime);
-      const allowed = RUNTIME_MODELS[effectiveRuntime];
+      const allowed = isCloud ? CLOUD_MODELS : RUNTIME_MODELS[effectiveRuntime];
       setModel(allowed.includes(agent.model) ? agent.model : allowed[0]);
       setAvatarSeed(agent.avatarSeed ?? null);
       setError(
-        effectiveRuntime !== agent.runtime
+        !isCloud && effectiveRuntime !== agent.runtime
           ? `This agent's previous runtime "${agent.runtime}" was removed. Pick a new runtime + model and save.`
           : null,
       );
@@ -63,6 +64,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
   }
 
   if (!agent) return null;
+  const isCloud = agent.runtimeMode !== undefined && agent.runtimeMode !== "bridge";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +75,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
         displayName,
         description: description || null,
         systemPrompt: systemPrompt || null,
-        runtime,
+        ...(isCloud ? {} : { runtime }),
         model,
         avatarSeed,
       });
@@ -138,28 +140,30 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                     onChange={(e) => setSystemPrompt((e.target as HTMLTextAreaElement).value)}
                     placeholder="You are an expert in…" />
                 </Field>
-                <Field>
-                  <FieldLabel>Runtime</FieldLabel>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => pickRuntime(r)}
-                        className={cn(
-                          "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                          runtime === r ? "border-cyan-500 bg-cyan-500/10" : "border-border hover:border-foreground/20",
-                        )}
-                      >
-                        <div className="font-medium">{RUNTIME_LABEL[r]}</div>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {RUNTIME_MODELS[r].join(" / ")}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-                {runtime !== agent.runtime && (
+                {!isCloud && (
+                  <Field>
+                    <FieldLabel>Runtime</FieldLabel>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => pickRuntime(r)}
+                          className={cn(
+                            "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                            runtime === r ? "border-cyan-500 bg-cyan-500/10" : "border-border hover:border-foreground/20",
+                          )}
+                        >
+                          <div className="font-medium">{RUNTIME_LABEL[r]}</div>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {RUNTIME_MODELS[r].join(" / ")}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                )}
+                {!isCloud && runtime !== agent.runtime && (
                   <p className="rounded border border-amber-500/40 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
                     Switching runtime starts a fresh session — past context won&apos;t carry over. DM history is preserved.
                   </p>
@@ -167,7 +171,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                 <Field>
                   <FieldLabel>Model</FieldLabel>
                   <div className="flex flex-wrap gap-2">
-                    {RUNTIME_MODELS[runtime].map((m) => (
+                    {(isCloud ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
                       <button key={m} type="button" onClick={() => setModel(m)}
                         className={cn(
                           "rounded border px-3 py-1 text-sm transition-colors",

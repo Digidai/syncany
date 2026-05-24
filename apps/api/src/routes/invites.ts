@@ -6,7 +6,7 @@ import { servers, serverMembers, invites, user } from "@raltic/db";
 import { and, eq, sql as sqlFn } from "drizzle-orm";
 import { z } from "zod";
 import type { Env, Variables } from "../lib/env";
-import { requireAuth, ctxFor } from "../lib/auth";
+import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
 
 export const invitesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -21,7 +21,7 @@ const emailInviteRequest = z.object({
 // ---------------------------------------------------------------------------
 // /api/v1/invites — create / accept / list / revoke
 // ---------------------------------------------------------------------------
-invitesRoutes.post("/api/v1/invites", requireAuth, async (c) => {
+invitesRoutes.post("/api/v1/invites", requireAuth, requireUser, async (c) => {
   const subject = c.get("subject");
   // 30/day/user for invite-link creation. Email invites have a stricter
   // per-recipient limit; link creation is the looser cousin since each
@@ -45,7 +45,7 @@ invitesRoutes.post("/api/v1/invites", requireAuth, async (c) => {
   return c.json({ id, url: `${c.env.WEB_ORIGIN}/invite/${id}` });
 });
 
-invitesRoutes.get("/api/v1/invites", requireAuth, async (c) => {
+invitesRoutes.get("/api/v1/invites", requireAuth, requireUser, async (c) => {
   const subject = c.get("subject");
   const serverId = c.req.query("serverId");
   if (!serverId) return c.json({ error: { code: "BAD_REQ", message: "serverId required" } }, 400);
@@ -56,7 +56,7 @@ invitesRoutes.get("/api/v1/invites", requireAuth, async (c) => {
   return c.json({ invites: rows });
 });
 
-invitesRoutes.delete("/api/v1/invites/:id", requireAuth, async (c) => {
+invitesRoutes.delete("/api/v1/invites/:id", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   const db = drizzle(c.env.DB);
@@ -96,7 +96,7 @@ invitesRoutes.get("/api/v1/invites/:id/preview", async (c) => {
 
 // Email-invite: same flow as the link variant, but server emails the link
 // to the recipient instead of returning it to the inviter to copy/paste.
-invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
+invitesRoutes.post("/api/v1/invites/email", requireAuth, requireUser, async (c) => {
   const body = emailInviteRequest.parse(await c.req.json());
   const subject = c.get("subject");
   const ctx = ctxFor(c);
@@ -153,7 +153,7 @@ invitesRoutes.post("/api/v1/invites/email", requireAuth, async (c) => {
   return c.json({ id, url, sentTo: body.email });
 });
 
-invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, async (c) => {
+invitesRoutes.post("/api/v1/invites/:id/accept", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   const db = drizzle(c.env.DB);

@@ -104,6 +104,8 @@ export type SendMessageRequest = z.infer<typeof sendMessageRequest>;
 
 export const listMessagesQuery = z.object({
   before: z.coerce.number().int().optional(),
+  messageIdPrefix: z.string().min(4).max(36).regex(/^[0-9a-f-]+$/i).optional(),
+  threadParentId: z.string().min(1).max(128).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
@@ -129,6 +131,16 @@ export const RUNTIME_MODELS: Record<"claude" | "codex" | "openclaw" | "hermes", 
   hermes:   ["auto", "router-default"],
 };
 
+export const CLOUD_RUNTIME_MODELS = [
+  "claude-haiku-4-5",
+  "claude-sonnet-4-6",
+  "claude-opus-4-7",
+  "gpt-5.4",
+  "gpt-5.5",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+] as const;
+
 export const createAgentRequest = z.object({
   serverId: z.string(),
   name: z.string().regex(/^[a-z0-9_-]+$/i).min(1).max(64),
@@ -147,12 +159,14 @@ export const createAgentRequest = z.object({
   // model with runtime=claude and get a silent failure at spawn time.
   model: z.string().min(1).max(64),
 }).superRefine((data, ctx) => {
-  const allowed = RUNTIME_MODELS[data.runtime];
+  const allowed = data.runtimeMode === "raltic" ? CLOUD_RUNTIME_MODELS : RUNTIME_MODELS[data.runtime];
   if (!allowed.includes(data.model)) {
     ctx.addIssue({
       code: "custom",
       path: ["model"],
-      message: `Model "${data.model}" is not valid for runtime "${data.runtime}". Valid: ${allowed.join(", ")}`,
+      message: data.runtimeMode === "raltic"
+        ? `Model "${data.model}" is not valid for cloud agents. Valid: ${allowed.join(", ")}`
+        : `Model "${data.model}" is not valid for runtime "${data.runtime}". Valid: ${allowed.join(", ")}`,
     });
   }
 });
@@ -213,6 +227,7 @@ export type MarkReadRequest = z.infer<typeof markReadRequest>;
 export const createTaskRequest = z.object({
   channelId: z.string(),
   title: z.string().min(1).max(2000),
+  as: z.string().optional(),
   assigneeId: z.string().optional(),
   assigneeType: z.enum(["human", "agent"]).optional(),
 });
@@ -226,6 +241,7 @@ export const updateTaskRequest = z.object({
 export type UpdateTaskRequest = z.infer<typeof updateTaskRequest>;
 
 export const listTasksQuery = z.object({
+  serverId: z.string().optional(),
   channelId: z.string().optional(),
   status: z.enum(["todo", "in_progress", "in_review", "done"]).optional(),
   assigneeId: z.string().optional(),

@@ -26,6 +26,7 @@ export async function GET(req: Request): Promise<Response> {
   const ttl = 60 * 5; // 5 minutes
   const token = await signWsToken((env as { CHAT_ROOM_AUTH_SECRET: string }).CHAT_ROOM_AUTH_SECRET, {
     sub: session.user.id,
+    aud: "api",
     agents: [],
     ttlSeconds: ttl,
   });

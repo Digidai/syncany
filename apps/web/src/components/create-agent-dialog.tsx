@@ -9,7 +9,7 @@ import { Button } from "@raltic/ui/components/ui/button";
 import { Input } from "@raltic/ui/components/ui/input";
 import { Textarea } from "@raltic/ui/components/ui/textarea";
 import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { api, ApiError, RUNTIME_LABEL, RUNTIME_MODELS, type RuntimeId, type MachineRuntimeRow } from "@/lib/api";
+import { api, ApiError, CLOUD_MODELS, RUNTIME_LABEL, RUNTIME_MODELS, type RuntimeId, type MachineRuntimeRow } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -57,18 +57,13 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
   // model to a valid option for the target mode — otherwise a cloud-only
   // model name leaks into a bridge submission and the API rejects it on
   // RUNTIME_MODELS validation (codex MED).
-  const CLOUD_MODELS = [
-    "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7",
-    "gpt-5.4", "gpt-5.5",
-    "gemini-2.5-flash", "gemini-2.5-pro",
-  ];
   const [model, setModel] = useState<string>(CLOUD_MODELS[0]);
 
   function pickRuntimeMode(next: "raltic" | "bridge") {
     setRuntimeMode(next);
     // Normalize model to the new mode's namespace.
     if (next === "raltic") {
-      if (!CLOUD_MODELS.includes(model)) setModel(CLOUD_MODELS[0]);
+      if (!(CLOUD_MODELS as readonly string[]).includes(model)) setModel(CLOUD_MODELS[0]);
     } else {
       if (!RUNTIME_MODELS[runtime].includes(model)) setModel(RUNTIME_MODELS[runtime][0]);
     }

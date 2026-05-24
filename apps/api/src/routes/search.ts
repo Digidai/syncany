@@ -27,17 +27,28 @@ searchRoutes.get("/api/v1/search", requireAuth, async (c) => {
     // Limit to channels the user is a member of. For machine subjects,
     // additionally constrain to the key's own server so a key for serverA
     // can't search messages on serverB even if the user is in both.
-    const memberConds = [eq(channelMembers.memberId, subject.userId)];
-    const myChannels = subject.kind === "machine"
+    if (subject.kind === "bridge" && subject.agentIds.length === 0) {
+      return c.json({ messages: [] });
+    }
+    const myChannels = subject.kind === "bridge"
       ? await db
           .select({ id: channelMembers.channelId })
           .from(channelMembers)
           .innerJoin(channels, eq(channels.id, channelMembers.channelId))
-          .where(and(...memberConds, eq(channels.serverId, subject.serverId)))
+          .where(and(
+            eq(channelMembers.memberType, "agent"),
+            inArray(channelMembers.memberId, subject.agentIds),
+            eq(channels.serverId, subject.serverId),
+          ))
       : await db
           .select({ id: channelMembers.channelId })
           .from(channelMembers)
-          .where(and(...memberConds));
+          .innerJoin(channels, eq(channels.id, channelMembers.channelId))
+          .where(and(
+            eq(channelMembers.memberId, subject.userId),
+            eq(channelMembers.memberType, "human"),
+            subject.kind === "machine" ? eq(channels.serverId, subject.serverId) : undefined,
+          ));
     const ids = myChannels.map(r => r.id);
     if (ids.length === 0) return c.json({ messages: [] });
     conds.push(inArray(messages.channelId, ids));

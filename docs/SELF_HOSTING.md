@@ -66,9 +66,11 @@ For each Worker (`raltic-web` and `raltic-api`) you need the **same** values for
 …and `raltic-web` additionally needs (optional):
 - `BETTER_AUTH_GOOGLE_CLIENT_SECRET` (Google OAuth)
 
-Email sending uses the `EMAIL` worker binding declared in `apps/web/wrangler.jsonc`
-under `send_email[]`; no secret needed. You must verify the sender domain in
-Cloudflare dashboard → Email → Domains before the binding will deliver.
+Email sending uses the `EMAIL` worker binding declared in both
+`apps/web/wrangler.jsonc` and `apps/api/wrangler.jsonc` under `send_email[]`;
+no secret needed. API invite/marketing routes also read `EMAIL_FROM`. You must
+verify the sender domain in Cloudflare dashboard → Email → Domains before the
+binding will deliver.
 
 ```bash
 S1=$(openssl rand -hex 32)

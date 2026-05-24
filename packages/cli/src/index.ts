@@ -42,13 +42,17 @@ function readStdin(): Promise<string> {
 
 function parseArgs(args: string[]): Record<string, string> {
   const out: Record<string, string> = {};
+  const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith("--")) {
       const k = args[i].slice(2);
       const v = args[i + 1] && !args[i + 1].startsWith("--") ? args[++i] : "true";
       out[k] = v;
+    } else {
+      positional.push(args[i]);
     }
   }
+  if (positional.length > 0) out._ = positional.join(" ");
   return out;
 }
 
@@ -72,7 +76,7 @@ async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Resolve --target ("#name" / "channel-id" / "@user-name") to a channelId.
+// Resolve --target ("#name" / "channel-id" / "dm:peer-name") to a channelId.
 // ---------------------------------------------------------------------------
 async function resolveTargetChannelId(target: string): Promise<string> {
   if (!target) fail("BAD_TARGET", "missing target");
@@ -84,13 +88,39 @@ async function resolveTargetChannelId(target: string): Promise<string> {
   if (me.servers.length === 0) fail("NO_SERVER", "agent has no server");
   // Look up channels in first server (TODO: support cross-server when needed).
   const slug = me.servers[0].slug;
-  const data = await api<{ channels: { id: string; name: string; type: string }[] }>(
+  const data = await api<{ channels: { id: string; name: string; type: string; peer?: { name: string } | null }[] }>(
     `/api/v1/servers/by-slug/${encodeURIComponent(slug)}`,
   );
+  const dmName = target.startsWith("dm:") ? target.slice(3).replace(/^@/, "") : "";
   const trimmed = target.replace(/^[#@]/, "");
-  const found = data.channels.find((c) => c.name === trimmed);
+  const found = dmName
+    ? data.channels.find((c) => c.type === "dm" && (c.peer?.name === dmName || c.name === dmName))
+    : data.channels.find((c) => c.name === trimmed);
   if (!found) fail("CHANNEL_NOT_FOUND", `no channel named ${target}`);
   return found.id;
+}
+
+async function resolveTarget(target: string): Promise<{ channelId: string; threadParentId: string | null }> {
+  const [channelTarget, threadRef] = splitTarget(target);
+  const channelId = await resolveTargetChannelId(channelTarget);
+  if (!threadRef) return { channelId, threadParentId: null };
+  if (/^[0-9a-f-]{36}$/i.test(threadRef)) return { channelId, threadParentId: threadRef };
+
+  const params = new URLSearchParams({ messageIdPrefix: threadRef, limit: "2" });
+  const data = await api<{ messages: any[] }>(`/api/v1/channels/${channelId}/messages?${params}`);
+  if (data.messages.length > 1) fail("THREAD_AMBIGUOUS", `message prefix ${threadRef} matches multiple messages`);
+  const found = data.messages[0];
+  if (!found) fail("THREAD_NOT_FOUND", `no message in ${channelTarget} matches ${threadRef}`);
+  return { channelId, threadParentId: found.id };
+}
+
+function splitTarget(target: string): [string, string | undefined] {
+  if (target.startsWith("dm:")) {
+    const parts = target.split(":");
+    return [`dm:${parts[1] ?? ""}`, parts[2]];
+  }
+  const [channelTarget, threadRef] = target.split(":", 2);
+  return [channelTarget, threadRef];
 }
 
 // ---------------------------------------------------------------------------
@@ -101,14 +131,14 @@ async function cmdMessageSend(flags: Record<string, string>): Promise<void> {
   if (!target) fail("INVALID_ARG", "missing --target");
   const content = await readStdin();
   if (!content) fail("INVALID_ARG", "message content must be supplied via stdin");
-  const channelId = await resolveTargetChannelId(target);
+  const { channelId, threadParentId } = await resolveTarget(target);
   // Stable idempotency: same agent + same channel + same content within a
   // 60-second window dedupes. CLI retries don't double-post.
   const slot = Math.floor(Date.now() / 60_000);
-  const idempotencyKey = await sha256Hex(`${AGENT_ID}:${channelId}:${slot}:${content}`);
+  const idempotencyKey = await sha256Hex(`${AGENT_ID}:${channelId}:${threadParentId ?? ""}:${slot}:${content}`);
   await api(`/api/v1/messages`, {
     method: "POST",
-    body: JSON.stringify({ channelId, content, as: AGENT_ID, idempotencyKey }),
+    body: JSON.stringify({ channelId, content, threadParentId, as: AGENT_ID, idempotencyKey }),
   });
   console.log(`Message sent to ${target}.`);
 }
@@ -131,10 +161,26 @@ async function cmdMessageCheck(): Promise<void> {
 async function cmdMessageRead(flags: Record<string, string>): Promise<void> {
   const channelId = flags.channel ?? flags.target ?? fail("INVALID_ARG", "missing --channel");
   const limit = Number(flags.limit ?? 50);
-  const id = await resolveTargetChannelId(channelId as string);
-  const data = await api<{ messages: any[] }>(`/api/v1/channels/${id}/messages?limit=${limit}`);
+  const target = await resolveTarget(channelId as string);
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (flags.before) params.set("before", flags.before);
+  if (target.threadParentId) params.set("threadParentId", target.threadParentId);
+  const data = await api<{ messages: any[] }>(`/api/v1/channels/${target.channelId}/messages?${params}`);
   for (const m of data.messages) {
     console.log(`[seq ${m.seq}] ${m.senderType}/${m.senderId.slice(0, 8)}: ${String(m.content).slice(0, 200)}`);
+  }
+}
+
+async function cmdMessageSearch(flags: Record<string, string>): Promise<void> {
+  const q = flags.q ?? flags.query ?? (await readStdin());
+  if (!q) fail("INVALID_ARG", "missing --q/--query or stdin body");
+  const params = new URLSearchParams({ q, limit: String(Number(flags.limit ?? 20)) });
+  if (flags.channel) params.set("channelId", await resolveTargetChannelId(flags.channel));
+  const data = await api<{ messages: any[] }>(`/api/v1/search?${params}`);
+  if (data.messages.length === 0) { console.log("No matches."); return; }
+  for (const m of data.messages) {
+    const when = new Date(m.createdAt).toISOString();
+    console.log(`[${when}] [${m.channelId.slice(0, 8)} seq ${m.seq}] ${m.senderType}/${m.senderId.slice(0, 8)}: ${String(m.content).slice(0, 240)}`);
   }
 }
 
@@ -142,6 +188,22 @@ async function cmdServerInfo(): Promise<void> {
   const data = await api<{ servers: any[] }>(`/api/v1/servers`);
   for (const s of data.servers) {
     console.log(`server ${s.id} slug=${s.slug} name=${s.name} role=${s.role}`);
+    const detail = await api<{ channels: any[]; agents: any[] }>(
+      `/api/v1/servers/by-slug/${encodeURIComponent(s.slug)}`,
+    );
+    if (detail.channels.length > 0) {
+      console.log("  channels:");
+      for (const ch of detail.channels) {
+        const label = ch.type === "dm" && ch.peer?.name ? `dm:${ch.peer.name}` : `#${ch.name}`;
+        console.log(`    ${label} id=${ch.id} type=${ch.type}${ch.description ? ` — ${ch.description}` : ""}`);
+      }
+    }
+    if (detail.agents.length > 0) {
+      console.log("  agents:");
+      for (const a of detail.agents) {
+        console.log(`    @${a.name} id=${a.id} runtime=${a.runtime ?? "claude"} model=${a.model}`);
+      }
+    }
   }
 }
 
@@ -154,7 +216,7 @@ async function cmdTaskList(flags: Record<string, string>): Promise<void> {
   if (data.tasks.length === 0) { console.log("No tasks."); return; }
   for (const t of data.tasks) {
     const who = t.assigneeId ? `${t.assigneeType}/${String(t.assigneeId).slice(0, 8)}` : "(unassigned)";
-    console.log(`#${t.taskNumber} [${t.status}] ${who} — task=${t.id.slice(0, 8)} channel=${t.channelId.slice(0, 8)}`);
+    console.log(`#${t.taskNumber} [${t.status}] ${who} — task=${t.id} message=${t.messageId ?? "none"} channel=${t.channelId}`);
   }
 }
 
@@ -165,13 +227,13 @@ async function cmdTaskCreate(flags: Record<string, string>): Promise<void> {
   const channelId = await resolveTargetChannelId(target as string);
   const data = await api<{ id: string; taskNumber: number }>(`/api/v1/tasks`, {
     method: "POST",
-    body: JSON.stringify({ channelId, title, assigneeId: flags.assignee, assigneeType: flags.assigneeType }),
+    body: JSON.stringify({ channelId, title, as: AGENT_ID, assigneeId: flags.assignee, assigneeType: flags.assigneeType }),
   });
   console.log(`Created task #${data.taskNumber} (${data.id.slice(0, 8)}).`);
 }
 
 async function cmdTaskUpdate(flags: Record<string, string>): Promise<void> {
-  const id = flags.id ?? flags.task ?? fail("INVALID_ARG", "missing --id");
+  const id = flags.id ?? flags.task ?? flags._ ?? fail("INVALID_ARG", "missing --id/--task");
   const body: Record<string, unknown> = {};
   if (flags.status) body.status = flags.status;
   if (flags.assignee) { body.assigneeId = flags.assignee; body.assigneeType = flags.assigneeType ?? "agent"; }
@@ -180,7 +242,7 @@ async function cmdTaskUpdate(flags: Record<string, string>): Promise<void> {
 }
 
 async function cmdTaskClaim(flags: Record<string, string>): Promise<void> {
-  const id = flags.id ?? flags.task ?? fail("INVALID_ARG", "missing --id");
+  const id = flags.id ?? flags.task ?? flags._ ?? fail("INVALID_ARG", "missing --id/--task");
   await api(`/api/v1/tasks/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status: "in_progress", assigneeId: AGENT_ID, assigneeType: "agent" }),
@@ -189,7 +251,7 @@ async function cmdTaskClaim(flags: Record<string, string>): Promise<void> {
 }
 
 async function cmdTaskUnclaim(flags: Record<string, string>): Promise<void> {
-  const id = flags.id ?? flags.task ?? fail("INVALID_ARG", "missing --id");
+  const id = flags.id ?? flags.task ?? flags._ ?? fail("INVALID_ARG", "missing --id/--task");
   await api(`/api/v1/tasks/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status: "todo", assigneeId: null, assigneeType: null }),
@@ -215,7 +277,7 @@ async function main() {
     case "message send":   return cmdMessageSend(flags);
     case "message check":  return cmdMessageCheck();
     case "message read":   return cmdMessageRead(flags);
-    case "message search": return cmdNotImplemented("message search");
+    case "message search": return cmdMessageSearch(flags);
     case "server info":    return cmdServerInfo();
     case "task list":      return cmdTaskList(flags);
     case "task create":    return cmdTaskCreate(flags);

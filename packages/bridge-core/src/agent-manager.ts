@@ -161,6 +161,27 @@ export class AgentManager {
     this.boot = boot;
     this.channelToAgents.clear();
     for (const ch of boot.channels) this.channelToAgents.set(ch.id, ch.agentIds);
+    for (const session of this.sessions.values()) this.writeCliTokenFile(session);
+  }
+
+  addAgentToChannel(channelId: string, agentId: string): boolean {
+    if (!this.sessions.has(agentId)) return false;
+    const existing = this.channelToAgents.get(channelId) ?? [];
+    if (existing.includes(agentId)) return true;
+    this.channelToAgents.set(channelId, [...existing, agentId]);
+    return true;
+  }
+
+  removeAgentFromChannel(channelId: string, agentId: string): void {
+    const existing = this.channelToAgents.get(channelId);
+    if (!existing) return;
+    const next = existing.filter((id) => id !== agentId);
+    if (next.length === 0) this.channelToAgents.delete(channelId);
+    else this.channelToAgents.set(channelId, next);
+  }
+
+  hasAgentsForChannel(channelId: string): boolean {
+    return (this.channelToAgents.get(channelId)?.length ?? 0) > 0;
   }
 
   async initAllAgents(agents: BridgeConnectResponse["agents"]): Promise<void> {
@@ -175,13 +196,23 @@ export class AgentManager {
         );
         console.log(`  [${a.displayName}] workspace created: ${workDir}`);
       }
-      this.sessions.set(a.id, {
+      const session = {
         id: a.id, name: a.name, displayName: a.displayName,
         workDir, systemPrompt: a.systemPrompt,
         model: a.model,
         runtime: a.runtime ?? "claude",
-      });
+      };
+      this.sessions.set(a.id, session);
+      this.writeCliTokenFile(session);
     }
+  }
+
+  async reconcileAgents(agents: BridgeConnectResponse["agents"]): Promise<void> {
+    const live = new Set(agents.map((a) => a.id));
+    for (const agentId of [...this.sessions.keys()]) {
+      if (!live.has(agentId)) await this.stopAgent(agentId, "agent no longer managed by this bridge");
+    }
+    await this.initAllAgents(agents);
   }
 
   /** Called by Bridge when a human message lands in a channel one of our agents is in. */
@@ -226,6 +257,10 @@ export class AgentManager {
         pending = (async () => {
           try {
             const fresh = await this.spawnForAgent(agentId, session);
+            if (this.sessions.get(agentId) !== session) {
+              await this.disposeEntry(fresh, `agent ${agentId} no longer managed by this bridge`);
+              throw new Error(`agent ${agentId} no longer managed by this bridge`);
+            }
             this.entries.set(agentId, fresh);
             return fresh;
           } finally {
@@ -434,6 +469,11 @@ export class AgentManager {
     const spawnFresh = (async () => {
       try { await old.session.shutdown(); } catch { /* swallow */ }
       const fresh = await this.spawnForAgent(agentId, session);
+      if (this.sessions.get(agentId) !== session) {
+        for (const queued of pending) queued.reject(new Error(`agent ${agentId} no longer managed by this bridge`));
+        await this.disposeEntry(fresh, `agent ${agentId} no longer managed by this bridge`);
+        throw new Error(`agent ${agentId} no longer managed by this bridge`);
+      }
       fresh.messageQueue = [...pending, ...fresh.messageQueue];
       this.entries.set(agentId, fresh);
       return fresh;
@@ -443,6 +483,22 @@ export class AgentManager {
     this.spawning.set(agentId, spawnFresh);
     await spawnFresh;
     console.log(`  [${session.displayName}] restart complete`);
+  }
+
+  private async stopAgent(agentId: string, reason: string): Promise<void> {
+    this.sessions.delete(agentId);
+    this.spawning.delete(agentId);
+    const old = this.entries.get(agentId);
+    if (!old) return;
+    this.entries.delete(agentId);
+    await this.disposeEntry(old, reason);
+  }
+
+  private async disposeEntry(entry: AgentEntry, reason: string): Promise<void> {
+    for (const queued of entry.messageQueue) queued.reject(new Error(reason));
+    entry.messageQueue = [];
+    for (const unsub of entry.unsubs) try { unsub(); } catch { /* swallow */ }
+    try { await entry.session.shutdown(); } catch { /* swallow */ }
   }
 
   /**
@@ -465,11 +521,27 @@ export class AgentManager {
         "Try clearing the npx cache: `rm -rf ~/.npm/_npx` and re-run.",
       );
     }
+    this.writeCliTokenFile(session);
+    const tokenFile = join(ralticDir, "token");
+    const tokenPrelude = `if [ -r '${shq(tokenFile)}' ]; then export RALTIC_AGENT_TOKEN="$(cat '${shq(tokenFile)}')"; fi\n`;
     const wrapperBody = cliEntry.kind === "compiled"
-      ? `#!/usr/bin/env bash\nexec '${shq(process.execPath)}' '${shq(cliEntry.entry)}' "$@"\n`
-      : `#!/usr/bin/env bash\nexec '${shq(process.execPath)}' '${shq(cliEntry.tsxPath)}' '${shq(cliEntry.entry)}' "$@"\n`;
+      ? `#!/usr/bin/env bash\n${tokenPrelude}exec '${shq(process.execPath)}' '${shq(cliEntry.entry)}' "$@"\n`
+      : `#!/usr/bin/env bash\n${tokenPrelude}exec '${shq(process.execPath)}' '${shq(cliEntry.tsxPath)}' '${shq(cliEntry.entry)}' "$@"\n`;
     writeFileSync(wrapperPath, wrapperBody, { mode: 0o755 });
     return ralticDir;
+  }
+
+  private writeCliTokenFile(session: AgentSession): void {
+    if (!this.boot) return;
+    try {
+      const ralticDir = join(session.workDir, ".raltic");
+      if (!existsSync(ralticDir)) mkdirSync(ralticDir, { recursive: true });
+      writeFileSync(join(ralticDir, "token"), this.boot.token, { mode: 0o600 });
+    } catch (e) {
+      if (process.env.RALTIC_BRIDGE_VERBOSE) {
+        console.warn(`[agent ${session.id}] failed to refresh CLI token file:`, e instanceof Error ? e.message : e);
+      }
+    }
   }
 
   // ── Activity broadcast — POSTs to api ──

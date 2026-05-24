@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageArea } from "@/components/message-area";
 import { WorkspacePane } from "@/components/workspace-pane";
-import { api, type Agent, type Channel } from "@/lib/api";
+import { api, type Agent } from "@/lib/api";
 
 export default function DmPage() {
   const params = useParams();

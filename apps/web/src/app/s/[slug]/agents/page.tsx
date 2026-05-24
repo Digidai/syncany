@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Cpu, MessageSquare, Pencil, Plus, ArrowRight } from "lucide-react";
@@ -37,7 +37,7 @@ export default function AgentsIndexPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     try {
       // Fetch in parallel: workspace metadata gives us the serverId for
       // create-dialog + DM open; agents list is the page's main payload.
@@ -52,8 +52,8 @@ export default function AgentsIndexPage() {
       notifyThrown("Couldn't load agents", e);
       setAgents([]);
     }
-  }
-  useEffect(() => { reload(); }, [slug]);
+  }, [slug]);
+  useEffect(() => { reload(); }, [reload]);
 
   async function handleMessage(agent: Agent) {
     if (!serverId || opening) return;

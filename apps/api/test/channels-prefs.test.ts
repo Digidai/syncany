@@ -27,14 +27,16 @@ async function seedMessage(
   channelId: string,
   senderId: string,
   opts: Partial<{
+    id: string;
     seq: number;
     content: string;
     senderType: "human" | "agent" | "system";
+    threadParentId: string | null;
     editedAt: Date | null;
     deletedAt: Date | null;
   }> = {},
 ) {
-  const id = crypto.randomUUID();
+  const id = opts.id ?? crypto.randomUUID();
   const now = new Date();
   await db().insert(schema.messages).values({
     id,
@@ -43,7 +45,7 @@ async function seedMessage(
     senderType: opts.senderType ?? "human",
     content: opts.content ?? `message-${id.slice(0, 6)}`,
     seq: opts.seq ?? 1,
-    threadParentId: null,
+    threadParentId: opts.threadParentId ?? null,
     createdAt: now,
     updatedAt: now,
     editedAt: opts.editedAt ?? null,
@@ -133,6 +135,30 @@ async function getChannel(authBearer: string, channelId: string) {
   });
 }
 
+async function markRead(authBearer: string, channelId: string, lastReadSeq = 1) {
+  return request(app as never, `https://test.local/api/v1/channels/${channelId}/read`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: authBearer },
+    body: JSON.stringify({ seq: lastReadSeq }),
+  });
+}
+
+async function browseChannels(authBearer: string, serverId: string) {
+  return request(app as never, `https://test.local/api/v1/servers/${serverId}/channels/browse`, {
+    headers: { authorization: authBearer },
+  });
+}
+
+async function connectBridge(apiKey: string): Promise<{ token: string }> {
+  const res = await request(app as never, "https://test.local/api/v1/bridge/connect", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ apiKey }),
+  });
+  expect(res.status).toBe(200);
+  return await res.json() as { token: string };
+}
+
 async function sendMessage(authBearer: string, channelId: string, content = "hello") {
   return request(app as never, "https://test.local/api/v1/messages", {
     method: "POST",
@@ -170,6 +196,35 @@ async function channelMemberships(channelId: string) {
 function membershipKey(rows: Array<{ memberId: string; memberType: string }>) {
   return rows.map((r) => `${r.memberType}:${r.memberId}`).sort();
 }
+
+describe("human-only channel surfaces", () => {
+  it("rejects machine keys and bridge tokens for mark-read and public browse", async () => {
+    const owner = await seedUser({ name: "Owner" });
+    const srv = await seedServer(owner);
+    const channel = await seedChannel(srv, "public", [owner]);
+    await seedMessage(channel.id, owner.id, { seq: 1 });
+    await seedAgent(srv, owner);
+    const key = await bridgeKey(owner, srv);
+    const { token } = await connectBridge(key);
+
+    for (const authorization of [`Bearer ${key}`, `Bearer sy_bridge_${token}`]) {
+      const mark = await markRead(authorization, channel.id, 1);
+      expect(mark.status).toBe(403);
+      const markBody = await mark.json() as { error: { code: string; message: string } };
+      expect(markBody.error.code).toBe("FORBIDDEN");
+      expect(markBody.error.message).toBe("user session required");
+
+      const browse = await browseChannels(authorization, srv.id);
+      expect(browse.status).toBe(403);
+      const browseBody = await browse.json() as { error: { code: string; message: string } };
+      expect(browseBody.error.code).toBe("FORBIDDEN");
+      expect(browseBody.error.message).toBe("user session required");
+    }
+
+    const membership = await humanChannelMember(channel.id, owner.id);
+    expect(membership?.lastReadSeq).toBe(0);
+  });
+});
 
 describe("POST/DELETE /api/v1/messages/:id/pin", () => {
   it("lets any channel member pin and unpin a message", async () => {
@@ -720,5 +775,38 @@ describe("GET /api/v1/channels/:id preference fields", () => {
     expect(other).not.toHaveProperty("mutedAt");
     expect(other).not.toHaveProperty("starredAt");
     expect(other).not.toHaveProperty("lastReadSeq");
+  });
+});
+
+describe("GET /api/v1/channels/:id/messages filters", () => {
+  it("resolves message id prefixes and full thread slices for CLI thread targets", async () => {
+    const owner = await seedUser({ name: "Owner" });
+    const srv = await seedServer(owner);
+    const channel = await seedChannel(srv, "public", [owner]);
+    const auth = await userBearer(owner);
+
+    const root = await seedMessage(channel.id, owner.id, { seq: 1, content: "root" });
+    const reply = await seedMessage(channel.id, owner.id, { seq: 2, content: "reply", threadParentId: root.id });
+    const other = await seedMessage(channel.id, owner.id, { seq: 3, content: "other" });
+
+    const byPrefix = await request(
+      app as never,
+      `https://test.local/api/v1/channels/${channel.id}/messages?messageIdPrefix=${reply.id.slice(0, 8)}`,
+      { headers: { authorization: auth } },
+    );
+    expect(byPrefix.status).toBe(200);
+    const prefixBody = await byPrefix.json() as { messages: Array<{ id: string }> };
+    expect(prefixBody.messages.map((m) => m.id)).toEqual([reply.id]);
+
+    const byThread = await request(
+      app as never,
+      `https://test.local/api/v1/channels/${channel.id}/messages?threadParentId=${encodeURIComponent(root.id)}&limit=10`,
+      { headers: { authorization: auth } },
+    );
+    expect(byThread.status).toBe(200);
+    const threadBody = await byThread.json() as { messages: Array<{ id: string }> };
+    const threadIds = threadBody.messages.map((m) => m.id);
+    expect(new Set(threadIds)).toEqual(new Set([reply.id, root.id]));
+    expect(threadIds).not.toContain(other.id);
   });
 });

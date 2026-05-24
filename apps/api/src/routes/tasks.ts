@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { createTaskRequest, updateTaskRequest, listTasksQuery } from "@raltic/protocol";
 import { channelMembers, channels, messages, tasks } from "@raltic/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
@@ -50,8 +50,14 @@ tasksRoutes.get("/api/v1/tasks", requireAuth, async (c) => {
   // a member of both servers.
   const conds = [
     eq(channelMembers.channelId, tasks.channelId),
-    eq(channelMembers.memberId, subject.userId),
   ];
+  if (subject.kind === "bridge") {
+    if (subject.agentIds.length === 0) return c.json({ tasks: [] });
+    conds.push(eq(channelMembers.memberType, "agent"));
+  } else {
+    conds.push(eq(channelMembers.memberId, subject.userId));
+    conds.push(eq(channelMembers.memberType, "human"));
+  }
   const rows = await db
     .select({ t: tasks, content: messages.content, serverId: channels.serverId })
     .from(tasks)
@@ -61,6 +67,10 @@ tasksRoutes.get("/api/v1/tasks", requireAuth, async (c) => {
     .where(and(
       q.status ? eq(tasks.status, q.status) : undefined,
       subject.kind === "machine" ? eq(channels.serverId, subject.serverId) : undefined,
+      subject.kind === "bridge" ? eq(channels.serverId, subject.serverId) : undefined,
+      q.serverId ? eq(channels.serverId, q.serverId) : undefined,
+      subject.kind === "bridge" ? inArray(channelMembers.memberId, subject.agentIds) : undefined,
+      q.assigneeId ? eq(tasks.assigneeId, q.assigneeId) : undefined,
     ))
     .orderBy(desc(tasks.createdAt))
     .limit(q.limit);
@@ -84,6 +94,13 @@ tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
   if (chanLimited) return chanLimited;
 
   const db = drizzle(c.env.DB);
+  const senderId = body.as ?? subject.userId;
+  const senderType = body.as ? "agent" : "human";
+  await requirePolicy(policy.messages.canSendAs(ctx, {
+    channelId: body.channelId,
+    senderId,
+    senderType,
+  }));
 
   // 1. Allocate task_number atomically via INSERT-then-retry on UNIQUE
   //    collision. Row is inserted with messageId=null; the DO send happens
@@ -128,8 +145,8 @@ tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
     headers: { "x-internal-secret": c.env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
     body: JSON.stringify({
       channelId: body.channelId,
-      senderId: subject.userId,
-      senderType: "human",
+      senderId,
+      senderType,
       content: `📋 Task #${taskNumber}: ${body.title}`,
       threadParentId: null,
       idempotencyKey: `task-create-${id}`,
@@ -150,7 +167,7 @@ tasksRoutes.post("/api/v1/tasks", requireAuth, async (c) => {
 });
 
 tasksRoutes.patch("/api/v1/tasks/:id", requireAuth, async (c) => {
-  const id = c.req.param("id");
+  const ref = c.req.param("id");
   const subject = c.get("subject");
   // 200 task-patches/min/user — Kanban drag/drop fires rapid status
   // updates; agents bulk-triage in bursts. Cap protects D1 from a
@@ -159,15 +176,64 @@ tasksRoutes.patch("/api/v1/tasks/:id", requireAuth, async (c) => {
   if (limited) return limited;
   const body = updateTaskRequest.parse(await c.req.json());
   const db = drizzle(c.env.DB);
-  const existing = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-  if (existing.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such task" } }, 404);
   const ctx = ctxFor(c);
-  await requirePolicy(policy.tasks.canManage(ctx, existing[0].channelId));
+  const resolved = await resolveTaskRef(db, ctx, ref);
+  if (resolved.status === "not_found") return c.json({ error: { code: "NOT_FOUND", message: "no such task" } }, 404);
+  if (resolved.status === "forbidden") return c.json({ error: { code: "FORBIDDEN", message: "forbidden" } }, 403);
+  if (resolved.status === "ambiguous") {
+    return c.json({ error: { code: "AMBIGUOUS_TASK", message: "task reference matches multiple visible tasks; use the full task id" } }, 409);
+  }
+  const existing = resolved.task;
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (body.status !== undefined) patch.status = body.status;
   if (body.assigneeId !== undefined) patch.assigneeId = body.assigneeId;
   if (body.assigneeType !== undefined) patch.assigneeType = body.assigneeType;
-  await db.update(tasks).set(patch).where(eq(tasks.id, id));
+  await db.update(tasks).set(patch).where(eq(tasks.id, existing.id));
   return c.json({ ok: true });
 });
+
+async function resolveTaskRef(
+  db: ReturnType<typeof drizzle>,
+  ctx: ReturnType<typeof ctxFor>,
+  ref: string,
+): Promise<
+  | { status: "ok"; task: typeof tasks.$inferSelect }
+  | { status: "not_found" }
+  | { status: "forbidden" }
+  | { status: "ambiguous" }
+> {
+  const trimmed = ref.trim().replace(/^#/, "");
+  const exact = await db.select().from(tasks).where(eq(tasks.id, trimmed)).limit(1);
+  if (exact.length > 0) {
+    return await policy.tasks.canManage(ctx, exact[0].channelId)
+      ? { status: "ok", task: exact[0] }
+      : { status: "forbidden" };
+  }
+
+  const candidates: Array<typeof tasks.$inferSelect> = [];
+  if (/^\d+$/.test(trimmed)) {
+    candidates.push(...await db.select().from(tasks)
+      .where(eq(tasks.taskNumber, Number(trimmed)))
+      .limit(20));
+  } else if (trimmed.length >= 4) {
+    candidates.push(...await db.select().from(tasks)
+      .where(or(
+        like(tasks.id, `${trimmed}%`),
+        eq(tasks.messageId, trimmed),
+        like(tasks.messageId, `${trimmed}%`),
+      ))
+      .limit(20));
+  }
+
+  const visible: Array<typeof tasks.$inferSelect> = [];
+  const seen = new Set<string>();
+  for (const t of candidates) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    if (await policy.tasks.canManage(ctx, t.channelId)) visible.push(t);
+  }
+  if (visible.length === 0) return { status: "not_found" };
+  if (visible.length > 1) return { status: "ambiguous" };
+  return { status: "ok", task: visible[0] };
+}

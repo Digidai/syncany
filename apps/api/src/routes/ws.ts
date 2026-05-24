@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requirePolicy, policy, signWsToken } from "@raltic/auth-core";
 import type { Env, Variables } from "../lib/env";
-import { requireAuth, ctxFor } from "../lib/auth";
+import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
 
 export const wsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -19,7 +19,7 @@ const wsTokenBody = z.object({
 // ---------------------------------------------------------------------------
 // WS token mint — short-lived JWT for channel WS upgrade
 // ---------------------------------------------------------------------------
-wsRoutes.post("/api/v1/ws/token", requireAuth, async (c) => {
+wsRoutes.post("/api/v1/ws/token", requireAuth, requireUser, async (c) => {
   const subject = c.get("subject");
   // 120 mints/min/user — normal SPA opens one per channel + one per
   // gateway per page load; cap bounds token-grinding via leaked cookie.
@@ -33,7 +33,7 @@ wsRoutes.post("/api/v1/ws/token", requireAuth, async (c) => {
     const ctx = ctxFor(c);
     await requirePolicy(policy.channels.canRead(ctx, body.channelId));
     const token = await signWsToken(c.env.CHAT_ROOM_AUTH_SECRET, {
-      sub: subject.userId, channelId: body.channelId, agents: [], ttlSeconds: 60 * 10,
+      sub: subject.userId, aud: "channel", channelId: body.channelId, agents: [], ttlSeconds: 60 * 10,
     });
     return c.json({ token, wsUrl: new URL(c.req.url).origin.replace(/^http/, "ws") });
   }
@@ -43,11 +43,11 @@ wsRoutes.post("/api/v1/ws/token", requireAuth, async (c) => {
   // and machine keys must not be allowed to mint a gateway-scope token
   // pretending to be the user, since that would let a compromised
   // bridge subscribe to the user's cross-channel notifications stream.
-  if (subject.kind !== "user" || subject.via === "bridge_token") {
+  if (subject.kind !== "user") {
     return c.json({ error: { code: "FORBIDDEN", message: "gateway tokens require a human session" } }, 403);
   }
   const token = await signWsToken(c.env.CHAT_ROOM_AUTH_SECRET, {
-    sub: subject.userId, agents: [], ttlSeconds: 60 * 10,
+    sub: subject.userId, aud: "gateway", agents: [], ttlSeconds: 60 * 10,
   });
   return c.json({ token, wsUrl: new URL(c.req.url).origin.replace(/^http/, "ws") });
 });

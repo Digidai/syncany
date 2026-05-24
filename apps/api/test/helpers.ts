@@ -116,6 +116,7 @@ export async function userBearer(user: TestUser): Promise<string> {
   }
   const token = await signWsToken(env.CHAT_ROOM_AUTH_SECRET, {
     sub: user.id,
+    aud: "api",
     ttlSeconds: 60 * 60,
   });
   return `Bearer sy_api_${token}`;

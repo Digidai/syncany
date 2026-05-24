@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogPopup, AlertDialogHeader, AlertDialogTitle, Ale
 import { Button } from "@raltic/ui/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
 import { useAgentActivity } from "@/hooks/use-agent-activity";
-import { MessageSquare, Pencil, Trash2, Hash, ListChecks, FileText, Settings as SettingsIcon } from "lucide-react";
+import { MessageSquare, Pencil, Trash2, Hash, ListChecks, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notifyThrown, notifySuccess } from "@/lib/notify";
 
@@ -148,9 +148,9 @@ export default function AgentProfilePage() {
   useEffect(() => {
     if (tab !== "tasks" || !agent || tasks !== null) return;
     let cancelled = false;
-    api.listTasks().then(d => {
+    api.listTasks({ serverId: agent.serverId, assigneeId: agent.id }).then(d => {
       if (cancelled) return;
-      setTasks(d.tasks.filter((t) => t.assigneeId === agent.id && t.assigneeType === "agent"));
+      setTasks(d.tasks.filter((t) => t.assigneeType === "agent"));
     }).catch((e) => {
       // Surface the failure rather than showing "no tasks" which would
       // mislead the user. Empty array still ends up so the UI doesn't

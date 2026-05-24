@@ -11,6 +11,7 @@
  */
 
 import type { LanguageModel } from "ai";
+import { CLOUD_RUNTIME_MODELS } from "@raltic/protocol";
 
 /** Bindings the RalticAgent DO needs at runtime (set in wrangler.jsonc). */
 export interface AgentEnv {
@@ -56,6 +57,8 @@ export interface AgentInvocation {
   channelId: string;
   /** Message id that triggered us (null for scheduled). */
   messageId: string | null;
+  /** Root message id when the trigger was already inside a thread. */
+  threadParentId?: string | null;
   /** User-visible text to feed the model. */
   text: string;
   /** Caller identity for ACL checks (was the @-mention by the agent's owner? a stranger? another agent?). */
@@ -153,7 +156,7 @@ export interface AgentTierPolicy {
   maxTaskSeconds: number | null;
   /** Container memory tier (D2), passed to CF Containers binding. */
   sandboxMemoryMb: 512 | 1024 | 2048 | 4096;
-  /** Allowed models (free tier locked to Haiku/Flash per D1). */
+  /** Allowed models for cloud agents. Billing gates can narrow this once plan lookup lands. */
   allowedModels: readonly string[];
   /** Monthly token quota — agent refuses to call AI Gateway past this. */
   monthlyTokenQuota: number;
@@ -164,28 +167,28 @@ export const TIER_POLICIES: Record<AgentTierPolicy["plan"], AgentTierPolicy> = {
     plan: "free",
     maxTaskSeconds: 5 * 60,             // D3
     sandboxMemoryMb: 512,                // D2
-    allowedModels: ["claude-haiku-4-5", "gemini-2.5-flash"],  // D1
+    allowedModels: CLOUD_RUNTIME_MODELS,
     monthlyTokenQuota: 200_000,         // D1
   },
   pro: {
     plan: "pro",
     maxTaskSeconds: 30 * 60,            // D3
     sandboxMemoryMb: 512,                // D2
-    allowedModels: ["claude-haiku-4-5", "claude-sonnet-4-6", "gpt-5.4", "gpt-5.5", "gemini-2.5-flash", "gemini-2.5-pro"],
+    allowedModels: CLOUD_RUNTIME_MODELS,
     monthlyTokenQuota: 5_000_000,
   },
   team: {
     plan: "team",
     maxTaskSeconds: 4 * 60 * 60,        // D3
     sandboxMemoryMb: 1024,               // D2
-    allowedModels: ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "gpt-5.4", "gpt-5.5", "gemini-2.5-flash", "gemini-2.5-pro"],
+    allowedModels: CLOUD_RUNTIME_MODELS,
     monthlyTokenQuota: 20_000_000,
   },
   enterprise: {
     plan: "enterprise",
     maxTaskSeconds: null,               // D3: unlimited
     sandboxMemoryMb: 2048,               // D2
-    allowedModels: ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "gpt-5.4", "gpt-5.5", "gemini-2.5-flash", "gemini-2.5-pro"],
+    allowedModels: CLOUD_RUNTIME_MODELS,
     monthlyTokenQuota: 100_000_000,
   },
 };

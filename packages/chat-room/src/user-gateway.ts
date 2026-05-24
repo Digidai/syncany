@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
-import { inArray } from "drizzle-orm";
-import { agents } from "@raltic/db";
+import { and, eq, inArray } from "drizzle-orm";
+import { agents, channels, serverMembers } from "@raltic/db";
 import {
   type ClientMessage,
   type ServerMessage,
@@ -9,11 +9,12 @@ import {
   encode,
   PROTOCOL_VERSION,
 } from "@raltic/protocol";
-import { verifyWsToken } from "@raltic/auth-core";
+import { isTokenRevoked, verifyWsToken } from "@raltic/auth-core";
 
 export interface UserGatewayEnv {
   DB: D1Database;
   CHAT_ROOM_AUTH_SECRET: string;
+  RATE_LIMITS?: KVNamespace;
   /** WorkspacePresence DO namespace. Bound by apps/api/wrangler.jsonc.
    *  UserGateway forwards client presence_subscribe / _unsubscribe
    *  intents here and receives broadcast deltas back over
@@ -24,7 +25,9 @@ export interface UserGatewayEnv {
 interface AttachedSession {
   userId: string;
   agentIds: string[];
+  serverId?: string;            // present for bridge connections
   bridgeId?: string;            // present for bridge connections (machine-key sessions)
+  jti?: string;
   connectedAt: number;          // ms epoch — used for "latest bridge wins" leader election
   isBridge: boolean;            // true if this socket has a bridgeId
   lastHeartbeatAt?: number;     // ms epoch — bumped on every clientHeartbeat
@@ -99,7 +102,13 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     if (!s || typeof s !== "string" || s.length < 16) return new Response("forbidden", { status: 403 });
     if (req.headers.get("x-internal-secret") !== s) return new Response("forbidden", { status: 403 });
     const text = await req.text();
+    let msg: ServerMessage | null = null;
+    try { msg = JSON.parse(text) as ServerMessage; } catch { /* keep fail-open shape for legacy internal callers */ }
+    const serverId = msg && "serverId" in msg && typeof msg.serverId === "string" ? msg.serverId : "";
     for (const ws of this.ctx.getWebSockets()) {
+      const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
+      if (!sess || sess.isBridge) continue;
+      if (serverId && !(sess.presenceSubs ?? []).includes(serverId)) continue;
       try { ws.send(text); } catch { /* socket closing */ }
     }
     return new Response(null, { status: 204 });
@@ -112,7 +121,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     const protocol = req.headers.get("sec-websocket-protocol") ?? "";
     const token = protocol.split(",")[0]?.trim() ?? "";
 
-    let claims: { userId: string; agentIds: string[]; bridgeId?: string };
+    let claims: { userId: string; agentIds: string[]; serverId?: string; bridgeId?: string; jti?: string };
     try {
       claims = await this.verify(token);
     } catch {
@@ -141,7 +150,9 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     const attached: AttachedSession = {
       userId: claims.userId,
       agentIds: claims.agentIds,
+      serverId: claims.serverId,
       bridgeId: claims.bridgeId,
+      jti: claims.jti,
       connectedAt: Date.now(),
       isBridge: !!claims.bridgeId,
       lastHeartbeatAt: Date.now(),  // initial — bridge will refresh every 15s
@@ -150,12 +161,16 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     this.ctx.acceptWebSocket(server, [`u:${claims.userId}`]);
     this.sessions.set(server, attached);
 
-    // If this is a bridge connection, broadcast leader status to ALL bridges
-    // for this user (newly-connected bridge becomes leader; others demote).
+    // If this is a bridge connection, broadcast leader status to all bridges
+    // for the same user, grouped by server scope.
     // We can't send on `server` until after the response, so schedule via
     // microtask after returning.
     if (attached.isBridge) {
-      queueMicrotask(() => this.broadcastLeaderStatus());
+      queueMicrotask(() => {
+        this.broadcastLeaderStatus().catch((e) => {
+          console.warn("[UserGateway] bridge leader broadcast failed", { error: String(e) });
+        });
+      });
     }
 
     return new Response(null, {
@@ -165,28 +180,42 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     });
   }
 
-  /** Tells every bridge socket whether it is currently the leader.
+  /** Tells every bridge socket whether it is currently the leader for its server.
    *  Stale bridges (no heartbeat in BRIDGE_LIVENESS_WINDOW_MS) are
    *  excluded — they may be in a half-open TCP state and would silently
-   *  swallow channel_new dispatches if elected. */
-  private broadcastLeaderStatus(): void {
+   *  hold leadership if elected. */
+  private async broadcastLeaderStatus(): Promise<void> {
     const now = Date.now();
-    let leaderWs: WebSocket | null = null;
-    let best = -1;
-    const bridgeSockets: { ws: WebSocket; a: AttachedSession; live: boolean }[] = [];
+    const byServer = new Map<string, { ws: WebSocket; a: AttachedSession; live: boolean }[]>();
+    const leaderByServer = new Map<string, WebSocket>();
+    const bestByServer = new Map<string, number>();
     for (const ws of this.ctx.getWebSockets()) {
       const a = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
       if (!a?.isBridge) continue;
+      if (await this.isBridgeSessionRevoked(a)) {
+        try { ws.close(4001, "bridge revoked"); } catch { /* ignore */ }
+        this.sessions.delete(ws);
+        continue;
+      }
+      const serverId = a.serverId ?? "";
       const lastBeat = a.lastHeartbeatAt ?? a.connectedAt;
       const live = now - lastBeat < BRIDGE_LIVENESS_WINDOW_MS;
-      bridgeSockets.push({ ws, a, live });
-      if (live && a.connectedAt > best) { best = a.connectedAt; leaderWs = ws; }
+      const group = byServer.get(serverId) ?? [];
+      group.push({ ws, a, live });
+      byServer.set(serverId, group);
+      if (live && a.connectedAt > (bestByServer.get(serverId) ?? -1)) {
+        bestByServer.set(serverId, a.connectedAt);
+        leaderByServer.set(serverId, ws);
+      }
     }
-    for (const { ws, live } of bridgeSockets) {
-      const isLeader = live && ws === leaderWs;
-      try {
-        ws.send(encode({ v: PROTOCOL_VERSION, t: "leader_status", isLeader }));
-      } catch { /* ignore */ }
+    for (const [serverId, bridgeSockets] of byServer) {
+      const leaderWs = leaderByServer.get(serverId) ?? null;
+      for (const { ws, live } of bridgeSockets) {
+        const isLeader = live && ws === leaderWs;
+        try {
+          ws.send(encode({ v: PROTOCOL_VERSION, t: "leader_status", isLeader }));
+        } catch { /* ignore */ }
+      }
     }
   }
 
@@ -198,7 +227,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       return new Response("forbidden", { status: 403 });
     }
     const body = await req.json() as ServerMessage;
-    this.broadcast(body);
+    await this.broadcast(body);
     return Response.json({ ok: true });
   }
 
@@ -238,10 +267,19 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       sess.lastHeartbeatAt = now;
       this.sessions.set(ws, sess);
       ws.serializeAttachment(sess);
+      if (sess.isBridge && await this.isBridgeSessionRevoked(sess)) {
+        try { ws.close(4001, "bridge revoked"); } catch { /* ignore */ }
+        this.sessions.delete(ws);
+        await this.broadcastLeaderStatus();
+        return;
+      }
       if (sess.isBridge && sess.agentIds.length > 0) {
         this.ctx.waitUntil(this.persistBridgeHeartbeat(sess.agentIds).catch((e) => {
           console.warn("[UserGateway] agent heartbeat persist failed", { error: String(e) });
         }));
+      }
+      if (sess.isBridge) {
+        await this.broadcastLeaderStatus();
       }
       this.send(ws, { v: PROTOCOL_VERSION, t: "ack", id: msg.id });
       return;
@@ -249,7 +287,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     if (msg.t === "rpc") {
       // Forward RPC to the matching peer (web → bridge or bridge → web).
       // TODO: route by `params.targetUserId` once we have multi-recipient RPC.
-      this.broadcast({ v: PROTOCOL_VERSION, t: "rpc", id: msg.id, result: msg.params }, ws);
+      await this.broadcast({ v: PROTOCOL_VERSION, t: "rpc", id: msg.id, result: msg.params }, ws);
       return;
     }
     if (msg.t === "presence_subscribe") {
@@ -276,6 +314,14 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   private async handlePresenceSubscribe(
     ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
   ): Promise<void> {
+    if (sess.isBridge) {
+      this.sendErr(ws, id, "FORBIDDEN", "presence subscriptions require a browser session");
+      return;
+    }
+    if (!(await this.userIsServerMember(sess.userId, serverId))) {
+      this.sendErr(ws, id, "FORBIDDEN", "not a workspace member");
+      return;
+    }
     const stub = this.env.WORKSPACE_PRESENCE.get(
       this.env.WORKSPACE_PRESENCE.idFromName(serverId)
     );
@@ -336,6 +382,10 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   private async handlePresenceUnsubscribe(
     ws: WebSocket, sess: AttachedSession, id: string, serverId: string,
   ): Promise<void> {
+    if (sess.isBridge) {
+      this.sendErr(ws, id, "FORBIDDEN", "presence subscriptions require a browser session");
+      return;
+    }
     const subs = sess.presenceSubs ?? [];
     if (!subs.includes(serverId)) {
       // Codex 2 HIGH: pre-fix, repeat unsubscribe would still send -1
@@ -379,6 +429,20 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
     });
   }
 
+  private async userIsServerMember(userId: string, serverId: string): Promise<boolean> {
+    const db = drizzle(this.env.DB);
+    const rows = await db
+      .select({ id: serverMembers.serverId })
+      .from(serverMembers)
+      .where(and(
+        eq(serverMembers.serverId, serverId),
+        eq(serverMembers.memberId, userId),
+        eq(serverMembers.memberType, "human"),
+      ))
+      .limit(1);
+    return rows.length > 0;
+  }
+
   async webSocketClose(ws: WebSocket): Promise<void> {
     const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
     const wasBridge = sess?.isBridge ?? false;
@@ -392,7 +456,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       await Promise.allSettled(cleanups);
     }
     this.sessions.delete(ws);
-    if (wasBridge) this.broadcastLeaderStatus();
+    if (wasBridge) await this.broadcastLeaderStatus();
   }
   async webSocketError(ws: WebSocket): Promise<void> {
     const sess = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
@@ -403,7 +467,7 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       await Promise.allSettled(cleanups);
     }
     this.sessions.delete(ws);
-    if (wasBridge) this.broadcastLeaderStatus();
+    if (wasBridge) await this.broadcastLeaderStatus();
   }
 
   /**
@@ -429,13 +493,45 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
   }
 
   /** Delegates to auth-core's single canonical HS256 verifier. */
-  private async verify(token: string): Promise<{ userId: string; agentIds: string[]; bridgeId?: string }> {
+  private async verify(token: string): Promise<{ userId: string; agentIds: string[]; serverId?: string; bridgeId?: string; jti?: string }> {
     const payload = await verifyWsToken(token, this.env.CHAT_ROOM_AUTH_SECRET);
     if (!payload) throw new Error("invalid token");
+    const hasScopedClaims =
+      !!payload.channelId
+      || !!payload.serverId
+      || !!payload.bridgeId
+      || (Array.isArray(payload.agents) && payload.agents.length > 0);
+    if (payload.aud === undefined && hasScopedClaims) {
+      throw new Error("missing token audience for scoped token");
+    }
+    if (payload.aud !== undefined && payload.aud !== "gateway" && payload.aud !== "bridge") {
+      throw new Error("wrong token audience");
+    }
+    if (this.env.RATE_LIMITS) {
+      try {
+        if (payload.jti && await isTokenRevoked(this.env.RATE_LIMITS, payload.jti)) {
+          throw new Error("token revoked");
+        }
+        if (payload.bridgeId && await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${payload.bridgeId}`)) {
+          throw new Error("bridge revoked");
+        }
+      } catch (e) {
+        if (String(e).includes("revoked")) throw e;
+        console.warn("[UserGateway] KV revocation lookup failed, allowing", { error: String(e) });
+      }
+    }
+    const bridgeId = typeof payload.bridgeId === "string" ? payload.bridgeId : undefined;
+    const serverId = typeof payload.serverId === "string" ? payload.serverId : undefined;
+    const agentIds = Array.isArray(payload.agents) ? payload.agents.filter((id): id is string => typeof id === "string" && id.length > 0) : [];
+    if (payload.aud === "bridge" || bridgeId) {
+      if (!bridgeId || !serverId || agentIds.length === 0) throw new Error("bridge token missing scope");
+    }
     return {
       userId: payload.sub,
-      agentIds: Array.isArray(payload.agents) ? payload.agents : [],
-      bridgeId: payload.bridgeId,
+      agentIds,
+      serverId,
+      bridgeId,
+      jti: payload.jti,
     };
   }
 
@@ -448,47 +544,71 @@ export class UserGateway extends DurableObject<UserGatewayEnv> {
       .where(inArray(agents.id, unique));
   }
 
+  private async isBridgeSessionRevoked(sess: AttachedSession): Promise<boolean> {
+    if (!this.env.RATE_LIMITS || !sess.bridgeId) return false;
+    try {
+      if (sess.jti && await isTokenRevoked(this.env.RATE_LIMITS, sess.jti)) return true;
+      return await isTokenRevoked(this.env.RATE_LIMITS, `bridge:${sess.bridgeId}`);
+    } catch (e) {
+      console.warn("[UserGateway] KV revocation lookup failed, allowing existing bridge socket", { error: String(e) });
+      return false;
+    }
+  }
+
   /** UserGateway DO is per-user (id from name = userId). Every socket here
    *  should belong to the same user, but we still filter by attached userId
    *  as defense-in-depth.
    *
-   *  Leader election: if more than one bridge is connected for the same user
-   *  (e.g. laptop + desktop), only the most-recently-connected bridge gets
-   *  `channel_new` events. Otherwise both bridges would dispatch the same
-   *  inbound message to their local Claude Code subprocesses → double reply.
-   *  Browser sockets always receive — they don't dispatch agent work.
+   *  Bridge sockets only receive gateway events that are scoped to one of
+   *  their token-bound agents. Browser sockets always receive user-level
+   *  events; they are already in this per-user DO and policy-gated upstream.
    */
-  private broadcast(msg: ServerMessage, exclude?: WebSocket): void {
+  private async broadcast(msg: ServerMessage, exclude?: WebSocket): Promise<void> {
     const text = encode(msg);
     const sample = this.sessions.values().next().value as AttachedSession | undefined;
     const ownerId = sample?.userId;
-
-    // Determine the leader bridge socket (latest LIVE connectedAt wins).
-    // Stale bridges (no heartbeat in window) are excluded — same liveness
-    // gate as broadcastLeaderStatus, otherwise channel_new could be sent
-    // to a half-dead bridge whose ws.send swallows the bytes.
-    const isLeaderEligible = (msg as { t?: string }).t === "channel_new";
-    let leaderBridgeWs: WebSocket | null = null;
-    if (isLeaderEligible) {
-      const now = Date.now();
-      let best = -1;
-      for (const ws of this.ctx.getWebSockets()) {
-        const a = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
-        if (!a?.isBridge) continue;
-        const lastBeat = a.lastHeartbeatAt ?? a.connectedAt;
-        if (now - lastBeat >= BRIDGE_LIVENESS_WINDOW_MS) continue;
-        if (a.connectedAt > best) { best = a.connectedAt; leaderBridgeWs = ws; }
-      }
-    }
 
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === exclude) continue;
       const a = this.sessions.get(ws) ?? (ws.deserializeAttachment() as AttachedSession | null);
       if (ownerId && a && a.userId !== ownerId) continue;
-      // Leader-only routing for channel_new: skip non-leader bridges.
-      if (isLeaderEligible && a?.isBridge && ws !== leaderBridgeWs) continue;
+      if (a?.isBridge) {
+        if (await this.isBridgeSessionRevoked(a)) {
+          try { ws.close(4001, "bridge revoked"); } catch { /* ignore */ }
+          this.sessions.delete(ws);
+          continue;
+        }
+        if (!(await this.bridgeCanReceive(a, msg))) continue;
+      }
       try { ws.send(text); } catch { /* ignore */ }
     }
+  }
+
+  private async bridgeCanReceive(sess: AttachedSession, msg: ServerMessage): Promise<boolean> {
+    switch (msg.t) {
+      case "member_add":
+        if (msg.memberType !== "agent") return false;
+        if (sess.agentIds.includes(msg.memberId)) return true;
+        return !!sess.serverId && await this.channelBelongsToServer(msg.channelId, sess.serverId);
+      case "member_remove":
+        return msg.memberType === "agent" && sess.agentIds.includes(msg.memberId);
+      case "activity":
+      case "agent_text_delta":
+        return sess.agentIds.includes(msg.agentId);
+      case "rpc":
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private async channelBelongsToServer(channelId: string, serverId: string): Promise<boolean> {
+    const db = drizzle(this.env.DB);
+    const rows = await db.select({ id: channels.id }).from(channels).where(and(
+      eq(channels.id, channelId),
+      eq(channels.serverId, serverId),
+    )).limit(1);
+    return rows.length > 0;
   }
   private send(ws: WebSocket, msg: ServerMessage): void {
     try { ws.send(encode(msg)); } catch { /* ignore */ }

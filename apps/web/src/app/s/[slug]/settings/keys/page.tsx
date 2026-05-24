@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { KeyRound } from "lucide-react";
@@ -37,7 +37,7 @@ export default function MachineKeysPage() {
     finally { setRevokeTarget(null); }
   }
 
-  async function reload() {
+  const reload = useCallback(async () => {
     try {
       // Scope to this workspace — previously listed every key the user
       // owned across all workspaces, which leaked unrelated bridge keys.
@@ -46,8 +46,8 @@ export default function MachineKeysPage() {
     } catch (e) {
       notifyThrown("Couldn't load machine keys", e);
     }
-  }
-  useEffect(() => { reload(); }, [server.id]);
+  }, [server.id]);
+  useEffect(() => { reload(); }, [reload]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

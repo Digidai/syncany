@@ -35,7 +35,7 @@ const persistedSnapshot = z.record(z.string(), z.object({
 
 export const machineKeysRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-machineKeysRoutes.delete("/api/v1/machine-keys/:id", requireAuth, async (c) => {
+machineKeysRoutes.delete("/api/v1/machine-keys/:id", requireAuth, requireUser, async (c) => {
   const id = c.req.param("id");
   const subject = c.get("subject");
   const ctx = ctxFor(c);
@@ -54,7 +54,7 @@ machineKeysRoutes.delete("/api/v1/machine-keys/:id", requireAuth, async (c) => {
 // ---------------------------------------------------------------------------
 // /api/v1/machine-keys — create + list + revoke
 // ---------------------------------------------------------------------------
-machineKeysRoutes.post("/api/v1/machine-keys", requireAuth, async (c) => {
+machineKeysRoutes.post("/api/v1/machine-keys", requireAuth, requireUser, async (c) => {
   const subject = c.get("subject");
   const limited = await rateLimit(c, "key_create", subject.userId, 10, 3600); // 10/hour/user
   if (limited) return limited;

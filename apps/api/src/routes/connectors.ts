@@ -46,13 +46,16 @@ const createBody = z.object({
   label: z.string().min(1).max(120),
   token: z.string().min(16).max(1024),     // floor-of-floors; per-kind check below
   scopes: z.array(z.string().min(1).max(64)).max(32).default([]),
-}).refine(
-  (v) => v.token.length >= MIN_TOKEN_LEN_BY_KIND[v.kind],
-  (v) => ({
-    message: `token too short for ${v.kind} (need ≥${MIN_TOKEN_LEN_BY_KIND[v.kind]} chars)`,
-    path: ["token"],
-  }),
-);
+}).superRefine((v, ctx) => {
+  const min = MIN_TOKEN_LEN_BY_KIND[v.kind];
+  if (v.token.length < min) {
+    ctx.addIssue({
+      code: "custom",
+      message: `token too short for ${v.kind} (need >= ${min} chars)`,
+      path: ["token"],
+    });
+  }
+});
 
 const linkBody = z.object({
   connectorId: z.string().min(1).max(64),

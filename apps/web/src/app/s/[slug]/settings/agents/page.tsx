@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Hash, Cpu, MessageSquare, Pencil, Trash2, Lock, Plus, ArrowRight } from "lucide-react";
@@ -42,7 +42,7 @@ export default function ChannelsAgentsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Agent | null>(null);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     // Both lists in one fetch — we already pay for getServerBySlug at
     // the layout level, so this is a cheap refresh of just what this
     // tab needs. listAgents returns cross-workspace results; filter.
@@ -52,8 +52,8 @@ export default function ChannelsAgentsPage() {
     ]);
     setAgents(agentsRes.agents.filter((a) => a.serverId === server.id));
     setChannels(("channels" in serverRes ? serverRes.channels : []) as Channel[]);
-  }
-  useEffect(() => { reload(); }, [server.id, slug]);
+  }, [server.id, slug]);
+  useEffect(() => { reload(); }, [reload]);
 
   async function confirmDeleteAgent() {
     if (!deleteTarget) return;

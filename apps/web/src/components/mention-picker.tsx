@@ -231,7 +231,7 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
         </div>
       </div>
     );
-  }, [open, filtered, activeIdx, pick]);
+  }, [open, filtered, activeIdx, pick, listboxId, mode, optionId]);
 
   // Expose ids so the composer can wire aria-controls / activedescendant
   // on the editor's underlying element. Consumer can ignore if not using.

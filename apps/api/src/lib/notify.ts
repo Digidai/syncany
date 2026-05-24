@@ -15,6 +15,15 @@ interface MessageRowLike {
   // Phase A — pin marker on the message; null = not pinned.
   pinnedAt?: Date | number | null;
   pinnedBy?: string | null;
+  attachments?: Array<{
+    id: string;
+    filename: string;
+    contentType: string;
+    sizeBytes: number;
+    url: string;
+    width?: number | null;
+    height?: number | null;
+  }>;
 }
 
 /** Tell every channel WS subscriber that a message was edited or deleted. */

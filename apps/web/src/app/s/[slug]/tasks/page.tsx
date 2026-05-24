@@ -38,6 +38,7 @@ export default function TaskBoardPage() {
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [serverId, setServerId] = useState<string>("");
   const [filterChannel, setFilterChannel] = useState<string>("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,13 +49,20 @@ export default function TaskBoardPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setServerId("");
+    setFilterChannel("");
+    setChannels([]);
+    setAgents([]);
+    setCreateChannel("");
+    setTasks([]);
     (async () => {
       try {
         const data = await api.getServerBySlug(slug);
         if (cancelled) return;
+        setServerId(data.server.id);
         setChannels(data.channels);
         setAgents(data.agents);
-        if (data.channels[0]) setCreateChannel(data.channels[0].id);
+        setCreateChannel(data.channels[0]?.id ?? "");
       } catch (e) {
         notifyThrown("Couldn't load server", e);
       }
@@ -67,7 +75,11 @@ export default function TaskBoardPage() {
     setLoading(true);
     (async () => {
       try {
-        const data = await api.listTasks(filterChannel ? { channelId: filterChannel } : undefined);
+        if (!serverId && !filterChannel) {
+          if (!cancelled) setTasks([]);
+          return;
+        }
+        const data = await api.listTasks(filterChannel ? { channelId: filterChannel } : { serverId });
         if (!cancelled) setTasks(data.tasks);
       } catch (e) {
         notifyThrown("Couldn't load tasks", e);
@@ -76,7 +88,7 @@ export default function TaskBoardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [filterChannel]);
+  }, [filterChannel, serverId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

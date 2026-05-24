@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type MessageRow,
   type ServerMessage,
@@ -18,6 +18,7 @@ interface UseChannelSocketOpts {
   token: string | null;
   onMessage?: (msg: MessageRow) => void;
   onMessageUpdate?: (msg: MessageRow) => void;
+  onAgentTextDelta?: (ev: { agentId: string; text: string }) => void;
   onReaction?: (ev: { messageId: string; emoji: string; reactorId: string; added: boolean }) => void;
   onPresence?: (userId: string, status: "active" | "away" | "offline") => void;
   onTyping?: (userId: string, on: boolean) => void;
@@ -39,7 +40,7 @@ async function mintWsToken(channelId: string): Promise<string | null> {
   } catch { return null; }
 }
 
-export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate, onReaction, onPresence, onTyping }: UseChannelSocketOpts) {
+export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate, onAgentTextDelta, onReaction, onPresence, onTyping }: UseChannelSocketOpts) {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const reconnectAttempt = useRef(0);
@@ -47,6 +48,14 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
   const pendingSends = useRef(new Map<string, { resolve: (ok: boolean) => void; timer: ReturnType<typeof setTimeout> }>());
 
   useEffect(() => { initialTokenRef.current = token; }, [token]);
+
+  const failPendingSends = useCallback(() => {
+    for (const [id, pending] of pendingSends.current) {
+      clearTimeout(pending.timer);
+      pending.resolve(false);
+      pendingSends.current.delete(id);
+    }
+  }, []);
 
   useEffect(() => {
     if (!channelId) return;
@@ -74,11 +83,13 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
       );
       wsRef.current = ws;
       ws.onopen = () => {
+        if (wsRef.current !== ws) return;
         setConnected(true);
         reconnectAttempt.current = 0;
         ws.send(encode({ v: PROTOCOL_VERSION, t: "hello", id: crypto.randomUUID() }));
       };
       ws.onmessage = (e) => {
+        if (wsRef.current !== ws) return;
         let msg: ServerMessage;
         try { msg = decodeServer(e.data as string); }
         catch { return; }
@@ -98,17 +109,16 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
           }
         } else if (msg.t === "message" && onMessage) onMessage(msg.message);
         else if (msg.t === "message_update" && onMessageUpdate) onMessageUpdate(msg.message);
+        else if (msg.t === "agent_text_delta" && onAgentTextDelta) onAgentTextDelta({ agentId: msg.agentId, text: msg.text });
         else if (msg.t === "reaction" && onReaction) onReaction({ messageId: msg.messageId, emoji: msg.emoji, reactorId: msg.reactorId, added: msg.added });
         else if (msg.t === "presence" && onPresence) onPresence(msg.userId, msg.status);
         else if (msg.t === "typing" && onTyping) onTyping(msg.userId, msg.on);
       };
       ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+        wsRef.current = null;
         setConnected(false);
-        for (const [id, pending] of pendingSends.current) {
-          clearTimeout(pending.timer);
-          pending.resolve(false);
-          pendingSends.current.delete(id);
-        }
+        failPendingSends();
         if (cancelled) return;
         const delay = Math.min(30_000, 500 * Math.pow(2, reconnectAttempt.current++));
         // Clear the cached token if we've been disconnected long enough that
@@ -121,9 +131,13 @@ export function useChannelSocket({ channelId, token, onMessage, onMessageUpdate,
     open();
     return () => {
       cancelled = true;
-      try { wsRef.current?.close(); } catch { /* ignore */ }
+      const ws = wsRef.current;
+      if (ws) wsRef.current = null;
+      setConnected(false);
+      failPendingSends();
+      try { ws?.close(); } catch { /* ignore */ }
     };
-  }, [channelId, onMessage, onMessageUpdate, onReaction, onPresence, onTyping]);
+  }, [channelId, failPendingSends, onMessage, onMessageUpdate, onAgentTextDelta, onReaction, onPresence, onTyping]);
 
   function send(content: string, opts?: { threadParentId?: string; as?: string }): Promise<boolean> {
     const ws = wsRef.current;

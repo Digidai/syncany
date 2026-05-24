@@ -14,6 +14,7 @@ import type { Env } from "./env";
 interface DispatchInput {
   channelId: string;
   messageId: string;
+  threadParentId: string | null;
   text: string;
   callerId: string;
   callerType: "human" | "agent";
@@ -74,6 +75,7 @@ export async function dispatchToAgents(env: Env, input: DispatchInput): Promise<
         source: "channel_mention",
         channelId: input.channelId,
         messageId: input.messageId,
+        threadParentId: input.threadParentId,
         text: input.text,
         callerId: input.callerId,
         callerType: input.callerType,

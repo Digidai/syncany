@@ -66,7 +66,7 @@ export function safeNext(raw: string | null | undefined): string | null {
   // pathname="//evil" — which a downstream `<a href>` re-interprets as
   // protocol-relative. Collapse the leading slashes so we emit at most
   // one, then re-check that we still start with `/`.
-  let pathname = parsed.pathname.replace(/^\/{2,}/, "/");
+  const pathname = parsed.pathname.replace(/^\/{2,}/, "/");
   if (!pathname.startsWith("/")) return null;
 
   // Preserve fragment so deep-links into anchored content (e.g.
