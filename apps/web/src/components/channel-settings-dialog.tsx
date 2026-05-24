@@ -58,6 +58,10 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
           : undefined,
       });
       notifySuccess("Channel updated");
+      // Notify sidebar so the renamed channel surfaces immediately —
+      // the message-area header refetches via onSaved but the sidebar
+      // listens to this CustomEvent for its own re-fetch.
+      window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
       onSaved?.();
       onOpenChange(false);
     } catch (e) {
