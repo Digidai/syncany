@@ -14,6 +14,14 @@ import { z } from "zod";
 const updateChannelBody = z.object({
   name: z.string().min(1).max(80).optional(),
   description: z.string().max(1000).nullable().optional(),
+  // Phase B: topic = current focus (separate from description).
+  // Max 250 — Slack-style one-liner, not a paragraph.
+  topic: z.string().max(250).nullable().optional(),
+});
+
+// Phase B: PATCH /api/v1/channels/:id/visibility — public ↔ private.
+const updateVisibilityBody = z.object({
+  type: z.enum(["public", "private"]),
 });
 
 // POST /api/v1/dm — find-or-create a 1:1 DM channel.
@@ -130,10 +138,24 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
   // policy.channels.canAddMember). Split into two flags after codex
   // C5 MED — earlier UI conflated them and under-exposed Add for
   // non-creator members.
-  const [viewerCanManage, viewerCanAddMembers] = await Promise.all([
+  const [viewerCanManage, viewerCanAddMembers, viewerMembership] = await Promise.all([
     policy.channels.canUpdate(ctx, channelId),
     policy.channels.canAddMember(ctx, channelId),
+    // Viewer-specific mutedAt (Phase A bug found by codex PA3 HIGH):
+    // the bare channels row doesn't carry per-user mute state. Pull
+    // it explicitly so ChannelActions can render the Unmute branch.
+    db.select({ mutedAt: channelMembers.mutedAt })
+      .from(channelMembers).where(and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.memberId, subject.userId),
+        eq(channelMembers.memberType, "human"),
+      )).limit(1),
   ]);
+  // Surface as a millisecond timestamp so the wire shape matches the
+  // sidebar's mutedAt from /servers/by-slug.
+  const viewerMutedAt = viewerMembership[0]?.mutedAt instanceof Date
+    ? viewerMembership[0].mutedAt.getTime()
+    : (viewerMembership[0]?.mutedAt ?? null);
 
   // DM peer resolution — same shape as /servers/by-slug returns per
   // channel. The message-area header uses this to render the OTHER
@@ -167,7 +189,14 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
       }
     }
   }
-  return c.json({ channel, members, peer, viewerCanManage, viewerCanAddMembers });
+  return c.json({
+    // Channel base record + viewer's mute flag (Phase A codex PA3 HIGH
+    // fix). Spreading lets the web client just read channel.mutedAt
+    // without a separate field — the sidebar already does this via
+    // getServerBySlug, keeping the two shapes aligned.
+    channel: { ...channel, mutedAt: viewerMutedAt },
+    members, peer, viewerCanManage, viewerCanAddMembers,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -272,7 +301,92 @@ channelsRoutes.patch("/api/v1/channels/:id", requireAuth, async (c) => {
   const patch: Record<string, unknown> = {};
   if (body.name !== undefined) patch.name = body.name;
   if (body.description !== undefined) patch.description = body.description;
+  if (body.topic !== undefined) patch.topic = body.topic;
   await db.update(channels).set(patch).where(eq(channels.id, id));
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/channels/:id/visibility — public ↔ private convert
+//
+// Same gate as rename (canUpdate = creator/owner). Trying to convert a
+// DM is a no-op error — DMs are pairwise by definition.
+//
+// SECURITY: Converting public→private does NOT change membership. The
+// existing public-channel members keep access. Owners who want a true
+// "fresh start" should create a new private channel and pull in only
+// the desired members. We surface this expectation in the UI confirm
+// dialog.
+// ---------------------------------------------------------------------------
+channelsRoutes.patch("/api/v1/channels/:id/visibility", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_visibility", subject.userId, 10, 3600);
+  if (limited) return limited;
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canUpdate(ctx, id));
+  const body = updateVisibilityBody.parse(await c.req.json());
+  const db = drizzle(c.env.DB);
+  const rows = await db.select({ type: channels.type }).from(channels)
+    .where(eq(channels.id, id)).limit(1);
+  if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  if (rows[0].type === "dm") {
+    return c.json({ error: { code: "BAD_REQ", message: "cannot change visibility of a DM" } }, 400);
+  }
+  if (rows[0].type === body.type) {
+    return c.json({ ok: true, unchanged: true });
+  }
+  await db.update(channels).set({ type: body.type }).where(eq(channels.id, id));
+  return c.json({ ok: true, type: body.type });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/channels/:id/archive  +  POST /unarchive — soft-delete
+//
+// Archived channels are read-only AND hidden from the sidebar by
+// default. Existing messages are preserved (no data loss); a banner
+// in the channel header explains the state + offers Unarchive. Same
+// gate as delete (canUpdate). DMs can't be archived — leave handles
+// that surface for DMs.
+// ---------------------------------------------------------------------------
+channelsRoutes.post("/api/v1/channels/:id/archive", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_archive", subject.userId, 20, 3600);
+  if (limited) return limited;
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canUpdate(ctx, id));
+  const db = drizzle(c.env.DB);
+  const rows = await db.select({ type: channels.type, archivedAt: channels.archivedAt }).from(channels)
+    .where(eq(channels.id, id)).limit(1);
+  if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  if (rows[0].type === "dm") {
+    return c.json({ error: { code: "BAD_REQ", message: "cannot archive a DM" } }, 400);
+  }
+  if (rows[0].archivedAt != null) {
+    return c.json({ ok: true, alreadyArchived: true });
+  }
+  await db.update(channels).set({ archivedAt: new Date(), archivedBy: subject.userId })
+    .where(eq(channels.id, id));
+  return c.json({ ok: true });
+});
+
+channelsRoutes.post("/api/v1/channels/:id/unarchive", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_unarchive", subject.userId, 20, 3600);
+  if (limited) return limited;
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canUpdate(ctx, id));
+  const db = drizzle(c.env.DB);
+  const rows = await db.select({ archivedAt: channels.archivedAt }).from(channels)
+    .where(eq(channels.id, id)).limit(1);
+  if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  if (rows[0].archivedAt == null) {
+    return c.json({ ok: true, alreadyActive: true });
+  }
+  await db.update(channels).set({ archivedAt: null, archivedBy: null })
+    .where(eq(channels.id, id));
   return c.json({ ok: true });
 });
 
@@ -588,11 +702,21 @@ channelsRoutes.post("/api/v1/channels/:id/mute", requireAuth, requireUser, async
   const limited = await rateLimit(c, "channel_mute", subject.userId, 60, 3600);
   if (limited) return limited;
   const ctx = ctxFor(c);
-  // Caller must be a member to mute — non-members have nothing to
-  // mute, and we don't want to leak channel existence by accepting
-  // mutes from outsiders.
-  await requirePolicy(policy.channels.canLeave(ctx, channelId)); // = canRead-tight, member-or-agent-owner
+  // Mute is per-user-as-human; we must NOT accept the canLeave gate
+  // here because it also admits agent owners (who don't have a human
+  // membership row to flip). Inline check + 404 if the user isn't a
+  // human member — keeps the silent-no-op codex PA1 MED from
+  // returning a misleading 200.
   const db = drizzle(c.env.DB);
+  const membership = await db.select({ memberId: channelMembers.memberId })
+    .from(channelMembers).where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, subject.userId),
+      eq(channelMembers.memberType, "human"),
+    )).limit(1);
+  if (membership.length === 0) {
+    return c.json({ error: { code: "NOT_MEMBER", message: "join the channel before muting it" } }, 403);
+  }
   const now = new Date();
   await db.update(channelMembers).set({ mutedAt: now }).where(and(
     eq(channelMembers.channelId, channelId),
@@ -610,9 +734,18 @@ channelsRoutes.delete("/api/v1/channels/:id/mute", requireAuth, requireUser, asy
   const subject = c.get("subject");
   const limited = await rateLimit(c, "channel_unmute", subject.userId, 60, 3600);
   if (limited) return limited;
-  const ctx = ctxFor(c);
-  await requirePolicy(policy.channels.canLeave(ctx, channelId));
+  // Same membership precheck as POST /mute — silent unmute would mask
+  // a "I'm not actually in this channel" UX bug.
   const db = drizzle(c.env.DB);
+  const membership = await db.select({ memberId: channelMembers.memberId })
+    .from(channelMembers).where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, subject.userId),
+      eq(channelMembers.memberType, "human"),
+    )).limit(1);
+  if (membership.length === 0) {
+    return c.json({ error: { code: "NOT_MEMBER", message: "not a member of this channel" } }, 403);
+  }
   await db.update(channelMembers).set({ mutedAt: null }).where(and(
     eq(channelMembers.channelId, channelId),
     eq(channelMembers.memberId, subject.userId),

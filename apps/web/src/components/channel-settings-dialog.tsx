@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Archive, ArchiveRestore, Hash, Lock, Trash2, AlertTriangle } from "lucide-react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
@@ -30,11 +30,14 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
   const router = useRouter();
   const [name, setName] = useState(channel.name);
   const [description, setDescription] = useState(channel.description ?? "");
+  const [topic, setTopic] = useState(channel.topic ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteText, setDeleteText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [convertingVisibility, setConvertingVisibility] = useState(false);
 
   // Reset edit + delete state every time the dialog opens, so a
   // half-typed delete confirmation from a previous session doesn't
@@ -42,10 +45,15 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
   useEffect(() => {
     if (!open) return;
     setName(channel.name); setDescription(channel.description ?? "");
+    setTopic(channel.topic ?? "");
     setError(null); setConfirmDelete(false); setDeleteText("");
-  }, [open, channel.name, channel.description]);
+  }, [open, channel.name, channel.description, channel.topic]);
 
-  const dirty = canManage && (name.trim() !== channel.name || (description.trim() || null) !== (channel.description ?? null));
+  const dirty = canManage && (
+    name.trim() !== channel.name
+    || (description.trim() || null) !== (channel.description ?? null)
+    || (topic.trim() || null) !== (channel.topic ?? null)
+  );
 
   async function handleSave() {
     if (saving || !dirty) return;
@@ -55,6 +63,9 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
         name: name.trim() !== channel.name ? name.trim() : undefined,
         description: (description.trim() || null) !== (channel.description ?? null)
           ? (description.trim() || null)
+          : undefined,
+        topic: (topic.trim() || null) !== (channel.topic ?? null)
+          ? (topic.trim() || null)
           : undefined,
       });
       notifySuccess("Channel updated");
@@ -119,7 +130,62 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                   onChange={(e) => setDescription((e.target as HTMLInputElement).value)}
                   placeholder="What is this channel for?"
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">Permanent purpose. Set once.</p>
               </Field>
+              <Field>
+                <FieldLabel htmlFor="cs-topic">Current topic</FieldLabel>
+                <Input
+                  id="cs-topic"
+                  value={topic}
+                  maxLength={250}
+                  disabled={!canManage}
+                  onChange={(e) => setTopic((e.target as HTMLInputElement).value)}
+                  placeholder="What's the focus right now?"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">Short, changes as work shifts.</p>
+              </Field>
+              {channel.type !== "dm" && canManage && (
+                <Field>
+                  <FieldLabel>Visibility</FieldLabel>
+                  <div className="flex gap-2">
+                    {(["public", "private"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={convertingVisibility || channel.type === t}
+                        onClick={async () => {
+                          if (channel.type === t) return;
+                          if (!confirm(`Convert #${channel.name} to ${t}? Existing members keep access.`)) return;
+                          setConvertingVisibility(true);
+                          try {
+                            await api.setChannelVisibility(channel.id, t);
+                            notifySuccess(`Channel is now ${t}`);
+                            window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+                            onSaved?.();
+                            onOpenChange(false);
+                          } catch (e) {
+                            notifyThrown("Couldn't change visibility", e);
+                          } finally {
+                            setConvertingVisibility(false);
+                          }
+                        }}
+                        aria-pressed={channel.type === t}
+                        className={`flex-1 rounded-md border px-3 py-1.5 text-left text-xs transition-colors ${
+                          channel.type === t ? "border-foreground bg-accent" : "border-border hover:bg-accent/40"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5 font-medium">
+                          {t === "public" ? <Hash className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          {t === "public" ? "Public" : "Private"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Existing members keep access on convert. For a fresh start, create a new private channel instead.
+                  </p>
+                </Field>
+              )}
               {!canManage && (
                 <p className="text-[11px] text-muted-foreground">
                   Only the channel creator or workspace owner can edit these.
@@ -127,6 +193,56 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
               )}
               {error && (
                 <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
+              )}
+
+              {/* Archive — softer than delete; reversible */}
+              {canManage && channel.type !== "dm" && (
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <div className="flex items-start gap-2">
+                    {channel.archivedAt != null
+                      ? <ArchiveRestore className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      : <Archive className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
+                    <div className="flex-1 text-xs">
+                      <p className="font-medium">
+                        {channel.archivedAt != null ? "Channel is archived" : "Archive channel"}
+                      </p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        {channel.archivedAt != null
+                          ? "Posting is disabled and the channel is hidden from sidebars. Existing messages are preserved."
+                          : "Make the channel read-only and hide it from sidebars. Reversible — no data is lost."}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={archiving}
+                        onClick={async () => {
+                          if (archiving) return;
+                          setArchiving(true);
+                          try {
+                            if (channel.archivedAt != null) {
+                              await api.unarchiveChannel(channel.id);
+                              notifySuccess(`#${channel.name} restored`);
+                            } else {
+                              await api.archiveChannel(channel.id);
+                              notifySuccess(`#${channel.name} archived`);
+                            }
+                            window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+                            onSaved?.();
+                            onOpenChange(false);
+                          } catch (e) {
+                            notifyThrown("Couldn't update archive state", e);
+                          } finally {
+                            setArchiving(false);
+                          }
+                        }}
+                        className="mt-2 inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
+                      >
+                        {channel.archivedAt != null
+                          ? <><ArchiveRestore className="h-3 w-3" />Unarchive</>
+                          : <><Archive className="h-3 w-3" />Archive</>}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Danger zone */}

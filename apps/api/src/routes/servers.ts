@@ -223,6 +223,9 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
   const [chans, ags, unreadRows] = await Promise.all([
     db.select().from(channels).where(and(
       eq(channels.serverId, server.s.id),
+      // Phase B: hide archived channels from the default sidebar listing.
+      // Settings → Archived will surface them via a separate endpoint.
+      sqlFn`${channels.archivedAt} IS NULL`,
       or(
         eq(channels.type, "public"),
         sqlFn`${channels.id} IN (

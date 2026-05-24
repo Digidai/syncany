@@ -551,8 +551,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 ? channelPeer.name
                 : channel?.name ?? "Channel"}
             </h3>
-            {channel?.description && (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">{channel.description}</p>
+            {/* Topic OR description below name — topic wins when set
+                because it reflects current focus; falls back to the
+                permanent description. */}
+            {(channel?.topic || channel?.description) && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {channel.topic || channel.description}
+              </p>
             )}
           </div>
         </div>
@@ -691,8 +696,16 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             key={channelId ?? "no-channel"}
             ref={inputRef}
             onSend={handleSend}
-            disabled={false}
-            placeholder={composerPlaceholder}
+            // Phase B — composer disabled when the channel is archived.
+            // Backend rejects with 423 even if a stale tab tries to
+            // POST, but disabling client-side avoids the bad-request
+            // round-trip + clearly signals read-only state.
+            disabled={channel?.archivedAt != null}
+            placeholder={
+              channel?.archivedAt != null
+                ? "This channel is archived — read-only"
+                : composerPlaceholder
+            }
             onTextUpdate={picker.onTextUpdate}
             onKeyDown={picker.onKeyDown}
           />

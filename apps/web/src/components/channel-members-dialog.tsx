@@ -386,10 +386,12 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
    *  non-clickable row (when the agent record didn't resolve). */
   href?: string;
 }) {
-  // Avatar is wrapped in a tiny stacking-positioned span so the presence
-  // dot can overlap the bottom-right corner without affecting layout.
+  // Avatar wrapped in a sized span so the presence dot can overlap the
+  // bottom-right corner without affecting layout. inline-flex + size-6
+  // pins both <img> and <div> avatars to the same baseline so the dot
+  // position is consistent (codex PA2 LOW).
   const avatarWithDot = (
-    <span className="relative shrink-0">
+    <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center">
       {avatar}
       {online !== undefined && (
         <span
@@ -402,7 +404,11 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
     </span>
   );
 
-  const body = (
+  // Codex PA2 MED — Link wrapping a Remove <button> is invalid nested-
+  // interactive HTML. Split them: the Link covers the avatar/text
+  // (most of the row), Remove is a sibling button. CSS makes them
+  // *look* like one row, semantics keep them separate for AT/axe.
+  const linkContent = (
     <>
       {avatarWithDot}
       <div className="min-w-0 flex-1">
@@ -411,28 +417,28 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
           <div className="truncate text-[10.5px] text-muted-foreground">{secondary}</div>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div className="group flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent/40">
+      {href ? (
+        <Link href={href} className="flex min-w-0 flex-1 items-center gap-2.5 outline-none focus-visible:underline">
+          {linkContent}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">{linkContent}</div>
+      )}
       {canRemove && (
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
+          onClick={onRemove}
           aria-label={`Remove ${primary}`}
           className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
         >
           <UserMinus className="h-3.5 w-3.5" />
         </button>
       )}
-    </>
-  );
-  if (href) {
-    return (
-      <Link href={href} className="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent/40">
-        {body}
-      </Link>
-    );
-  }
-  return (
-    <div className="flex items-center gap-2.5 px-3 py-2 text-sm">
-      {body}
     </div>
   );
 }

@@ -29,6 +29,15 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
   await requirePolicy(policy.messages.canSendAs(ctx, {
     channelId: body.channelId, senderId, senderType,
   }));
+  // Phase B: archived channels are read-only. Cheap pre-check before
+  // we route through the ChatRoom DO; canSendAs already validated
+  // membership so this is just the activity gate.
+  const db = drizzle(c.env.DB);
+  const chRows = await db.select({ archivedAt: channels.archivedAt }).from(channels)
+    .where(eq(channels.id, body.channelId)).limit(1);
+  if (chRows[0]?.archivedAt != null) {
+    return c.json({ error: { code: "ARCHIVED", message: "channel is archived" } }, 423);
+  }
   // Per-channel cap runs AFTER policy so an unauthorized caller can't
   // probe channel quota / observe 429-vs-403 to enumerate membership.
   const channelLimited = await rateLimit(c, "msg_send_chan", body.channelId, 600, 60);
@@ -175,7 +184,15 @@ messagesRoutes.post("/api/v1/messages/:id/pin", requireAuth, requireUser, async 
   const ctx = ctxFor(c);
   // Channel membership gate — agent owners count via canRead's
   // userHasAgentInChannel branch.
-  await requirePolicy(policy.channels.canRead(ctx, rows[0].channelId));
+  // Tighter than canRead — pin is an authoring action on the channel,
+  // so the caller must be a participant (member OR agent-owner), not
+  // just any workspace member who could read a public channel without
+  // ever joining. Codex PA1 MED fix.
+  await requirePolicy(policy.channels.canAddMember(ctx, rows[0].channelId));
+  // Per-channel rate cap on pin broadcasts to prevent flap-amplification
+  // (codex PA1 LOW). 20/min/channel — well above any legit pinning burst.
+  const chLimited = await rateLimit(c, "msg_pin_chan", rows[0].channelId, 20, 60);
+  if (chLimited) return chLimited;
   const now = new Date();
   await db.update(messages).set({ pinnedAt: now, pinnedBy: subject.userId })
     .where(eq(messages.id, messageId));
@@ -198,7 +215,8 @@ messagesRoutes.delete("/api/v1/messages/:id/pin", requireAuth, requireUser, asyn
     .where(eq(messages.id, messageId)).limit(1);
   if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
   const ctx = ctxFor(c);
-  await requirePolicy(policy.channels.canRead(ctx, rows[0].channelId));
+  // Same tighter gate as pin — participants only, not all readers.
+  await requirePolicy(policy.channels.canAddMember(ctx, rows[0].channelId));
   if (rows[0].pinnedAt == null) return c.json({ ok: true, alreadyUnpinned: true });
   await db.update(messages).set({ pinnedAt: null, pinnedBy: null })
     .where(eq(messages.id, messageId));

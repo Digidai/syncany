@@ -429,11 +429,12 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
         // sidebar carries brand color, not the old neutral sand-3.
         isActive && ROW_ACTIVE,
         unread > 0 && "font-semibold",
-        // Phase A — muted: 60% opacity on the whole row so it reads as
-        // "still here but de-emphasized". Active state overrides this
-        // so the user can still see clearly which muted channel they're
-        // currently viewing.
-        isMuted && !isActive && "opacity-60",
+        // Phase A — muted: switch to muted-foreground tint instead of
+        // opacity-60 (codex PA2 MED — opacity dropped contrast below
+        // AA 4.5:1). The semantic token keeps AA contrast in both
+        // light + dark modes. Active state overrides so the user can
+        // still see clearly which muted channel they're viewing.
+        isMuted && !isActive && "text-muted-foreground",
       )}
     >
       <span className="text-muted-foreground">{icon}</span>

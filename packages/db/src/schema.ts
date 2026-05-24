@@ -176,9 +176,20 @@ export const channels = sqliteTable("channels", {
   serverId: text("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
+  // Phase B: topic = the channel's CURRENT focus (changes weekly /
+  // daily), separate from description (permanent purpose). Agents can
+  // surface "currently working on…" here without rewriting description.
+  // Empty string = no topic; nullable to distinguish "never set".
+  topic: text("topic"),
   type: text("type", { enum: ["public", "private", "dm"] }).notNull().default("public"),
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  // Phase B: archive = soft-delete. Archived channels are read-only,
+  // hidden from sidebar by default, listed in a separate "Archived"
+  // section of the workspace settings. Reversible via unarchive.
+  // Null = active.
+  archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+  archivedBy: text("archived_by").references(() => user.id, { onDelete: "set null" }),
 }, (t) => [
   uniqueIndex("ux_channels_server_name").on(t.serverId, t.name),
   index("ix_channels_server_type").on(t.serverId, t.type),

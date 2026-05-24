@@ -209,6 +209,11 @@ export interface Server {
 export interface Channel {
   id: string; serverId: string; name: string; description: string | null;
   type: "public" | "private" | "dm"; createdBy: string | null; createdAt: number;
+  /** Phase B — channel's current focus (separate from description). */
+  topic?: string | null;
+  /** Phase B — null when active; timestamp when archived. */
+  archivedAt?: number | null;
+  archivedBy?: string | null;
   unread?: number; maxSeq?: number; lastReadSeq?: number;
   /** Per-user mute timestamp (Phase A). Null = not muted. Sidebar
    *  uses this to suppress unread badge + bold weight for muted channels. */
@@ -395,6 +400,22 @@ export const api = {
   unmuteChannel: (channelId: string) =>
     call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/mute`, {
       method: "DELETE",
+    }),
+  /** Convert channel public↔private (Phase B). Membership preserved
+   *  — pre-existing public-channel members keep access. */
+  setChannelVisibility: (channelId: string, type: "public" | "private") =>
+    call<{ ok: true; type?: string; unchanged?: boolean }>(`/api/v1/channels/${encodeURIComponent(channelId)}/visibility`, {
+      method: "PATCH", body: JSON.stringify({ type }),
+    }),
+  /** Archive (soft-delete) — channel becomes read-only + hidden from
+   *  default sidebar. Reversible via unarchive. */
+  archiveChannel: (channelId: string) =>
+    call<{ ok: true; alreadyArchived?: boolean }>(`/api/v1/channels/${encodeURIComponent(channelId)}/archive`, {
+      method: "POST",
+    }),
+  unarchiveChannel: (channelId: string) =>
+    call<{ ok: true; alreadyActive?: boolean }>(`/api/v1/channels/${encodeURIComponent(channelId)}/unarchive`, {
+      method: "POST",
     }),
   /** Pin / unpin a message in its channel (Phase A). Channel-global,
    *  any member can toggle. */
@@ -618,7 +639,7 @@ export const api = {
   deleteAgent: (id: string) =>
     call<{ ok: true }>(`/api/v1/agents/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
-  updateChannel: (id: string, patch: Partial<{ name: string; description: string | null }>) =>
+  updateChannel: (id: string, patch: Partial<{ name: string; description: string | null; topic: string | null }>) =>
     call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteChannel: (id: string) =>
