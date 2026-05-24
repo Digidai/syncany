@@ -571,6 +571,56 @@ channelsRoutes.post("/api/v1/channels/:id/leave", requireAuth, requireUser, asyn
   return c.json({ ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/v1/channels/:id/mute  +  DELETE same — per-user channel mute
+//
+// Mute is per-channel-member, not per-channel. Other members of the
+// same channel aren't affected. Sidebar still shows the channel but
+// suppresses the unread badge + bold weight so noisy channels (e.g.
+// 5 agents chatting) don't dominate. DMs are mute-able too (a
+// runaway agent DM is the canonical "noisy" case).
+//
+// Idempotent: re-muting a muted channel just refreshes muted_at.
+// ---------------------------------------------------------------------------
+channelsRoutes.post("/api/v1/channels/:id/mute", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_mute", subject.userId, 60, 3600);
+  if (limited) return limited;
+  const ctx = ctxFor(c);
+  // Caller must be a member to mute — non-members have nothing to
+  // mute, and we don't want to leak channel existence by accepting
+  // mutes from outsiders.
+  await requirePolicy(policy.channels.canLeave(ctx, channelId)); // = canRead-tight, member-or-agent-owner
+  const db = drizzle(c.env.DB);
+  const now = new Date();
+  await db.update(channelMembers).set({ mutedAt: now }).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, subject.userId),
+    eq(channelMembers.memberType, "human"),
+  ));
+  // No notifyGateway here — mute is per-user and only the originating
+  // user's tabs need to know; they update via the local channels-changed
+  // event the UI dispatches alongside.
+  return c.json({ ok: true, mutedAt: now.getTime() });
+});
+
+channelsRoutes.delete("/api/v1/channels/:id/mute", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_unmute", subject.userId, 60, 3600);
+  if (limited) return limited;
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canLeave(ctx, channelId));
+  const db = drizzle(c.env.DB);
+  await db.update(channelMembers).set({ mutedAt: null }).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, subject.userId),
+    eq(channelMembers.memberType, "human"),
+  ));
+  return c.json({ ok: true });
+});
+
 channelsRoutes.delete("/api/v1/channels/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
   const ctx = ctxFor(c);

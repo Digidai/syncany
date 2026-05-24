@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, LogOut, MoreHorizontal, Settings, Users } from "lucide-react";
+import { Bell, BellOff, Bot, LogOut, MoreHorizontal, Settings, Users } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
@@ -44,6 +44,28 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
   const [membersOpen, setMembersOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [togglingMute, setTogglingMute] = useState(false);
+
+  async function handleToggleMute() {
+    if (togglingMute) return;
+    setTogglingMute(true);
+    try {
+      if (channel.mutedAt != null) {
+        await api.unmuteChannel(channel.id);
+        notifySuccess(`#${channel.name} unmuted`);
+      } else {
+        await api.muteChannel(channel.id);
+        notifySuccess(`#${channel.name} muted`);
+      }
+      // Sidebar pulls mutedAt from getServerBySlug — nudge it.
+      window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+      onChanged?.();
+    } catch (e) {
+      notifyThrown("Couldn't update mute", e);
+    } finally {
+      setTogglingMute(false);
+    }
+  }
   const humanCount = members.filter(m => m.memberType === "human").length;
   const agentCount = members.filter(m => m.memberType === "agent").length;
   // Compose the human-readable label for tooltip + aria-label. Mirrors
@@ -108,6 +130,13 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
           <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
             <Settings className="h-4 w-4" />
             {canManage ? "Channel settings" : "View details"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggleMute} disabled={togglingMute}>
+            {channel.mutedAt != null ? (
+              <><Bell className="h-4 w-4" />Unmute channel</>
+            ) : (
+              <><BellOff className="h-4 w-4" />Mute channel</>
+            )}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setLeaveConfirmOpen(true)} variant="destructive">

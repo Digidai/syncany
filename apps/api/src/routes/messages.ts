@@ -5,7 +5,7 @@ import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@
 import { agents, channels, channelMembers, messages, reactions } from "@raltic/db";
 import { and, eq } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
-import { requireAuth, ctxFor } from "../lib/auth";
+import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
 import { broadcastMessageUpdate, broadcastReaction } from "../lib/notify";
 import { dispatchToAgents, extractAgentMentions, resolveChannelAgents } from "../lib/agent-dispatch";
@@ -149,6 +149,61 @@ messagesRoutes.delete("/api/v1/messages/:id", requireAuth, async (c) => {
     deletedAt, updatedAt: deletedAt,
   }).where(eq(messages.id, id));
   await broadcastMessageUpdate(c.env, m.channelId, { ...m, content: "_(deleted)_", deletedAt, updatedAt: deletedAt });
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// /api/v1/messages/:id/pin — pin/unpin a message (channel-global)
+//
+// Pin is channel-scoped (not per-user) — pinned messages become the
+// channel's persistent context bar. Any channel member can pin or
+// unpin (low-stakes, reversible, agents reference pinned content as
+// channel context). DMs and system messages are pinnable too.
+//
+// POST   /pin → set pinned_at = now, pinned_by = subject.userId
+// DELETE /pin → clear both (idempotent — already-unpinned is no-op)
+// ---------------------------------------------------------------------------
+messagesRoutes.post("/api/v1/messages/:id/pin", requireAuth, requireUser, async (c) => {
+  const messageId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "msg_pin", subject.userId, 60, 60);
+  if (limited) return limited;
+  const db = drizzle(c.env.DB);
+  const rows = await db.select({ id: messages.id, channelId: messages.channelId }).from(messages)
+    .where(eq(messages.id, messageId)).limit(1);
+  if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
+  const ctx = ctxFor(c);
+  // Channel membership gate — agent owners count via canRead's
+  // userHasAgentInChannel branch.
+  await requirePolicy(policy.channels.canRead(ctx, rows[0].channelId));
+  const now = new Date();
+  await db.update(messages).set({ pinnedAt: now, pinnedBy: subject.userId })
+    .where(eq(messages.id, messageId));
+  // Broadcast so other tabs in the channel update their pinned bar.
+  // Use the existing message_update channel so we don't add a new
+  // event type for a small field. Tabs re-render the pin marker by
+  // diffing pinnedAt.
+  const updated = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+  if (updated[0]) await broadcastMessageUpdate(c.env, rows[0].channelId, updated[0]);
+  return c.json({ ok: true, pinnedAt: now.getTime() });
+});
+
+messagesRoutes.delete("/api/v1/messages/:id/pin", requireAuth, requireUser, async (c) => {
+  const messageId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "msg_unpin", subject.userId, 60, 60);
+  if (limited) return limited;
+  const db = drizzle(c.env.DB);
+  const rows = await db.select({ id: messages.id, channelId: messages.channelId, pinnedAt: messages.pinnedAt }).from(messages)
+    .where(eq(messages.id, messageId)).limit(1);
+  if (rows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such message" } }, 404);
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canRead(ctx, rows[0].channelId));
+  if (rows[0].pinnedAt == null) return c.json({ ok: true, alreadyUnpinned: true });
+  await db.update(messages).set({ pinnedAt: null, pinnedBy: null })
+    .where(eq(messages.id, messageId));
+  const updated = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+  if (updated[0]) await broadcastMessageUpdate(c.env, rows[0].channelId, updated[0]);
   return c.json({ ok: true });
 });
 

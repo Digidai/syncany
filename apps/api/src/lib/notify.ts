@@ -12,6 +12,9 @@ interface MessageRowLike {
   updatedAt: Date | number;
   editedAt?: Date | number | null;
   deletedAt?: Date | number | null;
+  // Phase A — pin marker on the message; null = not pinned.
+  pinnedAt?: Date | number | null;
+  pinnedBy?: string | null;
 }
 
 /** Tell every channel WS subscriber that a message was edited or deleted. */
@@ -30,6 +33,8 @@ export async function broadcastMessageUpdate(env: Env, channelId: string, m: Mes
           updatedAt: m.updatedAt instanceof Date ? m.updatedAt.getTime() : Number(m.updatedAt),
           editedAt: m.editedAt ? (m.editedAt instanceof Date ? m.editedAt.getTime() : Number(m.editedAt)) : null,
           deletedAt: m.deletedAt ? (m.deletedAt instanceof Date ? m.deletedAt.getTime() : Number(m.deletedAt)) : null,
+          pinnedAt: m.pinnedAt ? (m.pinnedAt instanceof Date ? m.pinnedAt.getTime() : Number(m.pinnedAt)) : null,
+          pinnedBy: m.pinnedBy ?? null,
         },
       }),
     });

@@ -14,7 +14,7 @@ import type { MessageRow } from "@raltic/protocol";
 import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown } from "lucide-react";
+import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown } from "lucide-react";
 import { useMentionPicker, type MentionMember } from "./mention-picker";
 import { notifySuccess } from "@/lib/notify";
 
@@ -438,6 +438,26 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     }
   }
 
+  async function handleTogglePin(m: MessageRow) {
+    try {
+      if (m.pinnedAt) {
+        await api.unpinMessage(m.id);
+        notifySuccess("Unpinned");
+      } else {
+        await api.pinMessage(m.id);
+        notifySuccess("Pinned to channel");
+      }
+      // Optimistic flip — the WS broadcast (message_update from the
+      // backend's broadcastMessageUpdate call) will reconcile shortly,
+      // but the immediate flip avoids a perceived lag for the actor.
+      setMessages((prev) => prev.map(x => x.id === m.id
+        ? { ...x, pinnedAt: m.pinnedAt ? null : Date.now() }
+        : x));
+    } catch (e) {
+      notifyThrown("Couldn't toggle pin", e);
+    }
+  }
+
   async function handleCopy(m: MessageRow) {
     const text = m.content ?? "";
     // Modern path: Clipboard API. Requires secure context (HTTPS or
@@ -607,6 +627,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 onReact={(emoji) => handleReact(m, emoji)}
                 onReply={() => { setReplyTo(m); inputRef.current?.focus(); }}
                 onCopy={() => handleCopy(m)}
+                onTogglePin={() => handleTogglePin(m)}
                 parent={parent}
                 parentLabel={parent ? memberLabel.get(parent.senderId) ?? "" : ""}
               />
@@ -695,6 +716,7 @@ interface MessageRowProps {
   onReact: (emoji: string) => void;
   onReply: () => void;
   onCopy: () => void;
+  onTogglePin: () => void;
   /** Parent message of a thread reply — when present we render a small
    *  quoted chip above the body so the reply has visible context. null
    *  for top-level messages. */
@@ -702,7 +724,7 @@ interface MessageRowProps {
   parentLabel: string;
 }
 
-function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, onCancelEdit, onSaveEdit, onDraftChange, onDelete, onReact, onReply, onCopy, parent, parentLabel }: MessageRowProps) {
+function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, onCancelEdit, onSaveEdit, onDraftChange, onDelete, onReact, onReply, onCopy, onTogglePin, parent, parentLabel }: MessageRowProps) {
   const isAgent = m.senderType === "agent";
   const isSystem = m.senderType === "system";
   const isMine = m.senderId === currentUserId;
@@ -737,6 +759,12 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
           {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">(edited)</span>}
+          {m.pinnedAt && !isDeleted && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground" title="Pinned to channel">
+              <Pin className="h-2.5 w-2.5" aria-hidden="true" />
+              pinned
+            </span>
+          )}
           {isSystem && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">system</span>}
           {!isDeleted && (
             <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -751,6 +779,13 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
               <button onClick={onCopy} title="Copy text"
                 className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
                 <Copy className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={onTogglePin}
+                title={m.pinnedAt ? "Unpin from channel" : "Pin to channel"}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                {m.pinnedAt ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
               </button>
               {isMine && (
                 <>

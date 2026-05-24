@@ -192,6 +192,12 @@ export const channelMembers = sqliteTable("channel_members", {
   joinedAt: integer("joined_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   // Highest message.seq this member has read in this channel — drives unread badges.
   lastReadSeq: integer("last_read_seq").notNull().default(0),
+  // Phase A: per-user mute. When set, the sidebar still shows the
+  // channel but suppresses the unread count + bold weight so noisy
+  // channels (e.g. 5 agents chatting) don't dominate the rail.
+  // Nullable timestamp doubles as "muted since" for any future
+  // analytics; null = not muted.
+  mutedAt: integer("muted_at", { mode: "timestamp_ms" }),
 }, (t) => [
   primaryKey({ columns: [t.channelId, t.memberId] }),
   index("ix_cm_member").on(t.memberId),
@@ -218,6 +224,14 @@ export const messages = sqliteTable("messages", {
   // embeddings (codex P3-W2 HIGH finding). Nullable + indexed for the
   // partial-index scan pattern.
   vectorIndexedAt: integer("vector_indexed_at", { mode: "timestamp_ms" }),
+  // Phase A: pinned messages bar above the channel feed. When set,
+  // the message appears in the channel's pinned-messages list (no
+  // per-user pin in v1 — pin is channel-global, anyone can pin/unpin
+  // since it's a workspace context tool, not a destructive action).
+  // The pinning user is recorded in `pinnedBy` for audit + UI ("Pinned
+  // by Alice"). Nullable; null = not pinned.
+  pinnedAt: integer("pinned_at", { mode: "timestamp_ms" }),
+  pinnedBy: text("pinned_by").references(() => user.id, { onDelete: "set null" }),
 }, (t) => [
   uniqueIndex("ux_messages_channel_seq").on(t.channelId, t.seq),
   index("ix_messages_channel_created").on(t.channelId, t.createdAt),
@@ -225,6 +239,10 @@ export const messages = sqliteTable("messages", {
   index("ix_messages_sender").on(t.senderId, t.createdAt),
   // Partial index — the only access pattern is "find un-indexed rows".
   index("ix_messages_unindexed").on(t.createdAt).where(sqlFn`vector_indexed_at IS NULL`),
+  // Partial index for the per-channel pinned-messages bar lookup.
+  // Pinned rows are rare (handful per channel) so the partial index
+  // stays tiny + dodges scans on the much-larger main message table.
+  index("ix_messages_pinned").on(t.channelId, t.pinnedAt).where(sqlFn`pinned_at IS NOT NULL`),
 ]);
 
 export const reactions = sqliteTable("reactions", {

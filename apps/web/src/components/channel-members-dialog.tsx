@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Check, Search, UserMinus, UserPlus, X } from "lucide-react";
+import { useWorkspacePresence } from "@/hooks/use-agent-activity";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
@@ -37,6 +40,14 @@ interface Props {
 export function ChannelMembersDialog({
   channel, initialMembers, canAdd, canRemove, selfUserId, open, onOpenChange, onChanged,
 }: Props) {
+  // Workspace slug for click-through links to /people/[id], /agents/[id].
+  // The dialog is mounted under /s/[slug]/... so the param is always present.
+  const params = useParams<{ slug?: string }>();
+  const serverSlug = params?.slug ?? "";
+  // Per-row online indicator (Phase A — codex requested in spec). Hook
+  // is ref-counted so opening the dialog adds one subscriber; closing
+  // releases it cleanly via React's effect cleanup.
+  const presence = useWorkspacePresence(channel.serverId);
   // Resolved roster (names + avatars). Keyed by `${type}:${id}`.
   const [people, setPeople] = useState<Map<string, PersonRow>>(new Map());
   const [agentsMap, setAgentsMap] = useState<Map<string, Agent>>(new Map());
@@ -194,9 +205,11 @@ export function ChannelMembersDialog({
                             const p = people.get(`human:${m.memberId}`);
                             const label = p?.name ?? `User ${m.memberId.slice(0, 8)}`;
                             const isSelf = m.memberId === selfUserId;
+                            const isOnline = isSelf || presence[m.memberId]?.online === true;
                             return (
                               <MemberRow
                                 key={`hm:${m.memberId}`}
+                                href={`/s/${serverSlug}/people`}
                                 avatar={p?.image ? (
                                   <img src={p.image} alt="" className="h-6 w-6 rounded-full" referrerPolicy="no-referrer" />
                                 ) : (
@@ -206,6 +219,7 @@ export function ChannelMembersDialog({
                                 )}
                                 primary={label + (isSelf ? " (you)" : "")}
                                 secondary={p?.email ?? ""}
+                                online={isOnline}
                                 canRemove={canRemove && !isSelf}
                                 onRemove={() => setRemoveTarget({ type: "human", id: m.memberId, label })}
                               />
@@ -224,6 +238,7 @@ export function ChannelMembersDialog({
                             return (
                               <MemberRow
                                 key={`am:${m.memberId}`}
+                                href={a ? `/s/${serverSlug}/agents/${a.id}` : undefined}
                                 avatar={
                                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700">
                                     {label.slice(0, 1).toUpperCase()}
@@ -231,6 +246,7 @@ export function ChannelMembersDialog({
                                 }
                                 primary={label}
                                 secondary={a ? `${a.runtime} · @${a.name}` : ""}
+                                online={a?.status === "online"}
                                 canRemove={canRemove}
                                 onRemove={() => setRemoveTarget({ type: "agent", id: m.memberId, label })}
                               />
@@ -362,13 +378,33 @@ export function ChannelMembersDialog({
   );
 }
 
-function MemberRow({ avatar, primary, secondary, canRemove, onRemove }: {
+function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, href }: {
   avatar: React.ReactNode; primary: string; secondary?: string;
+  online?: boolean;
   canRemove: boolean; onRemove: () => void;
+  /** Click target. Humans → /people, agents → /agents/[id]. Undefined =
+   *  non-clickable row (when the agent record didn't resolve). */
+  href?: string;
 }) {
-  return (
-    <div className="flex items-center gap-2.5 px-3 py-2 text-sm">
+  // Avatar is wrapped in a tiny stacking-positioned span so the presence
+  // dot can overlap the bottom-right corner without affecting layout.
+  const avatarWithDot = (
+    <span className="relative shrink-0">
       {avatar}
+      {online !== undefined && (
+        <span
+          aria-hidden="true"
+          className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-popover ${
+            online ? "bg-success" : "bg-zinc-400/60"
+          }`}
+        />
+      )}
+    </span>
+  );
+
+  const body = (
+    <>
+      {avatarWithDot}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{primary}</div>
         {secondary && (
@@ -378,13 +414,25 @@ function MemberRow({ avatar, primary, secondary, canRemove, onRemove }: {
       {canRemove && (
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
           aria-label={`Remove ${primary}`}
           className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
         >
           <UserMinus className="h-3.5 w-3.5" />
         </button>
       )}
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent/40">
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2 text-sm">
+      {body}
     </div>
   );
 }

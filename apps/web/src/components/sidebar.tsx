@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { api, type Channel, type Agent } from "@/lib/api";
-import { Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Users } from "lucide-react";
+import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
@@ -397,8 +397,14 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
   channel: Channel; activeId?: string; serverSlug: string; serverId: string; icon: React.ReactNode;
 }) {
   const live = useChannelUnread(channel.id);
-  const unread = activeId === channel.id ? 0 : live;
+  const liveUnread = activeId === channel.id ? 0 : live;
   const isActive = activeId === channel.id;
+  // Phase A — mute respects: suppress unread badge AND bold weight so
+  // muted channels stay visible but don't fight for attention. The
+  // count is still computed (we want @-mentions logic later to bypass
+  // mute) but the visual treatment hides the noise.
+  const isMuted = channel.mutedAt != null;
+  const unread = isMuted ? 0 : liveUnread;
   // Workspace presence — only for human DM rows. The hook is refcounted
   // and shares a single WS subscription across all callers in the tree.
   const presence = useWorkspacePresence(serverId);
@@ -423,10 +429,18 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
         // sidebar carries brand color, not the old neutral sand-3.
         isActive && ROW_ACTIVE,
         unread > 0 && "font-semibold",
+        // Phase A — muted: 60% opacity on the whole row so it reads as
+        // "still here but de-emphasized". Active state overrides this
+        // so the user can still see clearly which muted channel they're
+        // currently viewing.
+        isMuted && !isActive && "opacity-60",
       )}
     >
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 truncate leading-tight">{displayName}</span>
+      {isMuted && (
+        <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Muted" />
+      )}
       {/* For human DMs: emerald dot if peer's online, zinc dot if seen
           recently, none if never connected. Real workspace presence —
           not the hardcoded green the user-pill used to show. */}

@@ -210,6 +210,9 @@ export interface Channel {
   id: string; serverId: string; name: string; description: string | null;
   type: "public" | "private" | "dm"; createdBy: string | null; createdAt: number;
   unread?: number; maxSeq?: number; lastReadSeq?: number;
+  /** Per-user mute timestamp (Phase A). Null = not muted. Sidebar
+   *  uses this to suppress unread badge + bold weight for muted channels. */
+  mutedAt?: number | null;
   // Populated by /api/v1/servers/by-slug for DM channels — identifies
   // the OTHER party so the sidebar can render "Olivia" instead of the
   // raw channel.name (which is just a stable hex identifier for human
@@ -382,6 +385,26 @@ export const api = {
   leaveChannel: (channelId: string) =>
     call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/leave`, {
       method: "POST",
+    }),
+  /** Per-user channel mute (Phase A). Sidebar de-emphasizes muted
+   *  channels (no bold, no unread badge). */
+  muteChannel: (channelId: string) =>
+    call<{ ok: true; mutedAt: number }>(`/api/v1/channels/${encodeURIComponent(channelId)}/mute`, {
+      method: "POST",
+    }),
+  unmuteChannel: (channelId: string) =>
+    call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/mute`, {
+      method: "DELETE",
+    }),
+  /** Pin / unpin a message in its channel (Phase A). Channel-global,
+   *  any member can toggle. */
+  pinMessage: (messageId: string) =>
+    call<{ ok: true; pinnedAt: number }>(`/api/v1/messages/${encodeURIComponent(messageId)}/pin`, {
+      method: "POST",
+    }),
+  unpinMessage: (messageId: string) =>
+    call<{ ok: true; alreadyUnpinned?: boolean }>(`/api/v1/messages/${encodeURIComponent(messageId)}/pin`, {
+      method: "DELETE",
     }),
   listServers: () => call<{ servers: Server[] }>("/api/v1/servers"),
   getServerBySlug: (slug: string) =>

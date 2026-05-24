@@ -23,6 +23,15 @@ export const messageRow = z.object({
   editedAt: z.number().int().nullable().optional(),
   deletedAt: z.number().int().nullable().optional(),
   reactions: z.array(z.object({ emoji: z.string(), reactorIds: z.array(z.string()) })).optional(),
+  /** Channel-global pin marker (Phase A). Null = not pinned. The web
+   *  client groups all `pinnedAt != null` messages into the pinned
+   *  bar at the top of the channel feed; agents see them in their
+   *  channel-context primer. */
+  pinnedAt: z.number().int().nullable().optional(),
+  /** User id of whoever pinned the message — shown as "Pinned by X"
+   *  in the bar's tooltip. Null when not pinned OR when the original
+   *  pinner's account was deleted (FK onDelete: set null). */
+  pinnedBy: z.string().nullable().optional(),
 });
 export type MessageRow = z.infer<typeof messageRow>;
 
