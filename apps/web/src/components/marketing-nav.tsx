@@ -67,6 +67,7 @@ export function MarketingNav() {
         <nav className="hidden items-center gap-6 text-sm text-zinc-400 md:flex">
           <Link href="/runtimes" className="hover:text-white">Runtimes</Link>
           <Link href="/connectors" className="hover:text-white">Connectors</Link>
+          <Link href="/desktop" className="hover:text-white">Desktop beta</Link>
           <Link href="/security" className="hover:text-white">Security</Link>
           {/* Audience dropdown — surfaces /indie + /teams without
               crowding the top nav. CSS-only popover via group-hover so

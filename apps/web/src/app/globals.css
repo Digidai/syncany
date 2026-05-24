@@ -103,6 +103,8 @@
     'Segoe UI Symbol';
   --font-heading: var(--font-sn-pro), 'SN Pro', 'BlinkMacSystemFont',
     'Segoe UI', 'Helvetica', 'Arial', sans-serif;
+  --font-mono: 'SFMono-Regular', 'SF Mono', 'Cascadia Code', 'Roboto Mono',
+    'Consolas', 'Menlo', monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

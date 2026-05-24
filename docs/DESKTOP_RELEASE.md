@@ -3,8 +3,8 @@
 How to cut a Raltic desktop release that the auto-updater picks up.
 
 For unsigned internal testing without Apple / Windows certificates, use
-[`DESKTOP_INTERNAL_QA.md`](DESKTOP_INTERNAL_QA.md). This release runbook is only
-for public signed builds.
+[`DESKTOP_INTERNAL_QA.md`](DESKTOP_INTERNAL_QA.md) and the public beta landing
+page at `/desktop`. This release runbook is only for public signed builds.
 
 ## Prerequisites (one-time)
 

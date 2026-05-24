@@ -6,8 +6,8 @@ Developer ID / Windows code-signing certificates yet.
 ## Status
 
 - Internal testers only.
-- Do not publish these builds to GitHub Releases.
-- Do not link these builds from the public website.
+- Publish only as a GitHub pre-release with beta wording.
+- Link only through the `/desktop` beta page, not as a primary public download.
 - Auto-update is not part of the unsigned QA flow.
 - macOS Gatekeeper and Windows SmartScreen warnings are expected.
 
@@ -44,14 +44,35 @@ Examples:
 - Windows: `.exe`
 - Linux: `.AppImage`
 
-Only distribute these directly to named internal testers.
+Distribute these only to named internal testers, either through the GitHub
+pre-release below or through a direct internal channel.
+
+## GitHub pre-release
+
+When a beta needs a stable download URL, create a pre-release instead of a
+normal release:
+
+```bash
+gh release create desktop-v0.0.1-beta.1 \
+  apps/desktop/release/Raltic-0.0.1-arm64.dmg \
+  apps/desktop/release/Raltic-0.0.1-arm64-mac.zip \
+  apps/desktop/release/Raltic-0.0.1.dmg \
+  apps/desktop/release/Raltic-0.0.1-mac.zip \
+  --repo Digidai/raltic \
+  --prerelease \
+  --title "Raltic Desktop 0.0.1 beta 1"
+```
+
+Do not upload `latest-mac.yml` for unsigned beta releases. Internal beta
+updates are manual downloads from GitHub Releases; the automatic update channel
+is reserved for signed + notarized builds.
 
 ## macOS tester instructions
 
 Unsigned builds may show "unidentified developer", "cannot be opened", or
 "damaged" warnings. For internal QA only:
 
-1. Download the QA artifact from the private internal channel.
+1. Download the QA artifact from the GitHub pre-release or private internal channel.
 2. Move `Raltic.app` to `/Applications`.
 3. Right-click `Raltic.app` and choose **Open**.
 4. If macOS still blocks it, remove quarantine:
@@ -77,7 +98,7 @@ Then open the app again.
 
 ## When to move beyond internal QA
 
-Do not publish a public download page or GitHub Release until:
+Do not publish a stable GitHub Release or primary public download page until:
 
 - macOS Developer ID signing is configured.
 - macOS notarization is configured.

@@ -50,6 +50,18 @@ test.describe("public routing and crawler files", () => {
     expect(res.headers()["content-type"]).toContain("text/plain");
   });
 
+  test("/desktop is the public desktop beta entry", async ({ request }) => {
+    const res = await getWithRetry(request, "/desktop", { maxRedirects: 0 });
+
+    expect(res.status()).toBe(200);
+    expect(res.headers().location).toBeFalsy();
+    await expectSecurityHeaders(res.headers(), "/desktop");
+    const body = await res.text();
+    expect(body).toContain("Raltic Desktop beta");
+    expect(body).toContain("https://github.com/Digidai/raltic/releases");
+    expect(body).toContain("Manual beta install");
+  });
+
   test("sitemap contains only indexable public routes", async ({ request }) => {
     const res = await getWithRetry(request, "/sitemap.xml");
     expect(res.status()).toBe(200);

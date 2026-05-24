@@ -25,6 +25,7 @@ export function MarketingFooter() {
           { label: "Home", href: "/" },
           { label: "Runtimes", href: "/runtimes" },
           { label: "Connectors", href: "/connectors" },
+          { label: "Desktop beta", href: "/desktop" },
           { label: "Security", href: "/security" },
         ]} />
         <FooterCol label="Audiences" links={[
