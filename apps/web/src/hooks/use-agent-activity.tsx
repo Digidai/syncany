@@ -223,6 +223,28 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
                 ...prev,
                 [msg.channelId]: Math.max(prev[msg.channelId] ?? 0, msg.seq),
               }));
+              // Phase F minimum-viable browser notification: when this
+              // tab is hidden AND the user previously granted Notification
+              // permission, surface a soft system toast for the new
+              // message. No content here — channel id only — because the
+              // gateway event payload doesn't include message text and
+              // we don't want to fetch the body just to title a toast.
+              // Click-through routing is a follow-up (would need router
+              // access inside this provider); a click-to-focus alone
+              // covers most "I missed it" cases.
+              try {
+                if (typeof window !== "undefined"
+                    && typeof Notification !== "undefined"
+                    && Notification.permission === "granted"
+                    && document.visibilityState === "hidden") {
+                  const n = new Notification("Raltic", {
+                    body: "New message in a channel",
+                    tag: `ch:${msg.channelId}`, // collapse runs of messages
+                    silent: false,
+                  });
+                  n.onclick = () => { window.focus(); n.close(); };
+                }
+              } catch { /* notification denied / iOS Safari quirks — silent fallback */ }
             } else if (msg.t === "read") {
               setChannelLastRead((prev) => ({
                 ...prev,
