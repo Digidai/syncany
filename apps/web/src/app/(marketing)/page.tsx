@@ -105,9 +105,9 @@ function Hero(): React.ReactElement {
           <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
             Built for <span className="text-white">humans</span>{" "}
-            <span className="text-zinc-500">&amp;</span>{" "}
+            <span className="text-zinc-400">&amp;</span>{" "}
             <span className="text-cyan-400">AI</span>
-            <span className="mx-1 text-zinc-700">·</span>
+            <span className="mx-1 text-zinc-400">·</span>
             Private beta · Free
           </span>
 
@@ -154,7 +154,7 @@ function Hero(): React.ReactElement {
               Architecture section (step 1: "Your laptop") where the
               technical context makes the command concrete, and kept in
               the final CTA where the user has already committed to act. */}
-          <p className="mt-5 text-xs text-zinc-500">
+          <p className="mt-5 text-xs text-zinc-400">
             No credit card · 2 minutes to start · Works in your browser or as a desktop app
           </p>
         </div>
@@ -167,7 +167,7 @@ function Hero(): React.ReactElement {
                 <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
                 <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
                 <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
-                <span className="ml-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-500">
+                <span className="ml-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
                   <Hash className="h-3 w-3" aria-hidden="true" /> launch
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
@@ -201,7 +201,7 @@ function TwoWaysToRun(): React.ReactElement {
   return (
     <section className="border-b border-zinc-900 bg-black px-6 py-20 sm:py-24">
       <div className="mx-auto max-w-5xl">
-        <p className="text-center text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+        <p className="text-center text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">
           Two ways to run
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -252,7 +252,7 @@ function TwoWaysToRun(): React.ReactElement {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-[12px] text-zinc-500">
+        <p className="mt-6 text-center text-[12px] text-zinc-400">
           Mix and match per Agent in the same workspace. Switch any time.
         </p>
       </div>
@@ -273,7 +273,7 @@ function RuntimeBadges(): React.ReactElement {
   return (
     <section className="border-b border-zinc-900 bg-black px-6 py-12">
       <div className="mx-auto max-w-5xl text-center">
-        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">
           Four runtimes · Bring your own daemon, or run on our cloud
         </p>
         {/* Four-runtime strip. Claude + Codex are verified (the original
@@ -318,7 +318,7 @@ function RuntimeBadge({ name, sub, dot, experimental }: {
           </span>
         )}
       </div>
-      <div className="mt-0.5 font-mono text-[10.5px] text-zinc-500">{sub}</div>
+      <div className="mt-0.5 font-mono text-[10.5px] text-zinc-400">{sub}</div>
     </div>
   );
 }
@@ -335,7 +335,7 @@ function Architecture(): React.ReactElement {
       <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="The reason your team blocks AI tools"
-          title={<>You shouldn't have to choose between <span className="text-zinc-400">AI and security</span>.</>}
+          title={<>You shouldn't have to choose between <span className="text-zinc-500">AI and security</span>.</>}
           description="Every other AI tool ships your source code to a vendor's servers to do its job. Legal blocks it, security blocks it, your enterprise customers ask hard questions about it. Raltic removes the problem entirely — your code stays on your machines, and we never see it."
         />
         <div className="mt-16 grid items-stretch gap-4 lg:grid-cols-3">
@@ -418,8 +418,8 @@ function ArchCard({ n, icon, title, body, tag, footer }: {
           {icon}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10.5px] text-zinc-400">step {n}</span>
-          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-zinc-500">
+          <span className="font-mono text-[10.5px] text-zinc-600">step {n}</span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-zinc-600">
             {tag}
           </span>
         </div>
@@ -489,7 +489,7 @@ function Teammates(): React.ReactElement {
         </div>
         {/* Bottom callout — the unifier. Two columns => spectrum-style
             "this is the thing we just showed you, summarised". */}
-        <div className="mt-8 rounded-2xl border border-zinc-900 bg-zinc-950 px-6 py-5 text-sm text-zinc-400">
+        <div className="mt-8 rounded-2xl border border-zinc-900 bg-zinc-950 px-6 py-5 text-sm text-zinc-300">
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-center">
             <span className="inline-flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-zinc-400" /> Your people</span>
             <span className="text-zinc-700">+</span>
@@ -547,7 +547,7 @@ function TeammateCard({
       {/* Top accent hairline — type-coded color */}
       <div aria-hidden className={"absolute inset-x-0 top-0 h-px " + accent} />
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[10.5px] uppercase tracking-wider text-zinc-500">{kindLabel}</span>
+        <span className="font-mono text-[10.5px] uppercase tracking-wider text-zinc-400">{kindLabel}</span>
         {runtimePill}
       </div>
       <div className="mt-5 flex items-center gap-3">
@@ -559,7 +559,7 @@ function TeammateCard({
         </div>
         <div className="min-w-0">
           <div className="truncate text-base font-medium text-white">{name}</div>
-          <div className="truncate font-mono text-xs text-zinc-500">{handle}</div>
+          <div className="truncate font-mono text-xs text-zinc-400">{handle}</div>
         </div>
       </div>
       <p className="mt-4 text-sm leading-relaxed text-zinc-400">{tagline}</p>
@@ -608,7 +608,7 @@ function UseCases(): React.ReactElement {
       <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="Use cases"
-          title={<>What teams <span className="text-zinc-400">actually</span> use it for.</>}
+          title={<>What teams <span className="text-zinc-500">actually</span> use it for.</>}
           description="Pick the one closest to your team. You can have it live in your workspace before this afternoon's standup — no integration project, no engineering ticket."
         />
         <div className="mt-16 grid gap-4 md:grid-cols-6 md:grid-rows-2">
@@ -665,7 +665,7 @@ function AgentRecipe(): React.ReactElement {
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 lg:col-span-2">
             <div className="flex items-center gap-2">
               <Cpu className="h-4 w-4 text-cyan-400" aria-hidden="true" />
-              <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Your agent roster · #engineering
               </span>
             </div>
@@ -675,7 +675,7 @@ function AgentRecipe(): React.ReactElement {
               <RosterRow name="oncall" runtime="claude" role="Reads logs, drafts incident summaries" />
               <RosterRow name="designer" runtime="codex" role="Writes UX copy, audits flows, suggests fixes" />
             </ul>
-            <p className="mt-5 border-t border-zinc-900 pt-4 text-[12px] leading-relaxed text-zinc-500">
+            <p className="mt-5 border-t border-zinc-900 pt-4 text-[12px] leading-relaxed text-zinc-400">
               Adding a new specialist takes a minute, not a sprint. Describe what it should handle in plain English, point it at the channels you care about, and it's live. No workflow editor, no automation builder, no engineer required.
             </p>
           </div>
@@ -683,7 +683,7 @@ function AgentRecipe(): React.ReactElement {
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 lg:col-span-3">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-cyan-400" aria-hidden="true" />
-              <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                 A thread, ten minutes later
               </span>
             </div>
@@ -693,7 +693,7 @@ function AgentRecipe(): React.ReactElement {
               <MockMessage name="research" time="9:04 AM" runtime="codex" body="Linear shows 3 tiers; Stripe shows 2 with a usage slider. Both highlight the middle tier — ours doesn't. Worth A/B-ing the highlight position next month. @designer thoughts?" />
               <MockMessage name="designer" time="9:06 AM" runtime="codex" body="Agree on highlight. Also: the per-tier features should be benefit-led, not feature-led. Drafted a rewrite — patch ready in [thread]." />
               <MockMessage name="Mei" time="9:08 AM" body="Perfect. Shipping the copy fix first, A/B test next sprint. @oncall please add the new pricing endpoint to the monitoring runbook." />
-              <p className="pl-12 text-[11px] text-zinc-600">
+              <p className="pl-12 text-[11px] text-zinc-400">
                 Four specialists + one human, one decision in six minutes — without anyone leaving the channel.
               </p>
             </div>
@@ -734,7 +734,7 @@ function WhyRaltic(): React.ReactElement {
       <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="The problems your team is hitting today"
-          title={<>The reasons your <span className="text-zinc-400">last AI rollout</span> stalled.</>}
+          title={<>The reasons your <span className="text-zinc-500">last AI rollout</span> stalled.</>}
         />
         <div className="mt-16 grid gap-px overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-200 md:grid-cols-3">
           <Feature icon={<MessageSquare className="h-5 w-5" />}
@@ -781,7 +781,7 @@ function Comparison(): React.ReactElement {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-900 text-[11px] uppercase tracking-wider text-zinc-500">
+                <tr className="border-b border-zinc-900 text-[11px] uppercase tracking-wider text-zinc-400">
                   <th scope="col" className="px-6 py-4 font-medium">What you actually need</th>
                   <th scope="col" className="px-4 py-4 text-center font-medium">ChatGPT for Work</th>
                   <th scope="col" className="px-4 py-4 text-center font-medium">Cursor / Copilot</th>
@@ -830,7 +830,7 @@ function Comparison(): React.ReactElement {
             </table>
           </div>
         </div>
-        <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-zinc-500">
+        <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-zinc-400">
           Comparisons reflect each product's mainstream offering. We'd love
           to be wrong on any cell — tell us at <span className="text-zinc-300">hello@raltic.com</span> and we'll update.
         </p>
@@ -939,7 +939,7 @@ function Pricing(): React.ReactElement {
       <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="Pricing"
-          title={<>Free <span className="text-zinc-400">while we're in beta.</span></>}
+          title={<>Free <span className="text-zinc-500">while we're in beta.</span></>}
           description="Your team is already paying for ChatGPT, Claude, Cursor, and three more — we're not going to be tool number seven. Beta is free, paid plans are upfront when they land, and you'll always pay the AI providers directly with no markup from us."
         />
         <div className="mt-12 grid gap-4 md:grid-cols-3">
@@ -1121,7 +1121,7 @@ function FinalCta(): React.ReactElement {
 
 function Footer(): React.ReactElement {
   return (
-    <footer className="bg-black text-zinc-500">
+    <footer className="bg-black text-zinc-400">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2 text-white">
@@ -1172,7 +1172,7 @@ function FooterCol({ label, links }: {
 }): React.ReactElement {
   return (
     <div>
-      <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-600">{label}</p>
+      <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">{label}</p>
       <ul className="mt-4 space-y-2.5 text-sm">
         {links.map((l) => (
           <li key={l.label} className="flex items-center gap-2">
@@ -1203,7 +1203,7 @@ function SectionHeader({
 }): React.ReactElement {
   return (
     <div className="max-w-2xl">
-      <p className={"text-[11px] font-semibold uppercase tracking-[0.18em] " + (dark ? "text-cyan-400" : "text-cyan-600")}>
+      <p className={"text-[11px] font-semibold uppercase tracking-[0.18em] " + (dark ? "text-cyan-400" : "text-cyan-700")}>
         {eyebrow}
       </p>
       <h2 className={"mt-3 text-balance text-4xl font-medium leading-[1.08] tracking-[-0.02em] sm:text-5xl " + (dark ? "text-white" : "text-zinc-900")}>
@@ -1279,9 +1279,9 @@ function MockMessage({ name, time, body, runtime, muted }: {
               {palette.label}
             </span>
           )}
-          <span className="text-[11px] text-zinc-600">{time}</span>
+          <span className="text-[11px] text-zinc-400">{time}</span>
         </div>
-        <p className={"mt-1 text-[14.5px] leading-relaxed " + (muted ? "italic text-zinc-500" : "text-zinc-400")}>{body}</p>
+        <p className={"mt-1 text-[14.5px] leading-relaxed " + (muted ? "italic text-zinc-400" : "text-zinc-400")}>{body}</p>
       </div>
     </div>
   );

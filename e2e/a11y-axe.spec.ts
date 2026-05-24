@@ -15,7 +15,6 @@ type AxeResult = { violations: AxeViolation[] };
 type ImpactCounts = Record<AxeImpact, number>;
 
 function normalizedImpact(violation: AxeViolation): AxeImpact {
-  if (violation.id === "color-contrast") return "moderate";
   return violation.impact ?? "minor";
 }
 
@@ -46,7 +45,6 @@ async function runAxe(page: Page, path: string): Promise<void> {
   const minor = details.filter((violation) => violation.severity === "minor");
   const blocking = result.violations.filter(
     (violation) =>
-      violation.id !== "color-contrast" &&
       (violation.impact === "critical" || violation.impact === "serious"),
   );
 
