@@ -68,7 +68,7 @@ test.describe("public routing and crawler files", () => {
     expect(res.status()).toBe(200);
     const body = await res.text();
 
-    for (const disallow of ["/api/", "/s/", "/invite/", "/verify-email", "/reset-password", "/teams", "/runtimes/openclaw", "/runtimes/hermes"]) {
+    for (const disallow of ["/api/", "/desktop/", "/s/", "/invite/", "/verify-email", "/reset-password", "/teams", "/runtimes/openclaw", "/runtimes/hermes"]) {
       expect(body, `robots.txt should disallow ${disallow}`).toContain(`Disallow: ${disallow}`);
     }
     expect(body).toContain("Sitemap: https://raltic.com/sitemap.xml");

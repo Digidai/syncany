@@ -376,10 +376,16 @@ importers:
       '@raltic/protocol':
         specifier: workspace:*
         version: link:../protocol
+      ws:
+        specifier: ^8.20.0
+        version: 8.20.0
     devDependencies:
       '@types/node':
         specifier: ^20.19.39
         version: 20.19.40
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       typescript:
         specifier: ^5.8.0
         version: 5.9.3

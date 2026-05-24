@@ -15,6 +15,7 @@ import {
   type BridgeConnectResponse,
   decodeServer, encode, PROTOCOL_VERSION,
 } from "@raltic/protocol";
+import WebSocket from "ws";
 import { AgentManager } from "./agent-manager.js";
 import { hostname, networkInterfaces } from "os";
 import { createHash } from "crypto";

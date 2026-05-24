@@ -50,6 +50,7 @@ function LoginInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const nextPath = safeNext(sp.get("next")) ?? "/";
+  const desktopClient = sp.get("client") === "desktop" || nextPath.startsWith("/desktop");
   const [justReset, setJustReset] = useState(sp.get("reset") === "ok");
 
   // Surface OAuth-callback errors better-auth bounces back through the
@@ -60,6 +61,12 @@ function LoginInner() {
   // see the form re-rendered with no explanation.
   const oauthErrorCode = sp.get("error");
   const oauthErrorMessage = oauthErrorCode ? interpretOAuthError(oauthErrorCode) : null;
+  const signupHref = nextPath !== "/"
+    ? `/signup?${new URLSearchParams({
+      ...(desktopClient ? { client: "desktop" } : {}),
+      next: nextPath,
+    }).toString()}`
+    : desktopClient ? "/signup?client=desktop" : "/signup";
 
   // First *real* character keystroke clears the "Password updated"
   // banner. We use `onKeyDown` (not `onChange`) because Safari fires
@@ -129,8 +136,12 @@ function LoginInner() {
         <h1 className="sr-only">Sign in to Raltic</h1>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Raltic</CardTitle>
-            <CardDescription>Sign in to your workspace</CardDescription>
+            <CardTitle className="text-2xl">{desktopClient ? "Raltic Desktop" : "Raltic"}</CardTitle>
+            <CardDescription>
+              {desktopClient
+                ? "Sign in to connect this computer to your workspace"
+                : "Sign in to your workspace"}
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin} onKeyDown={dismissResetBanner}>
             <CardPanel>
@@ -198,12 +209,12 @@ function LoginInner() {
             </CardPanel>
             <CardFooter className="flex-col gap-4">
               <Button type="submit" loading={loading} className="w-full">
-                Sign in
+                {desktopClient ? "Sign in to desktop" : "Sign in"}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 Don&apos;t have an account?{" "}
                 <Link
-                  href={nextPath !== "/" ? `/signup?next=${encodeURIComponent(nextPath)}` : "/signup"}
+                  href={signupHref}
                   className="text-foreground underline underline-offset-4 hover:text-foreground/80"
                 >
                   Sign up

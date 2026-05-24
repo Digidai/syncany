@@ -9,6 +9,7 @@ import type { MetadataRoute } from "next";
  *   • /invite/*      one-shot invite acceptance URLs (should not be cached)
  *   • /api/*         auth + business APIs (no SEO value, and indexing
  *                    them risks crawlers triggering side effects)
+ *   • /desktop/*     installed-client launch/onboarding surface
  *   • /verify-email  email-flow landing — single-use tokens
  *   • /reset-password same
  *
@@ -22,6 +23,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/api/",
+          "/desktop/",
           "/s/",
           "/invite/",
           "/verify-email",

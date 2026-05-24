@@ -16,11 +16,13 @@
   },
   "dependencies": {
     "@raltic/agent-runtime": "workspace:*",
+    "@raltic/cli": "workspace:^",
     "@raltic/protocol": "workspace:*",
-    "@raltic/cli": "workspace:^"
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.39",
+    "@types/ws": "^8.18.1",
     "typescript": "^5.8.0",
     "vitest": "^3.2.4"
   }

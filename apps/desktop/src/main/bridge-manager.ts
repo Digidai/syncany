@@ -15,58 +15,61 @@ import { Bridge, type BridgeOpts } from "@raltic/bridge-core";
 import { loadConfig } from "./config.js";
 
 let current: Bridge | null = null;
-let inflight: Promise<void> | null = null;
+let operationQueue: Promise<void> = Promise.resolve();
 
 export function isRunning(): boolean {
   return current !== null;
 }
 
-export async function startBridge(): Promise<void> {
-  if (inflight) return inflight;
-  inflight = (async () => {
-    if (current) return;
-    const cfg = loadConfig();
-    if (!cfg.apiKey) {
-      console.log("[desktop] no API key configured — bridge idle. Open Settings to add one.");
-      return;
-    }
-    mkdirSync(join(homedir(), ".raltic", "agents"), { recursive: true });
-    const opts: BridgeOpts = {
-      serverUrl: cfg.serverUrl ?? "https://api.raltic.com",
-      apiKey: cfg.apiKey,
-      agentsDir: join(homedir(), ".raltic", "agents"),
-    };
-    const b = new Bridge(opts);
-    try {
-      await b.start();
-      current = b;
-      console.log("[desktop] bridge started");
-    } catch (e) {
-      console.error("[desktop] bridge start failed:", e);
-      try { await b.stop(); } catch { /* best-effort cleanup */ }
-    }
-  })();
-  try { await inflight; }
-  finally { inflight = null; }
+function enqueue(fn: () => Promise<void>): Promise<void> {
+  const next = operationQueue.then(fn, fn);
+  operationQueue = next.catch(() => { /* keep later operations unblocked */ });
+  return next;
 }
 
-export async function stopBridge(): Promise<void> {
-  if (inflight) return inflight;
-  // Hold the lock during stop too — without it, a concurrent startBridge
-  // would see `current=null` AND `inflight=null` and spawn a fresh
-  // Bridge while the old one's WebSocket is still draining.
-  inflight = (async () => {
-    if (!current) return;
-    const b = current;
-    current = null;
-    try { await b.stop(); }
-    catch (e) { console.warn("[desktop] bridge stop error:", e); }
-  })();
-  try { await inflight; }
-  finally { inflight = null; }
+async function startBridgeUnlocked(): Promise<void> {
+  if (current) return;
+  const cfg = loadConfig();
+  if (!cfg.apiKey) {
+    console.log("[desktop] no API key configured — bridge idle. Open Settings to add one.");
+    return;
+  }
+  mkdirSync(join(homedir(), ".raltic", "agents"), { recursive: true });
+  const opts: BridgeOpts = {
+    serverUrl: cfg.serverUrl ?? "https://api.raltic.com",
+    apiKey: cfg.apiKey,
+    agentsDir: join(homedir(), ".raltic", "agents"),
+  };
+  const b = new Bridge(opts);
+  try {
+    await b.start();
+    current = b;
+    console.log("[desktop] bridge started");
+  } catch (e) {
+    console.error("[desktop] bridge start failed:", e);
+    try { await b.stop(); } catch { /* best-effort cleanup */ }
+  }
+}
+
+async function stopBridgeUnlocked(): Promise<void> {
+  if (!current) return;
+  const b = current;
+  current = null;
+  try { await b.stop(); }
+  catch (e) { console.warn("[desktop] bridge stop error:", e); }
+}
+
+export function startBridge(): Promise<void> {
+  return enqueue(startBridgeUnlocked);
+}
+
+export function stopBridge(): Promise<void> {
+  return enqueue(stopBridgeUnlocked);
 }
 
 export async function restartBridge(): Promise<void> {
-  await stopBridge();
-  await startBridge();
+  return enqueue(async () => {
+    await stopBridgeUnlocked();
+    await startBridgeUnlocked();
+  });
 }

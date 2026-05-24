@@ -22,6 +22,7 @@ export const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 export interface DesktopConfig {
   apiKey?: string;
   serverUrl?: string;
+  serverId?: string;
 }
 
 export function loadConfig(): DesktopConfig {
@@ -62,7 +63,9 @@ function normalizeServerUrl(raw: string): string | undefined {
     if (u.pathname.endsWith("/") && u.pathname.length > 1) {
       u.pathname = u.pathname.slice(0, -1);
     }
-    return u.toString();
+    u.search = "";
+    u.hash = "";
+    return u.toString().replace(/\/$/, "");
   } catch {
     return undefined;
   }
@@ -79,6 +82,7 @@ export function saveConfig(cfg: DesktopConfig): void {
     const u = normalizeServerUrl(cfg.serverUrl);
     if (u) normalized.serverUrl = u;
   }
+  if (cfg.serverId?.trim()) normalized.serverId = cfg.serverId.trim();
   // Unique temp per save so two near-simultaneous calls can't both try
   // to write the same .tmp path and clobber each other.
   const tmp = `${CONFIG_PATH}.${process.pid}.${randomUUID()}.tmp`;

@@ -10,6 +10,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
+    "smoke:launch": "node scripts/smoke-launch.mjs",
     "package": "electron-vite build && electron-builder --dir",
     "release": "node scripts/release-preflight.mjs && electron-vite build && electron-builder --publish always",
     "lint": "tsc --noEmit"

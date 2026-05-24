@@ -59,6 +59,7 @@ export default function ServerHomePage() {
   // `?wizard=1` lets users re-open the wizard explicitly (from settings,
   // from the banner, etc.) even after the bridge has connected.
   const forceWizard = sp.get("wizard") === "1";
+  const skipBridgeSetup = sp.get("skipBridgeSetup") === "1";
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [loading, setLoading] = useState(true);
   // Per-workspace bridge state — true iff THIS workspace has a key that
@@ -140,6 +141,9 @@ export default function ServerHomePage() {
         setHasBridgeAgents(hasBridgeAgentHere);
         if (forceWizard) {
           setWizardOpen(true);
+        } else if (skipBridgeSetup) {
+          if (amOnPersonal && personalRef) snoozeWizard(me.subject.userId, personalRef.slug);
+          setWizardOpen(false);
         } else if (
           amOnPersonal &&
           !personalBridge &&
@@ -153,7 +157,7 @@ export default function ServerHomePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [slug, forceWizard]);
+  }, [slug, forceWizard, skipBridgeSetup]);
 
   function handleWizardDismiss() {
     setWizardOpen(false);

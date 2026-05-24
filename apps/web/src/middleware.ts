@@ -175,7 +175,12 @@ export function middleware(req: NextRequest) {
   const cookies = req.cookies.getAll();
   const hasSession = cookies.some((c) => isSessionCookie(c.name));
   if (!hasSession) {
-    return applySecurityHeaders(NextResponse.redirect(new URL("/login", req.url)));
+    const loginUrl = new URL("/login", req.url);
+    if (pathname.startsWith("/desktop")) {
+      loginUrl.searchParams.set("client", "desktop");
+      loginUrl.searchParams.set("next", `${pathname}${req.nextUrl.search}`);
+    }
+    return applySecurityHeaders(NextResponse.redirect(loginUrl));
   }
   return applySecurityHeaders(NextResponse.next());
 }

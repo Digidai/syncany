@@ -9,13 +9,27 @@ import { contextBridge, ipcRenderer } from "electron";
 export interface DesktopConfig {
   apiKey?: string;
   serverUrl?: string;
+  serverId?: string;
+}
+
+export interface DesktopBridgeConnectConfig {
+  apiKey: string;
+  serverUrl?: string;
+  serverId: string;
+}
+
+export interface DesktopBridgeStatus {
+  running: boolean;
+  serverId: string | null;
 }
 
 const api = {
   getConfig: (): Promise<DesktopConfig> => ipcRenderer.invoke("config:get"),
   saveConfig: (cfg: DesktopConfig): Promise<{ ok: true; running: boolean }> =>
     ipcRenderer.invoke("config:save", cfg),
-  bridgeStatus: (): Promise<{ running: boolean }> =>
+  connectBridge: (cfg: DesktopBridgeConnectConfig): Promise<{ ok: true; running: boolean; serverId: string | null }> =>
+    ipcRenderer.invoke("bridge:connect", cfg),
+  bridgeStatus: (): Promise<DesktopBridgeStatus> =>
     ipcRenderer.invoke("bridge:status"),
   checkForUpdates: (): Promise<{ ok: true }> =>
     ipcRenderer.invoke("updater:check"),

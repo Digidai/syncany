@@ -27,6 +27,13 @@ export default function SignupPage() {
 function SignupInner() {
   const sp = useSearchParams();
   const nextPath = safeNext(sp.get("next")) ?? "/";
+  const desktopClient = sp.get("client") === "desktop" || nextPath.startsWith("/desktop");
+  const loginHref = nextPath !== "/"
+    ? `/login?${new URLSearchParams({
+      ...(desktopClient ? { client: "desktop" } : {}),
+      next: nextPath,
+    }).toString()}`
+    : desktopClient ? "/login?client=desktop" : "/login";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -199,8 +206,8 @@ function SignupInner() {
         ) : (
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Raltic</CardTitle>
-              <CardDescription>Create your account</CardDescription>
+              <CardTitle className="text-2xl">{desktopClient ? "Raltic Desktop" : "Raltic"}</CardTitle>
+              <CardDescription>{desktopClient ? "Create an account to connect this computer" : "Create your account"}</CardDescription>
             </CardHeader>
             <form onSubmit={handleSignup}>
               <CardPanel>
@@ -264,12 +271,12 @@ function SignupInner() {
               </CardPanel>
               <CardFooter className="flex-col gap-4">
                 <Button type="submit" loading={loading} className="w-full">
-                  Create account
+                  {desktopClient ? "Create desktop account" : "Create account"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
-                    href={nextPath !== "/" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
+                    href={loginHref}
                     className="text-foreground underline underline-offset-4 hover:text-foreground/80"
                   >
                     Sign in

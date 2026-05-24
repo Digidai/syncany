@@ -30,7 +30,16 @@ npm version patch         # → 0.0.2
 #      WIN_CSC_KEY_PASSWORD=<win cert pw>
 #      GH_TOKEN=<github-token-with-repo-scope>
 pnpm --filter @raltic/desktop build
+pnpm --filter @raltic/desktop smoke:launch
 cd apps/desktop && npx electron-builder --publish always
+```
+
+For local packaged QA before a real publish:
+
+```bash
+cd apps/desktop
+npx electron-builder --dir --publish never
+RALTIC_DESKTOP_APP=release/mac-arm64/Raltic.app/Contents/MacOS/Raltic pnpm --filter @raltic/desktop smoke:launch
 ```
 
 That produces `release/Raltic-0.0.2.dmg`, `Raltic Setup 0.0.2.exe`,
@@ -39,11 +48,17 @@ uploaded to a GitHub Release named `v0.0.2`.
 
 ## What the user sees
 
-1. Their already-running desktop app pings GitHub on next 6h tick (or on
+1. The app opens `https://raltic.com/desktop/launch`, not the public marketing
+   homepage. Unauthenticated users are sent through the desktop-aware login
+   screen and then back to the launch surface.
+2. The launch surface lets them connect the current computer by creating a
+   per-machine key and starting the embedded bridge, or skip into the workspace
+   when they only need cloud agents / normal chat.
+3. Their already-running desktop app pings GitHub on next 6h tick (or on
    manual "Check for updates" from Settings).
-2. Sees an "Update available — Raltic 0.0.2" dialog with Download / Later.
-3. Picks Download → download runs in background.
-4. Update applies on next app quit (auto-install on quit is enabled).
+4. Sees an "Update available — Raltic 0.0.2" dialog with Download / Later.
+5. Picks Download → download runs in background.
+6. Update applies on next app quit (auto-install on quit is enabled).
 
 ## Skipping a release for everyone
 
@@ -56,6 +71,20 @@ caches `latest.yml` and could re-prompt. Instead:
    notes that the prior version is buggy.
 
 ## Verifying the update channel
+
+Before publishing, verify the installed-client flow against a real account:
+
+1. Open the built app and confirm the first page is `/desktop/launch`, not the
+   public homepage.
+2. Sign in from the desktop-aware login screen and return to `/desktop/launch`.
+3. Click **Connect this computer** and confirm `~/.raltic/desktop/config.json`
+   is `0600`, contains `apiKey`, `serverUrl`, and the target `serverId`, and
+   does not expose the key anywhere in the web UI.
+4. Confirm the app opens `/s/<slug>` and the workspace shows the local bridge
+   online for that workspace.
+5. From any non-`/desktop/launch` page, confirm desktop bridge connection IPC is
+   not callable. The automated `smoke:launch` script covers this for the built
+   preload.
 
 ```bash
 # What the updater fetches:
