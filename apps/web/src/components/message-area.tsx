@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ChannelActions } from "./channel-actions";
+import { AttachmentList } from "./attachment-render";
+import { Paperclip } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Channel, type ChannelMember, type Agent, ApiError } from "@/lib/api";
@@ -85,6 +87,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   // OR via the pill).
   const [unreadBelow, setUnreadBelow] = useState(0);
   const sendInFlightRef = useRef(false);
+  // Phase C — pending attachments staged before send. Held in a ref
+  // for handleSend access without re-render churn, mirrored to state
+  // for the composer chips UI.
+  type StagedAttachment = { attachmentId: string; filename: string; contentType: string; sizeBytes: number; url: string };
+  const pendingAttachmentsRef = useRef<StagedAttachment[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<StagedAttachment[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
 
   // Only mark messages as read when this tab is actually visible.
   function isVisible(): boolean {
@@ -414,28 +423,85 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const replyToLabel = replyTo ? memberLabel.get(replyTo.senderId) ?? "someone" : "";
 
   async function handleSend(content: string): Promise<boolean> {
-    if (!content.trim() || !channelId || sendInFlightRef.current) return false;
+    if (!channelId || sendInFlightRef.current) return false;
+    // Phase C — allow attachment-only messages (no text required).
+    const hasAttachments = pendingAttachmentsRef.current.length > 0;
+    if (!content.trim() && !hasAttachments) return false;
     sendInFlightRef.current = true;
-    // User pressing Enter is an explicit intent to send AND see their
-    // message land — re-pin to the bottom even if they had scrolled up
-    // to read history. Without this, sending a reply while reviewing
-    // earlier messages would silently leave their own message off-screen
-    // and bump the unread-pill counter instead.
     stickToBottomRef.current = true;
     try {
-      const ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
+      // Attachment-bearing sends use REST so the server can link
+      // attachmentIds atomically with the new message. Pure text
+      // sends keep the WS fast-path.
+      let ok: boolean;
+      if (hasAttachments) {
+        try {
+          await api.sendMessage({
+            channelId,
+            content,
+            threadParentId: replyTo?.id ?? null,
+            idempotencyKey: crypto.randomUUID(),
+            attachmentIds: pendingAttachmentsRef.current.map((a) => a.attachmentId),
+          });
+          ok = true;
+          pendingAttachmentsRef.current = [];
+          setPendingAttachments([]);
+        } catch (e) {
+          notifyThrown("Couldn't send message", e);
+          ok = false;
+        }
+      } else {
+        ok = await send(content, replyTo ? { threadParentId: replyTo.id } : undefined);
+      }
       if (ok) {
         setReplyTo(null);
-        // Snap after the optimistic-or-echoed row has had a chance to
-        // render. handleNew will also scroll when the server echoes it
-        // back, but the local user expects an immediate visual confirm.
         requestAnimationFrame(() => scrollToBottom());
       }
-      if (!ok) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
+      if (!ok && !hasAttachments) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
       return ok;
     } finally {
       sendInFlightRef.current = false;
     }
+  }
+
+  async function handleAttachmentPick(files: FileList | File[]) {
+    if (!channelId) return;
+    const list = Array.from(files);
+    // Hard client-side cap mirrors server (10 per message + 25 MB each).
+    const remaining = 10 - pendingAttachmentsRef.current.length;
+    if (remaining <= 0) {
+      notifyThrown("Attachment limit reached", new Error("Max 10 attachments per message"));
+      return;
+    }
+    const toUpload = list.slice(0, remaining);
+    for (const file of toUpload) {
+      if (file.size > 25 * 1024 * 1024) {
+        notifyThrown("File too large", new Error(`${file.name} exceeds 25 MB`));
+        continue;
+      }
+      setUploadingCount((n) => n + 1);
+      try {
+        const r = await api.uploadAttachment(channelId, file);
+        const staged: StagedAttachment = {
+          attachmentId: r.attachmentId,
+          filename: r.filename,
+          contentType: r.contentType,
+          sizeBytes: r.sizeBytes,
+          url: r.url,
+        };
+        pendingAttachmentsRef.current.push(staged);
+        setPendingAttachments([...pendingAttachmentsRef.current]);
+      } catch (e) {
+        notifyThrown(`Upload failed: ${file.name}`, e);
+      } finally {
+        setUploadingCount((n) => n - 1);
+      }
+    }
+  }
+
+  function removeStagedAttachment(attachmentId: string) {
+    pendingAttachmentsRef.current = pendingAttachmentsRef.current.filter((a) => a.attachmentId !== attachmentId);
+    setPendingAttachments([...pendingAttachmentsRef.current]);
   }
 
   async function handleTogglePin(m: MessageRow) {
@@ -688,10 +754,56 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               </button>
             </div>
           )}
+          {/* Phase C — staged attachments preview row above composer */}
+          {(pendingAttachments.length > 0 || uploadingCount > 0) && (
+            <div className="flex flex-wrap gap-2 px-1 pb-2">
+              {pendingAttachments.map((a) => (
+                <div key={a.attachmentId} className="group inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs">
+                  <Paperclip className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  <span className="max-w-[160px] truncate font-medium">{a.filename}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeStagedAttachment(a.attachmentId)}
+                    aria-label={`Remove ${a.filename}`}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+                  >
+                    <XIcon className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {uploadingCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-md border bg-card/50 px-2 py-1 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
+                  Uploading {uploadingCount}…
+                </span>
+              )}
+            </div>
+          )}
           {/* key={channelId} forces the TipTap editor to fully unmount + remount
               when the user navigates between channels — without it the draft
               text from channel A leaks into channel B's composer because the
               editor instance is reused. */}
+          <div className="flex items-end gap-2">
+            <label
+              className={`inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground ${
+                channel?.archivedAt != null ? "pointer-events-none opacity-50" : ""
+              }`}
+              title="Attach file or image"
+            >
+              <Paperclip className="h-4 w-4" />
+              <input
+                type="file"
+                multiple
+                accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
+                className="sr-only"
+                disabled={channel?.archivedAt != null}
+                onChange={(e) => {
+                  if (e.target.files) handleAttachmentPick(e.target.files);
+                  e.target.value = ""; // allow re-pick of same file
+                }}
+              />
+            </label>
+            <div className="min-w-0 flex-1">
           <TiptapMessageInput
             key={channelId ?? "no-channel"}
             ref={inputRef}
@@ -709,6 +821,8 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             onTextUpdate={picker.onTextUpdate}
             onKeyDown={picker.onKeyDown}
           />
+            </div>
+          </div>
         </div>
       </footer>
     </div>
@@ -861,13 +975,20 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             </div>
           </div>
         ) : (
-          <div className={"prose prose-sm dark:prose-invert max-w-none mt-0.5 text-[14.5px] leading-relaxed " + (isDeleted ? "italic text-muted-foreground" : "")}>
-            {isAgent && !isDeleted ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>{m.content}</ReactMarkdown>
-            ) : (
-              <p className="whitespace-pre-wrap">{m.content}</p>
+          <>
+            {m.content && (
+              <div className={"prose prose-sm dark:prose-invert max-w-none mt-0.5 text-[14.5px] leading-relaxed " + (isDeleted ? "italic text-muted-foreground" : "")}>
+                {isAgent && !isDeleted ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>{m.content}</ReactMarkdown>
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                )}
+              </div>
             )}
-          </div>
+            {m.attachments && m.attachments.length > 0 && !isDeleted && (
+              <AttachmentList attachments={m.attachments} />
+            )}
+          </>
         )}
         {m.reactions && m.reactions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">

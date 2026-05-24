@@ -85,10 +85,18 @@ export type BridgeConnectResponse = z.infer<typeof bridgeConnectResponse>;
 
 export const sendMessageRequest = z.object({
   channelId: z.string(),
-  content: z.string().min(1).max(64_000),
+  // Phase C — allow attachment-only messages. Content can be empty
+  // when at least one attachment is included; backend cross-checks.
+  content: z.string().max(64_000),
   threadParentId: z.string().nullable().optional(),
   as: z.string().optional(),
   idempotencyKey: z.string().min(1).max(128),
+  // Phase C — pre-uploaded message attachments. Server validates that
+  // the caller is the uploader + each attachment is unlinked + lives
+  // in the same channel. Cap = 10 attachments per message (UX limit).
+  attachmentIds: z.array(z.string()).max(10).optional(),
+}).refine((b) => b.content.length > 0 || (b.attachmentIds?.length ?? 0) > 0, {
+  message: "message must have content or at least one attachment",
 });
 export type SendMessageRequest = z.infer<typeof sendMessageRequest>;
 

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { listMessagesQuery, createChannelRequest, markReadRequest, addChannelMembersRequest } from "@raltic/protocol";
-import { servers, serverMembers, agents, channels, channelMembers, messages, reactions, user } from "@raltic/db";
+import { servers, serverMembers, agents, channels, channelMembers, messages, messageAttachments, reactions, user } from "@raltic/db";
 import { and, desc, eq, lt, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
@@ -113,9 +113,31 @@ channelsRoutes.get("/api/v1/channels/:id/messages", requireAuth, async (c) => {
     byEmoji.set(r.emoji, list);
     reactionsByMsg.set(r.messageId, byEmoji);
   }
+  // Phase C — pull attachments for the same id batch + group.
+  const attRows = ids.length === 0 ? [] : await db.select().from(messageAttachments)
+    .where(inArray(messageAttachments.messageId, ids));
+  const attsByMsg = new Map<string, typeof attRows>();
+  for (const a of attRows) {
+    if (!a.messageId) continue;
+    const list = attsByMsg.get(a.messageId) ?? [];
+    list.push(a);
+    attsByMsg.set(a.messageId, list);
+  }
+  const origin = new URL(c.req.url).origin;
   const out = rows.map(m => ({
     ...m,
     reactions: Array.from((reactionsByMsg.get(m.id) ?? new Map()).entries()).map(([emoji, reactorIds]) => ({ emoji, reactorIds })),
+    attachments: (attsByMsg.get(m.id) ?? []).map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      contentType: a.contentType,
+      sizeBytes: a.sizeBytes,
+      // API-gated stream URL — client renders via this so the
+      // membership gate runs on every byte fetch.
+      url: `${origin}/uploads/attachments/${a.channelId}/${a.id}`,
+      width: a.width,
+      height: a.height,
+    })),
   }));
   return c.json({ messages: out.reverse() });
 });

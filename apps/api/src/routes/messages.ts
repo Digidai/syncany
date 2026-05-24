@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@raltic/protocol";
-import { agents, channels, channelMembers, messages, reactions } from "@raltic/db";
-import { and, eq } from "drizzle-orm";
+import { agents, channels, channelMembers, messages, messageAttachments, reactions } from "@raltic/db";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
@@ -60,6 +60,53 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
     return c.json({ error: { code: "SEND_FAILED", message: "channel DO rejected message" } }, 500);
   }
   const data = await res.json() as { ok: true; seq: number; messageId?: string };
+
+  // Phase C — link pre-uploaded attachments to the just-created message.
+  // Validates ownership (uploader must be the sender) + channel match +
+  // not-yet-linked. Any validation failure aborts the link but leaves
+  // the message intact; client sees the message render without the
+  // attachments and can retry. Loud server log for the operator.
+  if (data.messageId && body.attachmentIds && body.attachmentIds.length > 0) {
+    try {
+      const db = drizzle(c.env.DB);
+      const rows = await db.select({
+        id: messageAttachments.id,
+        messageId: messageAttachments.messageId,
+        channelId: messageAttachments.channelId,
+        uploaderId: messageAttachments.uploaderId,
+      }).from(messageAttachments)
+        .where(inArray(messageAttachments.id, body.attachmentIds));
+      // All must (a) belong to caller, (b) live in this channel,
+      // (c) not be linked to another message already.
+      const expected = body.attachmentIds.length;
+      const valid = rows.filter(
+        (r) =>
+          r.uploaderId === subject.userId
+          && r.channelId === body.channelId
+          && r.messageId == null,
+      );
+      if (valid.length !== expected) {
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(), level: "warn",
+          msg: "message.attachments.skip_invalid",
+          channelId: body.channelId, messageId: data.messageId,
+          requested: expected, valid: valid.length,
+        }));
+      }
+      if (valid.length > 0) {
+        await db.update(messageAttachments)
+          .set({ messageId: data.messageId })
+          .where(inArray(messageAttachments.id, valid.map((v) => v.id)));
+      }
+    } catch (e) {
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(), level: "error",
+        msg: "message.attachments.link_failed",
+        channelId: body.channelId, messageId: data.messageId,
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }
 
   // P0 W3: dispatch @-mentioned cloud agents (runtime_mode='raltic').
   // Best-effort: never fail the original post if dispatch errors.

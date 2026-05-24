@@ -32,6 +32,19 @@ export const messageRow = z.object({
    *  in the bar's tooltip. Null when not pinned OR when the original
    *  pinner's account was deleted (FK onDelete: set null). */
   pinnedBy: z.string().nullable().optional(),
+  /** Phase C — attachments linked to this message. Empty array =
+   *  no attachments. URL is the API-gated stream endpoint, not the
+   *  raw R2 key, so the client always goes through the membership
+   *  gate before fetching bytes. */
+  attachments: z.array(z.object({
+    id: z.string(),
+    filename: z.string(),
+    contentType: z.string(),
+    sizeBytes: z.number().int(),
+    url: z.string(),
+    width: z.number().int().nullable().optional(),
+    height: z.number().int().nullable().optional(),
+  })).optional(),
 });
 export type MessageRow = z.infer<typeof messageRow>;
 

@@ -429,6 +429,39 @@ export const api = {
     call<{ ok: true; alreadyActive?: boolean }>(`/api/v1/channels/${encodeURIComponent(channelId)}/unarchive`, {
       method: "POST",
     }),
+  /** Phase C — upload a file/image attachment to a channel. Returns
+   *  the attachmentId; pass it via `attachmentIds: [id]` in the
+   *  subsequent sendMessage call to link it. */
+  uploadAttachment: async (channelId: string, file: File) => {
+    const url = `${apiOrigin}/api/v1/uploads/message-attachment`;
+    const res = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": file.type || "application/octet-stream",
+        "content-length": String(file.size),
+        "x-raltic-channel-id": channelId,
+        "x-raltic-filename": encodeURIComponent(file.name),
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      let code = "UPLOAD_FAILED";
+      let message = `upload failed: HTTP ${res.status}`;
+      try {
+        const j = await res.json() as { error?: { code: string; message: string } };
+        if (j.error) { code = j.error.code; message = j.error.message; }
+      } catch { /* not JSON */ }
+      throw new ApiError(code, message, res.status);
+    }
+    return await res.json() as {
+      attachmentId: string;
+      filename: string;
+      contentType: string;
+      sizeBytes: number;
+      url: string;
+    };
+  },
   /** Pin / unpin a message in its channel (Phase A). Channel-global,
    *  any member can toggle. */
   pinMessage: (messageId: string) =>

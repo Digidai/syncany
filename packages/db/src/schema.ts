@@ -222,6 +222,45 @@ export const channelMembers = sqliteTable("channel_members", {
   index("ix_cm_channel_type").on(t.channelId, t.memberType),
 ]);
 
+/**
+ * Phase C — file + image attachments on messages.
+ *
+ * Pre-upload model: client uploads bytes via the API Worker (no signed
+ * URLs in v1; Worker proxies bytes to R2 to avoid an S3-signing dep).
+ * Server returns `attachmentId`. Client then sends the message with
+ * `attachmentIds: [id]` — server atomically links by setting messageId.
+ *
+ * `messageId` is nullable so pre-uploaded attachments can exist for
+ * the brief window between upload and send. A daily cron prunes any
+ * orphan (messageId IS NULL AND createdAt > 1h ago) to keep R2 clean.
+ *
+ * Width / height are best-effort — null for non-image MIME types
+ * AND for images where we couldn't cheaply parse the header. The
+ * client falls back to `<img>` natural-size when null.
+ */
+export const messageAttachments = sqliteTable("message_attachments", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  channelId: text("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  uploaderId: text("uploader_id").notNull().references(() => user.id, { onDelete: "set null" }),
+  r2Key: text("r2_key").notNull(),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  width: integer("width"),
+  height: integer("height"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index("ix_attachments_message").on(t.messageId),
+  index("ix_attachments_channel_created").on(t.channelId, t.createdAt),
+  // Pre-upload orphan reaper: find unlinked attachments > 1h old.
+  // Partial index keeps cost trivial — orphans are rare + transient.
+  index("ix_attachments_orphan").on(t.createdAt).where(sqlFn`message_id IS NULL`),
+  // Per-uploader rolling-window quota — `WHERE created_at > ?` index.
+  index("ix_attachments_uploader_created").on(t.uploaderId, t.createdAt),
+]);
+export type MessageAttachment = typeof messageAttachments.$inferSelect;
+
 export const messages = sqliteTable("messages", {
   id: text("id").primaryKey(),
   channelId: text("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
