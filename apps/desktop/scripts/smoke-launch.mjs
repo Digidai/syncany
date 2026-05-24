@@ -2,13 +2,15 @@
 import { _electron as electron } from "@playwright/test";
 import { createRequire } from "node:module";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 const mainEntry = join(repoRoot, "apps/desktop/out/main/index.js");
+const desktopRoot = join(repoRoot, "apps/desktop");
 
 function resolveLaunchTarget() {
   if (process.env.RALTIC_DESKTOP_APP) {
@@ -17,15 +19,33 @@ function resolveLaunchTarget() {
   if (process.env.ELECTRON_EXECUTABLE_PATH) {
     return { executablePath: process.env.ELECTRON_EXECUTABLE_PATH, args: [mainEntry] };
   }
+  const packaged = findPackagedApp();
+  if (packaged) return { executablePath: packaged, args: [] };
   try {
     return { executablePath: require("electron"), args: [mainEntry] };
   } catch (e) {
     throw new Error(
       "Electron executable not found. Run pnpm install with Electron postinstall enabled, " +
-      "or set ELECTRON_EXECUTABLE_PATH for dev smoke / RALTIC_DESKTOP_APP for a packaged app.",
+      "run `pnpm --filter @raltic/desktop package` first, or set ELECTRON_EXECUTABLE_PATH for dev smoke / RALTIC_DESKTOP_APP for a packaged app.",
       { cause: e },
     );
   }
+}
+
+function findPackagedApp() {
+  const candidates = process.platform === "darwin"
+    ? [
+        join(desktopRoot, "release/mac-arm64/Raltic.app/Contents/MacOS/Raltic"),
+        join(desktopRoot, "release/mac/Raltic.app/Contents/MacOS/Raltic"),
+        join(desktopRoot, "release/mac-x64/Raltic.app/Contents/MacOS/Raltic"),
+      ]
+    : process.platform === "win32"
+      ? [join(desktopRoot, "release/win-unpacked/Raltic.exe")]
+      : [
+          join(desktopRoot, "release/linux-unpacked/raltic"),
+          join(desktopRoot, "release/linux-unpacked/Raltic"),
+        ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
 function html(body) {
@@ -109,9 +129,19 @@ try {
     throw new Error(`connectBridge did not start the bridge: ${JSON.stringify(connectResult)}\n${appLogs.join("").slice(-4000)}`);
   }
 
-  const saved = JSON.parse(await readFile(join(home, ".raltic/desktop/config.json"), "utf8"));
+  const configPath = join(home, ".raltic/desktop/config.json");
+  const saved = JSON.parse(await readFile(configPath, "utf8"));
   if (saved.apiKey !== "ck_desktopSmokeMachineKey1234567890" || saved.serverId !== "srv_desktop_smoke" || saved.serverUrl !== origin) {
     throw new Error(`unexpected saved config: ${JSON.stringify(saved)}`);
+  }
+  if (!Array.isArray(saved.keys) || saved.keys[0]?.serverId !== "srv_desktop_smoke") {
+    throw new Error(`expected multi-key config entry for smoke server: ${JSON.stringify(saved)}`);
+  }
+  if (process.platform !== "win32") {
+    const mode = (await stat(configPath)).mode & 0o777;
+    if ((mode & 0o077) !== 0) {
+      throw new Error(`config file mode must be 0600-compatible, got ${(mode).toString(8)}`);
+    }
   }
 
   await win.goto(`${origin}/s/fixture`);

@@ -9506,7 +9506,7 @@ function buildRuntimeRegistry() {
   };
 }
 const __filename$1 = fileURLToPath(import.meta.url);
-const __dirname$2 = dirname(__filename$1);
+const __dirname$3 = dirname(__filename$1);
 const shq = (s) => s.replace(/'/g, "'\\''");
 function resolveCliEntry() {
   const require3 = createRequire(import.meta.url);
@@ -9521,7 +9521,7 @@ function resolveCliEntry() {
   } catch {
   }
   try {
-    const bridgeRoot = resolve(__dirname$2, "..");
+    const bridgeRoot = resolve(__dirname$3, "..");
     const cliEntry = resolve(bridgeRoot, "..", "..", "packages", "cli", "src", "index.ts");
     const tsxPath = join(bridgeRoot, "node_modules", "tsx", "dist", "cli.mjs");
     if (existsSync(cliEntry) && existsSync(tsxPath)) {
@@ -10230,6 +10230,9 @@ class Bridge {
   isLeader = false;
   leaderKnown = false;
   pendingDispatches = [];
+  getServerId() {
+    return this.boot?.serverId ?? null;
+  }
   async start() {
     const runtimes = await this.agentManager.detectRuntimes();
     for (const r of runtimes) {
@@ -10552,6 +10555,72 @@ function normalizeServerUrl(raw) {
     return void 0;
   }
 }
+function normalizeBridgeKey(raw) {
+  const apiKey = raw.apiKey?.trim();
+  if (!apiKey) return null;
+  const normalized = { apiKey };
+  if (raw.serverUrl?.trim()) {
+    const u2 = normalizeServerUrl(raw.serverUrl);
+    if (u2) normalized.serverUrl = u2;
+  }
+  if (raw.serverId?.trim()) normalized.serverId = raw.serverId.trim();
+  if (typeof raw.addedAt === "number" && Number.isFinite(raw.addedAt)) {
+    normalized.addedAt = raw.addedAt;
+  }
+  return normalized;
+}
+function bridgeKeysFromConfig(cfg) {
+  const keys = [];
+  const seenApiKeys = /* @__PURE__ */ new Set();
+  const add = (raw) => {
+    const normalized = normalizeBridgeKey(raw);
+    if (!normalized || seenApiKeys.has(normalized.apiKey)) return;
+    seenApiKeys.add(normalized.apiKey);
+    keys.push(normalized);
+  };
+  add({
+    apiKey: cfg.apiKey,
+    serverUrl: cfg.serverUrl,
+    serverId: cfg.serverId
+  });
+  if (Array.isArray(cfg.keys)) {
+    for (const entry of cfg.keys) {
+      if (entry && typeof entry === "object") add(entry);
+    }
+  }
+  return keys;
+}
+function configFromKeys(keys) {
+  const primary = keys[0];
+  if (!primary) return {};
+  return {
+    apiKey: primary.apiKey,
+    serverUrl: primary.serverUrl,
+    serverId: primary.serverId,
+    keys
+  };
+}
+function upsertBridgeKey(cfg, key) {
+  const normalized = normalizeBridgeKey({ ...key, addedAt: key.addedAt ?? Date.now() });
+  if (!normalized) return cfg;
+  const keys = bridgeKeysFromConfig(cfg).filter((existing) => {
+    if (existing.apiKey === normalized.apiKey) return false;
+    return !(normalized.serverId && existing.serverId === normalized.serverId);
+  });
+  keys.push(normalized);
+  return configFromKeys(keys);
+}
+function replacePrimaryBridgeKey(cfg, key) {
+  const normalized = normalizeBridgeKey({
+    apiKey: key.apiKey,
+    serverUrl: key.serverUrl,
+    serverId: key.serverId,
+    addedAt: Date.now()
+  });
+  if (!normalized) return {};
+  const rest = bridgeKeysFromConfig(cfg).slice(1);
+  return configFromKeys([normalized, ...rest]);
+}
 function saveConfig(cfg) {
   mkdirSync$1(CONFIG_DIR, { recursive: true, mode: 448 });
   if (process.platform !== "win32") {
@@ -10560,13 +10629,7 @@ function saveConfig(cfg) {
     } catch {
     }
   }
-  const normalized = {};
-  if (cfg.apiKey?.trim()) normalized.apiKey = cfg.apiKey.trim();
-  if (cfg.serverUrl?.trim()) {
-    const u2 = normalizeServerUrl(cfg.serverUrl);
-    if (u2) normalized.serverUrl = u2;
-  }
-  if (cfg.serverId?.trim()) normalized.serverId = cfg.serverId.trim();
+  const normalized = configFromKeys(bridgeKeysFromConfig(cfg));
   const tmp = `${CONFIG_PATH}.${process.pid}.${randomUUID()}.tmp`;
   try {
     writeFileSync$2(tmp, JSON.stringify(normalized, null, 2), { mode: 384 });
@@ -10585,10 +10648,21 @@ function saveConfig(cfg) {
     }
   }
 }
-let current = null;
+let current = /* @__PURE__ */ new Map();
 let operationQueue = Promise.resolve();
 function isRunning() {
-  return current !== null;
+  return current.size > 0;
+}
+function runningServerIds() {
+  const ids = /* @__PURE__ */ new Set();
+  for (const entry of current.values()) {
+    const id = entry.bridge.getServerId();
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+function runningServerId() {
+  return runningServerIds()[0] ?? null;
 }
 function enqueue$1(fn) {
   const next = operationQueue.then(fn, fn);
@@ -10597,40 +10671,61 @@ function enqueue$1(fn) {
   return next;
 }
 async function startBridgeUnlocked() {
-  if (current) return;
+  if (current.size > 0) return;
   const cfg = loadConfig();
-  if (!cfg.apiKey) {
+  const keys = bridgeKeysFromConfig(cfg);
+  if (keys.length === 0) {
     console.log("[desktop] no API key configured — bridge idle. Open Settings to add one.");
     return;
   }
-  mkdirSync$1(join$1(homedir(), ".raltic", "agents"), { recursive: true });
-  const opts = {
-    serverUrl: cfg.serverUrl ?? "https://api.raltic.com",
-    apiKey: cfg.apiKey,
-    agentsDir: join$1(homedir(), ".raltic", "agents")
-  };
-  const b = new Bridge(opts);
-  try {
-    await b.start();
-    current = b;
-    console.log("[desktop] bridge started");
-  } catch (e) {
-    console.error("[desktop] bridge start failed:", e);
-    try {
-      await b.stop();
-    } catch {
-    }
+  const agentsRoot = join$1(homedir(), ".raltic", "agents");
+  mkdirSync$1(agentsRoot, { recursive: true });
+  const results = await Promise.all(keys.map((key) => startOneBridge(key, agentsRoot)));
+  const started = results.filter((entry) => entry !== null);
+  current = new Map(started.map((entry) => [entry.apiKey, entry]));
+  if (started.length === 0) {
+    console.error(`[desktop] all ${keys.length} bridge key(s) failed to start`);
+    return;
   }
+  if (started.length < keys.length) {
+    console.warn(`[desktop] ${keys.length - started.length}/${keys.length} bridge key(s) failed; remaining workspaces keep running`);
+  }
+  console.log(`[desktop] bridge started for ${started.length} workspace key(s)`);
 }
 async function stopBridgeUnlocked() {
-  if (!current) return;
-  const b = current;
-  current = null;
+  if (current.size === 0) return;
+  const bridges = [...current.values()];
+  current = /* @__PURE__ */ new Map();
+  await Promise.all(bridges.map(async ({ bridge }) => {
+    try {
+      await bridge.stop();
+    } catch (e) {
+      console.warn("[desktop] bridge stop error:", e);
+    }
+  }));
+}
+async function startOneBridge(key, agentsRoot) {
+  const opts = {
+    serverUrl: key.serverUrl ?? "https://api.raltic.com",
+    apiKey: key.apiKey,
+    agentsDir: join$1(agentsRoot, keyPrefix(key.apiKey))
+  };
+  const bridge = new Bridge(opts);
   try {
-    await b.stop();
+    await bridge.start();
+    console.log(`[desktop] bridge key ${keyPrefix(key.apiKey)} connected to server=${bridge.getServerId() ?? "unknown"}`);
+    return { apiKey: key.apiKey, bridge };
   } catch (e) {
-    console.warn("[desktop] bridge stop error:", e);
+    console.error(`[desktop] bridge key ${keyPrefix(key.apiKey)} start failed:`, e);
+    try {
+      await bridge.stop();
+    } catch {
+    }
+    return null;
   }
+}
+function keyPrefix(apiKey) {
+  return apiKey.slice(0, 12).replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 function startBridge() {
   return enqueue$1(startBridgeUnlocked);
@@ -10645,13 +10740,15 @@ async function restartBridge() {
   });
 }
 let trayInstance = null;
-function placeholderIcon() {
-  const img = nativeImage.createEmpty();
-  return img;
+const __dirname$2 = dirname$1(fileURLToPath$1(import.meta.url));
+function trayIcon() {
+  const img = nativeImage.createFromPath(join$1(__dirname$2, "../../resources/trayTemplate.png"));
+  img.setTemplateImage(true);
+  return img.isEmpty() ? nativeImage.createEmpty() : img;
 }
 function createTray(opts) {
   if (trayInstance) return trayInstance;
-  trayInstance = new Tray(placeholderIcon());
+  trayInstance = new Tray(trayIcon());
   trayInstance.setToolTip("Raltic");
   rebuildMenu(opts);
   if (process.platform !== "darwin") {
@@ -25338,6 +25435,7 @@ function isPlainConfig(x) {
     const trimmed = o.serverId.trim();
     if (trimmed && !SERVER_ID_RE.test(trimmed)) return false;
   }
+  if (o.keys !== void 0) return false;
   return true;
 }
 function parseDesktopConnectPayload(x) {
@@ -25375,12 +25473,37 @@ function enqueueConfigMutation(fn) {
   });
   return next;
 }
-async function saveConfigAndRestart(next) {
+function bridgeStatusPayload(ok) {
+  const cfg = loadConfig();
+  const configuredServerIds = bridgeKeysFromConfig(cfg).map((key) => key.serverId).filter((id) => !!id);
+  const serverIds = isRunning() ? runningServerIds() : [];
+  return {
+    ...ok ? { ok } : {},
+    running: isRunning(),
+    serverId: isRunning() ? runningServerId() : null,
+    serverIds,
+    configuredServerIds
+  };
+}
+async function replacePrimaryConfigAndRestart(next) {
   return enqueueConfigMutation(async () => {
-    saveConfig(next);
+    saveConfig(replacePrimaryBridgeKey(loadConfig(), next));
     await restartBridge();
     rebuildMenu(trayOpts());
-    return { ok: true, running: isRunning(), serverId: loadConfig().serverId ?? null };
+    return bridgeStatusPayload(true);
+  });
+}
+async function addBridgeConfigAndRestart(next) {
+  return enqueueConfigMutation(async () => {
+    if (!next.apiKey || !next.serverId) throw new Error("missing bridge key");
+    saveConfig(upsertBridgeKey(loadConfig(), {
+      apiKey: next.apiKey,
+      serverUrl: next.serverUrl,
+      serverId: next.serverId
+    }));
+    await restartBridge();
+    rebuildMenu(trayOpts());
+    return bridgeStatusPayload(true);
   });
 }
 function registerIpc() {
@@ -25391,17 +25514,16 @@ function registerIpc() {
   ipcMain.handle("config:save", async (e, next) => {
     if (!fromSettingsWindow(e)) throw new Error("forbidden");
     if (!isPlainConfig(next)) throw new Error("invalid config payload");
-    return saveConfigAndRestart(next);
+    return replacePrimaryConfigAndRestart(next);
   });
   ipcMain.handle("bridge:connect", async (e, next) => {
     if (!fromSettingsWindow(e) && !fromDesktopLaunchSurface(e)) throw new Error("forbidden");
     const parsed = parseDesktopConnectPayload(next);
     if (!parsed) throw new Error("invalid bridge payload");
-    return saveConfigAndRestart(parsed);
+    return addBridgeConfigAndRestart(parsed);
   });
   ipcMain.handle("bridge:status", () => {
-    const cfg = loadConfig();
-    return { running: isRunning(), serverId: cfg.serverId ?? null };
+    return bridgeStatusPayload();
   });
   ipcMain.handle("updater:check", async (e) => {
     if (!fromSettingsWindow(e)) throw new Error("forbidden");

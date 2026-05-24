@@ -17,8 +17,14 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startBridge, stopBridge, restartBridge, isRunning } from "./bridge-manager.js";
-import { loadConfig, saveConfig, type DesktopConfig } from "./config.js";
+import {
+  startBridge, stopBridge, restartBridge, isRunning,
+  runningServerId, runningServerIds,
+} from "./bridge-manager.js";
+import {
+  bridgeKeysFromConfig, loadConfig, replacePrimaryBridgeKey,
+  saveConfig, upsertBridgeKey, type DesktopConfig,
+} from "./config.js";
 import { createTray, rebuildMenu, destroyTray, isTrayAlive } from "./tray.js";
 import { initAutoUpdater, teardownAutoUpdater, checkForUpdates } from "./updater.js";
 
@@ -222,6 +228,10 @@ function isPlainConfig(x: unknown): x is DesktopConfig {
     const trimmed = o.serverId.trim();
     if (trimmed && !SERVER_ID_RE.test(trimmed)) return false;
   }
+  // The settings window edits the primary key only. Multi-key config is
+  // managed by the authenticated /desktop/launch flow so arbitrary pages
+  // cannot inject a key list through the generic config editor.
+  if (o.keys !== undefined) return false;
   return true;
 }
 
@@ -266,12 +276,49 @@ function enqueueConfigMutation<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function saveConfigAndRestart(next: DesktopConfig): Promise<{ ok: true; running: boolean }> {
+interface BridgeStatusPayload {
+  ok?: true;
+  running: boolean;
+  serverId: string | null;
+  serverIds: string[];
+  configuredServerIds: string[];
+}
+
+function bridgeStatusPayload(ok?: true): BridgeStatusPayload {
+  const cfg = loadConfig();
+  const configuredServerIds = bridgeKeysFromConfig(cfg)
+    .map((key) => key.serverId)
+    .filter((id): id is string => !!id);
+  const serverIds = isRunning() ? runningServerIds() : [];
+  return {
+    ...(ok ? { ok } : {}),
+    running: isRunning(),
+    serverId: isRunning() ? runningServerId() : null,
+    serverIds,
+    configuredServerIds,
+  };
+}
+
+async function replacePrimaryConfigAndRestart(next: DesktopConfig): Promise<BridgeStatusPayload> {
   return enqueueConfigMutation(async () => {
-    saveConfig(next);                 // saveConfig normalizes + trims internally
+    saveConfig(replacePrimaryBridgeKey(loadConfig(), next));
     await restartBridge();
     rebuildMenu(trayOpts());
-    return { ok: true, running: isRunning(), serverId: loadConfig().serverId ?? null };
+    return bridgeStatusPayload(true);
+  });
+}
+
+async function addBridgeConfigAndRestart(next: DesktopConfig): Promise<BridgeStatusPayload> {
+  return enqueueConfigMutation(async () => {
+    if (!next.apiKey || !next.serverId) throw new Error("missing bridge key");
+    saveConfig(upsertBridgeKey(loadConfig(), {
+      apiKey: next.apiKey,
+      serverUrl: next.serverUrl,
+      serverId: next.serverId,
+    }));
+    await restartBridge();
+    rebuildMenu(trayOpts());
+    return bridgeStatusPayload(true);
   });
 }
 
@@ -283,17 +330,16 @@ function registerIpc(): void {
   ipcMain.handle("config:save", async (e, next: unknown) => {
     if (!fromSettingsWindow(e)) throw new Error("forbidden");
     if (!isPlainConfig(next)) throw new Error("invalid config payload");
-    return saveConfigAndRestart(next);
+    return replacePrimaryConfigAndRestart(next);
   });
   ipcMain.handle("bridge:connect", async (e, next: unknown) => {
     if (!fromSettingsWindow(e) && !fromDesktopLaunchSurface(e)) throw new Error("forbidden");
     const parsed = parseDesktopConnectPayload(next);
     if (!parsed) throw new Error("invalid bridge payload");
-    return saveConfigAndRestart(parsed);
+    return addBridgeConfigAndRestart(parsed);
   });
   ipcMain.handle("bridge:status", () => {
-    const cfg = loadConfig();
-    return { running: isRunning(), serverId: cfg.serverId ?? null };
+    return bridgeStatusPayload();
   });
   // updater:check is also settings-only — the main raltic.com window
   // shares this preload, and we don't want a compromised/curious page

@@ -19,7 +19,7 @@ import { SignedInRedirect } from "@/components/signed-in-redirect";
 // doesn't exist yet, kill the section, not the build.
 //
 // Truth audit (last reviewed for marketing v2 — OpenClaw+Hermes integration):
-//   • Bridge: `npx -y @raltic/bridge --api-key …` works end-to-end.
+//   • Bridge: `npx -y @raltic/bridge setup ck_…` works end-to-end.
 //   • Runtimes: 4 ship — Claude, Codex (verified), OpenClaw, Hermes
 //     (code shipped, smoke verification pending per
 //     docs/SMOKE_TESTS_openclaw_hermes.md — marked "Experimental" on

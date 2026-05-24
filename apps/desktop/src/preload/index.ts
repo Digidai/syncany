@@ -10,6 +10,12 @@ export interface DesktopConfig {
   apiKey?: string;
   serverUrl?: string;
   serverId?: string;
+  keys?: Array<{
+    apiKey: string;
+    serverUrl?: string;
+    serverId?: string;
+    addedAt?: number;
+  }>;
 }
 
 export interface DesktopBridgeConnectConfig {
@@ -21,13 +27,15 @@ export interface DesktopBridgeConnectConfig {
 export interface DesktopBridgeStatus {
   running: boolean;
   serverId: string | null;
+  serverIds: string[];
+  configuredServerIds: string[];
 }
 
 const api = {
   getConfig: (): Promise<DesktopConfig> => ipcRenderer.invoke("config:get"),
-  saveConfig: (cfg: DesktopConfig): Promise<{ ok: true; running: boolean }> =>
+  saveConfig: (cfg: DesktopConfig): Promise<{ ok: true; running: boolean; serverId: string | null; serverIds: string[] }> =>
     ipcRenderer.invoke("config:save", cfg),
-  connectBridge: (cfg: DesktopBridgeConnectConfig): Promise<{ ok: true; running: boolean; serverId: string | null }> =>
+  connectBridge: (cfg: DesktopBridgeConnectConfig): Promise<{ ok: true; running: boolean; serverId: string | null; serverIds: string[] }> =>
     ipcRenderer.invoke("bridge:connect", cfg),
   bridgeStatus: (): Promise<DesktopBridgeStatus> =>
     ipcRenderer.invoke("bridge:status"),

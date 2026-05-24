@@ -136,6 +136,10 @@ export class Bridge {
     });
   }
 
+  getServerId(): string | null {
+    return this.boot?.serverId ?? null;
+  }
+
   async start(): Promise<void> {
     // Detect runtimes BEFORE /connect so we can include the snapshot
     // in the connect payload (lets the api persist per-machine

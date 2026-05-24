@@ -403,23 +403,22 @@ export function SetupWizard({
     onDismiss?.();
   }
 
-  // Wizard now uses the CLI's positional API-key form (introduced in
-  // bridge 0.4) which is shorter to read + type. `--server-url` is
-  // omitted when it equals the prod default so the copy-pastable line
-  // stays one screen wide for 95% of users; staging / self-hosted
-  // setups (non-default API_URL) still get the flag appended so the
-  // wizard's command works without env vars.
+  // Wizard uses the CLI's `setup` form so the key is persisted to
+  // ~/.raltic/config.json and the bridge starts in the same command.
+  // `--server-url` is omitted when it equals the prod default so the
+  // copy-pastable line stays one screen wide for 95% of users; staging /
+  // self-hosted setups still get the flag appended.
   const SERVER_URL_DEFAULT = "https://api.raltic.com";
   const quickCmd = issued
     ? API_URL === SERVER_URL_DEFAULT
-      ? `npx -y @raltic/bridge ${issued}`
-      : `npx -y @raltic/bridge ${issued} --server-url ${API_URL}`
+      ? `npx -y @raltic/bridge setup ${issued}`
+      : `npx -y @raltic/bridge setup ${issued} --server-url ${API_URL}`
     : "";
   const persistentInstall = `npm install -g @raltic/bridge@latest`;
   const persistentRun = issued
     ? API_URL === SERVER_URL_DEFAULT
-      ? `raltic-bridge ${issued}`
-      : `raltic-bridge ${issued} --server-url ${API_URL}`
+      ? `raltic-bridge setup ${issued}`
+      : `raltic-bridge setup ${issued} --server-url ${API_URL}`
     : "";
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -645,9 +644,8 @@ export function SetupWizard({
                       {/* Tabbed install surface. Quick is the default and
                           what 95% of users want; Persistent is for users
                           who want bridge to keep running after closing
-                          terminal; Desktop is a deliberate placeholder
-                          (no DMG yet) so the option is visible without
-                          over-promising. */}
+                          terminal; Desktop points users to the installed
+                          app's authenticated launch flow. */}
                       <div role="tablist" aria-label="Install method" className="flex gap-1 border-b">
                         {[
                           { id: "quick" as const, label: "Quick (recommended)" },
@@ -695,11 +693,12 @@ export function SetupWizard({
 
                       {installTab === "desktop" && (
                         <div className="rounded border border-dashed bg-card p-3 text-xs">
-                          <p className="font-medium">Desktop app — coming soon.</p>
+                          <p className="font-medium">Desktop app</p>
                           <p className="mt-1 text-muted-foreground">
-                            A signed macOS / Windows / Linux build with auto-start, menu-bar
-                            status, and auto-update. Not shipped yet — use the Quick or
-                            Persistent tab for now.
+                            Open Raltic Desktop on this computer, sign in, then click
+                            <span className="font-medium text-foreground"> Connect this computer</span>.
+                            The app creates a workspace-scoped key and keeps the bridge
+                            running from the menu bar.
                           </p>
                         </div>
                       )}
@@ -709,7 +708,7 @@ export function SetupWizard({
                           REAL terminal output. Without this they don&apos;t
                           know when to consider "it worked". */}
                       <div className="rounded border bg-zinc-950 p-2.5 font-mono text-[10.5px] leading-relaxed text-zinc-300">
-                        <p className="text-zinc-500">$ {installTab === "persistent" ? "raltic-bridge ck_…" : quickCmd || "npx -y @raltic/bridge ck_…"}</p>
+                        <p className="text-zinc-500">$ {installTab === "persistent" ? "raltic-bridge setup ck_…" : quickCmd || "npx -y @raltic/bridge setup ck_…"}</p>
                         <p className="text-zinc-400">[bridge] starting</p>
                         <p className="text-zinc-400">[bridge]   server-url={API_URL}</p>
                         <p className="text-zinc-400">[bridge] runtime {runtime} ready</p>

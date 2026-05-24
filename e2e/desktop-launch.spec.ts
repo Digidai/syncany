@@ -39,8 +39,14 @@ async function addFakeSession(page: Page, baseURL: string | undefined) {
 
 async function mockAuthAndMe(page: Page, baseURL: string | undefined, opts?: {
   workspace?: typeof TARGET_WORKSPACE;
+  servers?: Array<typeof TARGET_WORKSPACE>;
+  personal?: typeof TARGET_WORKSPACE;
+  defaultServer?: typeof TARGET_WORKSPACE;
 }) {
   const workspace = opts?.workspace ?? TARGET_WORKSPACE;
+  const servers = opts?.servers ?? [workspace];
+  const personal = opts?.personal ?? workspace;
+  const defaultServer = opts?.defaultServer ?? personal;
   await page.route("**/api/me/api-token", async (route) => {
     await route.fulfill({
       status: 401,
@@ -55,19 +61,19 @@ async function mockAuthAndMe(page: Page, baseURL: string | undefined, opts?: {
       headers: corsHeaders(baseURL),
       body: JSON.stringify({
         subject: { kind: "user", userId: "usr_desktop_e2e" },
-        servers: [{
-          id: workspace.id,
-          slug: workspace.slug,
-          name: workspace.name,
+        servers: servers.map((s) => ({
+          id: s.id,
+          slug: s.slug,
+          name: s.name,
           description: null,
           iconUrl: null,
           role: "owner",
           joinedAt: Date.now(),
-        }],
-        personalServerId: workspace.id,
-        personalServerSlug: workspace.slug,
-        defaultServerId: workspace.id,
-        defaultServerSlug: workspace.slug,
+        })),
+        personalServerId: personal.id,
+        personalServerSlug: personal.slug,
+        defaultServerId: defaultServer.id,
+        defaultServerSlug: defaultServer.slug,
         hasConnectedBridge: false,
       }),
     });
@@ -177,6 +183,28 @@ test.describe("desktop launch surface", () => {
     });
   });
 
+  test("targets the personal workspace before an invited default workspace", async ({ page, baseURL }) => {
+    const personal = { id: "srv_personal_home", slug: "personal-home", name: "Personal Home" };
+    const invited = { id: "srv_invited_team", slug: "invited-team", name: "Invited Team" };
+    await addFakeSession(page, baseURL);
+    await mockAuthAndMe(page, baseURL, {
+      servers: [invited, personal],
+      personal,
+      defaultServer: invited,
+    });
+    const keys = await mockMachineKeys(page, baseURL);
+
+    await page.goto("/desktop/launch");
+    await expect(page.getByText("Ready for Personal Home")).toBeVisible();
+    await page.getByRole("button", { name: "Connect this computer" }).click();
+
+    await expect(page).toHaveURL(/\/s\/personal-home(?:[?#].*)?$/);
+    expect(keys.created).toEqual([{ serverId: personal.id, name: expect.stringMatching(/^Raltic Desktop/) }]);
+    await expect.poll(async () => page.evaluate(() => (window as typeof window & { __desktopConnectPayload?: unknown }).__desktopConnectPayload)).toMatchObject({
+      serverId: personal.id,
+    });
+  });
+
   test("does not treat another workspace bridge as connected", async ({ page, baseURL }) => {
     await addFakeSession(page, baseURL);
     await mockAuthAndMe(page, baseURL);
@@ -192,6 +220,24 @@ test.describe("desktop launch surface", () => {
     await expect(page).toHaveURL(/\/desktop\/launch$/);
     await expect(page.getByText("Running for another workspace")).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect this computer" })).toBeVisible();
+  });
+
+  test("treats any running desktop workspace as connected", async ({ page, baseURL }) => {
+    await addFakeSession(page, baseURL);
+    await mockAuthAndMe(page, baseURL);
+    await page.addInitScript(() => {
+      (window as typeof window & { raltic?: unknown }).raltic = {
+        bridgeStatus: async () => ({
+          running: true,
+          serverId: "srv_other_workspace",
+          serverIds: ["srv_other_workspace", "srv_desktop_target"],
+        }),
+      };
+    });
+
+    await page.goto("/desktop/launch");
+
+    await expect(page).toHaveURL(/\/s\/desktop-home(?:[?#].*)?$/);
   });
 
   test("revokes the issued key when desktop bridge connect fails", async ({ page, baseURL }) => {

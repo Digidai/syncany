@@ -66,7 +66,7 @@ Mutating E2E (`E2E_RUN_AUTH=1`, `E2E_RUN_CHANNELS=1`) should run only against lo
 A few low-risk things that would be genuinely helpful and don't require deep context:
 
 - **Add CLI smoke tests** for argument parsing and JSON error output in `packages/cli`.
-- **Add a release preflight for desktop** so package metadata and generated artifacts are checked before publishing.
+- **Expand desktop release smoke coverage** with signed-update checks against a staging GitHub Release.
 - **Expand authenticated staging E2E** with a seeded account and cleanup strategy for channel/task flows.
 - **Improve sandbox/container release docs** around image tags, rollback, and deploy ordering.
 

@@ -158,7 +158,7 @@ pnpm e2e -- channels-flow.spec.ts
 
 ## 7. Connect your laptop's bridge
 
-Web UI → **Settings → Machine API keys → Create**. Copy the `npx -y @raltic/bridge --api-key …` command and run it on your laptop. The bridge will appear "online" within ~5 seconds.
+Web UI → **Settings → Machine API keys → Create**. Copy the `npx -y @raltic/bridge setup ck_…` command and run it on your laptop. The bridge will appear "online" within ~5 seconds.
 
 Bridge prerequisites on the laptop:
 - Node ≥ 20

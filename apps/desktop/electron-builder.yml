@@ -24,9 +24,11 @@ directories:
 
 files:
   - "out/**/*"
+  - "resources/trayTemplate.png"
   - "package.json"
 
 mac:
+  icon: resources/icon.icns
   category: public.app-category.developer-tools
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -37,12 +39,14 @@ mac:
         - x64
 
 win:
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:
         - x64
 
 linux:
+  icon: resources/icon.png
   target:
     - target: AppImage
       arch:

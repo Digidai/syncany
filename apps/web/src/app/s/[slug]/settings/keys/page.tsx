@@ -56,9 +56,12 @@ export default function MachineKeysPage() {
     try {
       const res = await api.createMachineKey({ serverId: server.id, name: keyName.trim() });
       const apiUrl = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
+      const defaultApiUrl = "https://api.raltic.com";
       setIssued({
         apiKey: res.apiKey,
-        cmd: `npx -y @raltic/bridge --api-key ${res.apiKey} --server-url ${apiUrl}`,
+        cmd: apiUrl === defaultApiUrl
+          ? `npx -y @raltic/bridge setup ${res.apiKey}`
+          : `npx -y @raltic/bridge setup ${res.apiKey} --server-url ${apiUrl}`,
       });
       setKeyName("");
       reload();

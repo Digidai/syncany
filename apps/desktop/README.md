@@ -24,6 +24,7 @@ pnpm --filter @raltic/desktop dev      # hot-reload Electron + renderer
 ## Build
 
 ```bash
+pnpm --filter @raltic/desktop icons    # regenerate app + tray icons
 pnpm --filter @raltic/desktop build    # → apps/desktop/out/
 ```
 
@@ -45,7 +46,15 @@ The desktop main process stores bridge config at `~/.raltic/desktop/config.json`
 {
   "apiKey": "ck_…",
   "serverUrl": "https://api.raltic.com",
-  "serverId": "srv_…"
+  "serverId": "srv_…",
+  "keys": [
+    {
+      "apiKey": "ck_…",
+      "serverUrl": "https://api.raltic.com",
+      "serverId": "srv_…",
+      "addedAt": 1779627000000
+    }
+  ]
 }
 ```
 
@@ -54,7 +63,9 @@ Get a machine API key from `https://raltic.com/s/<slug>/settings` (Machine API k
 Or open the **Settings** entry in the tray menu — the in-app form writes the file with `0600` perms and restarts the bridge.
 
 The one-click desktop launch flow writes `serverId` so the app only treats a
-running bridge as connected when it is scoped to the current workspace.
+running bridge as connected when it is scoped to the current workspace. The
+`keys` array lets one desktop app keep multiple workspace-scoped bridges online
+without replacing older workspace keys.
 
 After `pnpm --filter @raltic/desktop build`, run `pnpm --filter
 @raltic/desktop smoke:launch` to verify the bundled preload and restricted

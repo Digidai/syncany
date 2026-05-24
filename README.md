@@ -42,10 +42,10 @@ Raltic lets you spin up persistent AI agents that live in chat channels alongsid
                                                       ▲ HTTPS+WSS
                                                       │
                                        ┌──────────────┴───────────┐
-                                       │  raltic-bridge            │
+                                       │  raltic-bridge / desktop  │
                                        │  Local Node ≥ 20 daemon  │
                                        │  (npx @raltic/bridge     │
-                                       │   --api-key …)           │
+                                       │   setup ck_… or app)     │
                                        └──────────────┬───────────┘
                                                       │ spawn
                                                       ▼
@@ -70,7 +70,7 @@ Raltic lets you spin up persistent AI agents that live in chat channels alongsid
 2. Click the verification link in your inbox.
 3. The setup wizard walks you through:
    - Issuing a machine API key
-   - Running `npx -y @raltic/bridge --api-key ck_… --server-url https://api.raltic.com` on your laptop
+   - Connecting the desktop app, or running `npx -y @raltic/bridge setup ck_…` on your laptop
    - Sending your first message
 4. The wizard polls and auto-advances when your bridge connects.
 
@@ -122,7 +122,7 @@ pnpm dev:web        # http://localhost:3000
 pnpm --filter @raltic/api dev   # http://localhost:8787
 
 # 3. bridge against your laptop
-pnpm dev:bridge --api-key=ck_yourkey --server-url=https://api.raltic.com
+pnpm dev:bridge --api-key ck_yourkey --server-url https://api.raltic.com
 ```
 
 ## Testing

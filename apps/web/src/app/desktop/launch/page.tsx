@@ -11,8 +11,8 @@ import { apiOrigin } from "@/lib/auth-client";
 type LaunchState = "loading" | "ready" | "connecting" | "connected" | "error";
 
 interface DesktopBridgeApi {
-  bridgeStatus: () => Promise<{ running: boolean; serverId: string | null }>;
-  connectBridge?: (cfg: { apiKey: string; serverUrl?: string; serverId: string }) => Promise<{ ok: true; running: boolean; serverId: string | null }>;
+  bridgeStatus: () => Promise<{ running: boolean; serverId: string | null; serverIds?: string[] }>;
+  connectBridge?: (cfg: { apiKey: string; serverUrl?: string; serverId: string }) => Promise<{ ok: true; running: boolean; serverId: string | null; serverIds?: string[] }>;
 }
 
 declare global {
@@ -41,18 +41,23 @@ function workspaceHref(target: TargetWorkspace | null, opts?: { skipBridgeSetup?
   return opts?.skipBridgeSetup ? `${href}?skipBridgeSetup=1` : href;
 }
 
+function bridgeServerIdsFromStatus(status: { serverId: string | null; serverIds?: string[] } | null): string[] {
+  if (!status) return [];
+  return status.serverIds?.length ? status.serverIds : status.serverId ? [status.serverId] : [];
+}
+
 export default function DesktopLaunchPage() {
   const router = useRouter();
   const [state, setState] = useState<LaunchState>("loading");
   const [target, setTarget] = useState<TargetWorkspace | null>(null);
   const [bridgeRunning, setBridgeRunning] = useState(false);
-  const [bridgeServerId, setBridgeServerId] = useState<string | null>(null);
+  const [bridgeServerIds, setBridgeServerIds] = useState<string[]>([]);
   const [desktopControls, setDesktopControls] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const destination = useMemo(() => workspaceHref(target), [target]);
   const skipDestination = useMemo(() => workspaceHref(target, { skipBridgeSetup: true }), [target]);
-  const bridgeConnectedToTarget = bridgeRunning && !!target && bridgeServerId === target.id;
+  const bridgeConnectedToTarget = bridgeRunning && !!target && bridgeServerIds.includes(target.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +75,8 @@ export default function DesktopLaunchPage() {
         if (cancelled) return;
 
         const fallbackServer = me.servers[0] ?? null;
-        const targetId = me.defaultServerId ?? me.personalServerId ?? fallbackServer?.id ?? null;
-        const targetSlug = me.defaultServerSlug ?? me.personalServerSlug ?? fallbackServer?.slug ?? null;
+        const targetId = me.personalServerId ?? me.defaultServerId ?? fallbackServer?.id ?? null;
+        const targetSlug = me.personalServerSlug ?? me.defaultServerSlug ?? fallbackServer?.slug ?? null;
         const targetServer = me.servers.find((s) => s.id === targetId) ?? fallbackServer;
         const nextTarget = targetId && targetSlug
           ? { id: targetId, slug: targetSlug, name: targetServer?.name ?? "your workspace" }
@@ -79,9 +84,9 @@ export default function DesktopLaunchPage() {
 
         setTarget(nextTarget);
         setBridgeRunning(bridge?.running ?? false);
-        setBridgeServerId(bridge?.serverId ?? null);
+        setBridgeServerIds(bridgeServerIdsFromStatus(bridge));
 
-        if (bridge?.running && bridge.serverId === nextTarget?.id && nextTarget) {
+        if (bridge?.running && nextTarget && bridgeServerIdsFromStatus(bridge).includes(nextTarget.id)) {
           setState("connected");
           window.setTimeout(() => router.replace(`/s/${nextTarget.slug}`), 650);
         } else {
@@ -119,9 +124,10 @@ export default function DesktopLaunchPage() {
       const issued = await api.createMachineKey({ serverId: target.id, name: desktopKeyName() });
       issuedKeyId = issued.id;
       const result = await window.raltic.connectBridge({ apiKey: issued.apiKey, serverUrl: apiOrigin, serverId: target.id });
+      const resultServerIds = bridgeServerIdsFromStatus(result);
       setBridgeRunning(result.running);
-      setBridgeServerId(result.serverId);
-      if (!result.running || result.serverId !== target.id) {
+      setBridgeServerIds(resultServerIds);
+      if (!result.running || !resultServerIds.includes(target.id)) {
         await revokeIssuedKey(issuedKeyId);
         setError("The desktop bridge did not connect to this workspace. The temporary key was revoked; try again from this screen.");
         setState("error");

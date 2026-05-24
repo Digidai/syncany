@@ -23,6 +23,14 @@ export interface DesktopConfig {
   apiKey?: string;
   serverUrl?: string;
   serverId?: string;
+  keys?: DesktopBridgeKey[];
+}
+
+export interface DesktopBridgeKey {
+  apiKey: string;
+  serverUrl?: string;
+  serverId?: string;
+  addedAt?: number;
 }
 
 export function loadConfig(): DesktopConfig {
@@ -71,18 +79,86 @@ function normalizeServerUrl(raw: string): string | undefined {
   }
 }
 
+function normalizeBridgeKey(raw: Partial<DesktopBridgeKey>): DesktopBridgeKey | null {
+  const apiKey = raw.apiKey?.trim();
+  if (!apiKey) return null;
+  const normalized: DesktopBridgeKey = { apiKey };
+  if (raw.serverUrl?.trim()) {
+    const u = normalizeServerUrl(raw.serverUrl);
+    if (u) normalized.serverUrl = u;
+  }
+  if (raw.serverId?.trim()) normalized.serverId = raw.serverId.trim();
+  if (typeof raw.addedAt === "number" && Number.isFinite(raw.addedAt)) {
+    normalized.addedAt = raw.addedAt;
+  }
+  return normalized;
+}
+
+export function bridgeKeysFromConfig(cfg: DesktopConfig): DesktopBridgeKey[] {
+  const keys: DesktopBridgeKey[] = [];
+  const seenApiKeys = new Set<string>();
+  const add = (raw: Partial<DesktopBridgeKey>) => {
+    const normalized = normalizeBridgeKey(raw);
+    if (!normalized || seenApiKeys.has(normalized.apiKey)) return;
+    seenApiKeys.add(normalized.apiKey);
+    keys.push(normalized);
+  };
+
+  add({
+    apiKey: cfg.apiKey,
+    serverUrl: cfg.serverUrl,
+    serverId: cfg.serverId,
+  });
+  if (Array.isArray(cfg.keys)) {
+    for (const entry of cfg.keys) {
+      if (entry && typeof entry === "object") add(entry);
+    }
+  }
+  return keys;
+}
+
+function configFromKeys(keys: DesktopBridgeKey[]): DesktopConfig {
+  const primary = keys[0];
+  if (!primary) return {};
+  return {
+    apiKey: primary.apiKey,
+    serverUrl: primary.serverUrl,
+    serverId: primary.serverId,
+    keys,
+  };
+}
+
+export function upsertBridgeKey(cfg: DesktopConfig, key: DesktopBridgeKey): DesktopConfig {
+  const normalized = normalizeBridgeKey({ ...key, addedAt: key.addedAt ?? Date.now() });
+  if (!normalized) return cfg;
+
+  const keys = bridgeKeysFromConfig(cfg).filter((existing) => {
+    if (existing.apiKey === normalized.apiKey) return false;
+    return !(normalized.serverId && existing.serverId === normalized.serverId);
+  });
+  keys.push(normalized);
+  return configFromKeys(keys);
+}
+
+export function replacePrimaryBridgeKey(cfg: DesktopConfig, key: DesktopConfig): DesktopConfig {
+  const normalized = normalizeBridgeKey({
+    apiKey: key.apiKey,
+    serverUrl: key.serverUrl,
+    serverId: key.serverId,
+    addedAt: Date.now(),
+  });
+  if (!normalized) return {};
+
+  const rest = bridgeKeysFromConfig(cfg).slice(1);
+  return configFromKeys([normalized, ...rest]);
+}
+
 export function saveConfig(cfg: DesktopConfig): void {
   mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
   if (process.platform !== "win32") {
     try { chmodSync(CONFIG_DIR, 0o700); } catch { /* best-effort */ }
   }
-  const normalized: DesktopConfig = {};
-  if (cfg.apiKey?.trim()) normalized.apiKey = cfg.apiKey.trim();
-  if (cfg.serverUrl?.trim()) {
-    const u = normalizeServerUrl(cfg.serverUrl);
-    if (u) normalized.serverUrl = u;
-  }
-  if (cfg.serverId?.trim()) normalized.serverId = cfg.serverId.trim();
+  const normalized = configFromKeys(bridgeKeysFromConfig(cfg));
   // Unique temp per save so two near-simultaneous calls can't both try
   // to write the same .tmp path and clobber each other.
   const tmp = `${CONFIG_PATH}.${process.pid}.${randomUUID()}.tmp`;

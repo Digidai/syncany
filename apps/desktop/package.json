@@ -2,6 +2,7 @@
   "name": "@raltic/desktop",
   "version": "0.0.1",
   "private": true,
+  "author": "Raltic",
   "description": "Raltic desktop app — embeds the bridge daemon and the web UI in a single tray-resident Electron shell.",
   "main": "out/main/index.js",
   "type": "module",
@@ -10,9 +11,10 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
+    "icons": "node scripts/generate-icons.mjs",
     "smoke:launch": "node scripts/smoke-launch.mjs",
-    "package": "electron-vite build && electron-builder --dir",
-    "release": "node scripts/release-preflight.mjs && electron-vite build && electron-builder --publish always",
+    "package": "node scripts/generate-icons.mjs && electron-vite build && electron-builder --dir",
+    "release": "node scripts/release-preflight.mjs && node scripts/generate-icons.mjs && electron-vite build && electron-builder --dir --publish never && node scripts/smoke-launch.mjs && electron-builder --publish always",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
