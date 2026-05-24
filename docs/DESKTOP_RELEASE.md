@@ -2,6 +2,10 @@
 
 How to cut a Raltic desktop release that the auto-updater picks up.
 
+For unsigned internal testing without Apple / Windows certificates, use
+[`DESKTOP_INTERNAL_QA.md`](DESKTOP_INTERNAL_QA.md). This release runbook is only
+for public signed builds.
+
 ## Prerequisites (one-time)
 
 - **macOS code signing** — Apple Developer Program membership ($99/yr). Generate a "Developer ID Application" cert in Apple Developer → Certificates. Export to `.p12` + password.
@@ -44,6 +48,12 @@ For local packaged QA before a real publish:
 ```bash
 pnpm --filter @raltic/desktop package
 RALTIC_DESKTOP_APP=release/mac-arm64/Raltic.app/Contents/MacOS/Raltic pnpm --filter @raltic/desktop smoke:launch
+```
+
+To create unsigned shareable QA artifacts for named internal testers only:
+
+```bash
+pnpm --filter @raltic/desktop package:qa
 ```
 
 Release artifacts are host-specific: macOS builds macOS artifacts, Windows

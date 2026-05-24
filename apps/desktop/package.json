@@ -13,7 +13,8 @@
     "start": "electron-vite preview",
     "icons": "node scripts/generate-icons.mjs",
     "smoke:launch": "node scripts/smoke-launch.mjs",
-    "package": "node scripts/generate-icons.mjs && electron-vite build && electron-builder --dir",
+    "package": "node scripts/generate-icons.mjs && electron-vite build && electron-builder --dir --publish never",
+    "package:qa": "node scripts/generate-icons.mjs && electron-vite build && electron-builder --publish never",
     "release": "node scripts/release-preflight.mjs && node scripts/generate-icons.mjs && electron-vite build && electron-builder --dir --publish never && node scripts/smoke-launch.mjs && electron-builder --publish always",
     "lint": "tsc --noEmit"
   },

@@ -12,7 +12,9 @@ Minimal Electron shell that:
 - D6: persistent system tray, Settings window (`~/.raltic/desktop/config.json` editor), in-process IPC bridge
 - D7: auto-update via `electron-updater` (no-op until signed releases are published — see `docs/DESKTOP_RELEASE.md`)
 
-Code signing + notarization NOT yet configured — `pnpm release` refuses to publish without the signing env vars, so accidental unsigned releases can't ship. Run unsigned dev builds via `pnpm dev`.
+Code signing + notarization NOT yet configured — `pnpm release` refuses to
+publish without the signing env vars, so accidental unsigned releases can't
+ship. For internal unsigned QA, use `docs/DESKTOP_INTERNAL_QA.md`.
 
 ## Develop
 
@@ -26,6 +28,7 @@ pnpm --filter @raltic/desktop dev      # hot-reload Electron + renderer
 ```bash
 pnpm --filter @raltic/desktop icons    # regenerate app + tray icons
 pnpm --filter @raltic/desktop build    # → apps/desktop/out/
+pnpm --filter @raltic/desktop package  # → unpacked internal QA app
 ```
 
 ## Configure the bridge

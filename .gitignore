@@ -17,3 +17,6 @@ dist/
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Local desktop QA artifacts
+apps/desktop/release/
