@@ -68,3 +68,25 @@ export async function notifyGateway(env: Env, userId: string, msg: unknown): Pro
     });
   } catch (e) { console.warn("notifyGateway failed", userId, e); }
 }
+
+/**
+ * Phase D — close any live ChatRoom WS sessions held by a removed
+ * member. Best-effort: a fanout miss must NOT 500 the parent endpoint
+ * (delete/leave/archive); the kicked party falls back to "stops
+ * receiving on reload" if the kick fetch errors.
+ */
+export async function kickFromChannel(
+  env: Env,
+  channelId: string,
+  memberId: string,
+  memberType: "human" | "agent",
+): Promise<void> {
+  try {
+    const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(channelId));
+    await stub.fetch("https://chat-room/internal/kick", {
+      method: "POST",
+      headers: { "x-internal-secret": env.CHAT_ROOM_AUTH_SECRET, "content-type": "application/json" },
+      body: JSON.stringify({ memberId, memberType }),
+    });
+  } catch (e) { console.warn("kickFromChannel failed", channelId, memberId, e); }
+}

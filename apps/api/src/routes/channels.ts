@@ -7,7 +7,7 @@ import { and, desc, eq, lt, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
-import { notifyGateway } from "../lib/notify";
+import { notifyGateway, kickFromChannel } from "../lib/notify";
 import { z } from "zod";
 
 // Validated patch payload — replaces an unsafe `as Partial<{...}>` cast.
@@ -626,6 +626,11 @@ channelsRoutes.delete("/api/v1/channels/:id/members/:type/:memberId", requireAut
       v: 1, t: "member_remove", channelId, memberId, memberType: memberType as "human" | "agent",
     }).catch(() => { /* swallow — sidebar refreshes on next nav */ });
   }
+  // Phase D — drop the removed party's live ChatRoom WS so they
+  // stop receiving broadcasts immediately (codex C2/C4/C5 HIGH).
+  // Best-effort: fanout miss must not 500 the successful delete.
+  void kickFromChannel(c.env, channelId, memberId, memberType as "human" | "agent")
+    .catch(() => { /* swallow — passive receive window closes on reload at worst */ });
 
   return c.json({ ok: true });
 });
@@ -681,6 +686,10 @@ channelsRoutes.post("/api/v1/channels/:id/leave", requireAuth, requireUser, asyn
   void notifyGateway(c.env, subject.userId, {
     v: 1, t: "member_remove", channelId, memberId: subject.userId, memberType: "human" as const,
   }).catch(() => { /* swallow — sidebar refreshes on next nav */ });
+  // Phase D — drop this user's WS sessions from the channel DO so
+  // they stop receiving broadcasts even if they have stale tabs.
+  void kickFromChannel(c.env, channelId, subject.userId, "human")
+    .catch(() => { /* swallow */ });
 
   return c.json({ ok: true });
 });

@@ -115,11 +115,53 @@ export class ChatRoom extends DurableObject<ChatRoomEnv> {
     if (url.pathname.endsWith("/internal/seed")) return this.handleSeed(req);
     if (url.pathname.endsWith("/internal/send")) return this.handleInternalSend(req);
     if (url.pathname.endsWith("/internal/notify")) return this.handleNotify(req);
+    if (url.pathname.endsWith("/internal/kick")) return this.handleKick(req);
     // P0 W2: RalticAgent DO → ChatRoom DO streaming partial. Broadcasts
     // an agent_text_delta WS frame WITHOUT persisting (final post goes
     // through /internal/send with senderType=agent).
     if (url.pathname.endsWith("/internal/agent-partial")) return this.handleAgentPartial(req);
     return new Response("not found", { status: 404 });
+  }
+
+  /**
+   * Phase D — drop all live WebSocket sessions owned by a removed
+   * member (human or agent). Called from the api Worker on successful
+   * channel_remove_member / leave / archive so the kicked party stops
+   * receiving live broadcasts immediately, not "until they reload".
+   *
+   * Body: { memberId, memberType }. We walk every accepted WS, read
+   * its serialized attachment, and close the ones that match.
+   * - human kick: close sessions where attached.userId === memberId
+   * - agent kick: close sessions where attached.agentIds includes memberId
+   *
+   * Close code 4001 is custom-defined as "kicked from channel" — the
+   * bridge consumes this code to skip auto-reconnect for that channel
+   * (auto-reconnect on 1006 / 1011 stays normal).
+   */
+  private async handleKick(req: Request): Promise<Response> {
+    if (!checkInternalSecret(req, this.env.CHAT_ROOM_AUTH_SECRET)) {
+      return new Response("forbidden", { status: 403 });
+    }
+    const body = await req.json() as { memberId: string; memberType: "human" | "agent" };
+    let closed = 0;
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        const att = ws.deserializeAttachment() as AttachedSession | null;
+        if (!att) continue;
+        const isMatch =
+          (body.memberType === "human" && att.userId === body.memberId)
+          || (body.memberType === "agent" && att.agentIds?.includes(body.memberId));
+        if (!isMatch) continue;
+        // 4001 = custom "kicked from channel". Bridge should NOT
+        // auto-reconnect on this code; web tabs will fall through to
+        // standard reconnect-after-3s, but the next mintWsToken call
+        // will fail because the user is no longer a channel member.
+        ws.close(4001, "removed from channel");
+        this.sessions.delete(ws);
+        closed += 1;
+      } catch { /* socket already gone — counts toward "closed" semantically */ }
+    }
+    return Response.json({ ok: true, closed });
   }
 
   /** Server-to-server fanout (message edits, deletes, reactions). */
