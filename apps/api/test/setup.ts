@@ -42,13 +42,14 @@ import migration17 from "../../../packages/db/migrations/0017_aromatic_baron_zem
 import migration18 from "../../../packages/db/migrations/0018_motionless_kree.sql?raw";
 import migration19 from "../../../packages/db/migrations/0019_sloppy_wolf_cub.sql?raw";
 import migration20 from "../../../packages/db/migrations/0020_daily_lady_mastermind.sql?raw";
+import migration21 from "../../../packages/db/migrations/0021_outgoing_fallen_one.sql?raw";
 
 const ALL_MIGRATIONS = [
   migration0, migration1, migration2, migration3, migration4,
   migration5, migration6, migration7, migration8, migration9,
   migration10, migration11, migration12, migration13, migration14,
   migration15, migration16, migration17, migration18, migration19,
-  migration20,
+  migration20, migration21,
 ].join("\n");
 
 beforeAll(async () => {

@@ -141,6 +141,13 @@
       "when": 1779591463326,
       "tag": "0020_daily_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1779592629796,
+      "tag": "0021_outgoing_fallen_one",
+      "breakpoints": true
     }
   ]
 }

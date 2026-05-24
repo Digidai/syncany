@@ -427,6 +427,12 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     // Phase C — allow attachment-only messages (no text required).
     const hasAttachments = pendingAttachmentsRef.current.length > 0;
     if (!content.trim() && !hasAttachments) return false;
+    // Codex C-ui HIGH 3 — block Enter while uploads are in flight so
+    // the message doesn't ship without files the user is still adding.
+    if (uploadingCount > 0) {
+      notifyThrown("Upload in progress", new Error("Wait for uploads to finish before sending."));
+      return false;
+    }
     sendInFlightRef.current = true;
     stickToBottomRef.current = true;
     try {
@@ -756,7 +762,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           )}
           {/* Phase C — staged attachments preview row above composer */}
           {(pendingAttachments.length > 0 || uploadingCount > 0) && (
-            <div className="flex flex-wrap gap-2 px-1 pb-2">
+            <div className="flex flex-wrap gap-2 px-1 pb-2" aria-live="polite" aria-atomic="true">
               {pendingAttachments.map((a) => (
                 <div key={a.attachmentId} className="group inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs">
                   <Paperclip className="h-3 w-3 text-muted-foreground" aria-hidden="true" />

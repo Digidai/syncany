@@ -94,9 +94,15 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
         }));
       }
       if (valid.length > 0) {
-        await db.update(messageAttachments)
-          .set({ messageId: data.messageId })
-          .where(inArray(messageAttachments.id, valid.map((v) => v.id)));
+        // Drizzle's UPDATE … WHERE id IN (?) renders a single
+        // placeholder against D1 (codex C-test repro), so the array
+        // never binds. Loop one UPDATE per attachment — max 10 by
+        // protocol cap so cost is bounded.
+        for (const v of valid) {
+          await db.update(messageAttachments)
+            .set({ messageId: data.messageId })
+            .where(eq(messageAttachments.id, v.id));
+        }
       }
     } catch (e) {
       console.error(JSON.stringify({

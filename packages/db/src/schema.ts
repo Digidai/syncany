@@ -240,7 +240,14 @@ export const channelMembers = sqliteTable("channel_members", {
  */
 export const messageAttachments = sqliteTable("message_attachments", {
   id: text("id").primaryKey(),
-  messageId: text("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  // Phase C: no FK on message_id. ChatRoom DO buffers messages in its
+  // own storage and only flushes to D1 on alarm tick, so a freshly
+  // posted message-id doesn't exist in `messages` yet when we link
+  // attachments — a FK constraint would block the link UPDATE.
+  // Trade-off: orphan rows possible (link references a never-flushed
+  // message). Daily reaper cleans `messageId IS NULL AND createdAt < now - 1h`
+  // OR rows whose messageId doesn't appear in messages after a grace window.
+  messageId: text("message_id"),
   channelId: text("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
   uploaderId: text("uploader_id").notNull().references(() => user.id, { onDelete: "set null" }),
   r2Key: text("r2_key").notNull(),
