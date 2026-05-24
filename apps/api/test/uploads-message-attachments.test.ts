@@ -39,12 +39,14 @@ function asBody(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-async function uploadAttachment(authBearer: string, channelId: string, opts: UploadOptions = {}) {
+async function uploadAttachment(authBearer: string | null, channelId: string, opts: UploadOptions = {}) {
   const bytes = opts.bytes ?? SMALL_PNG;
   const headers: Record<string, string> = {
-    authorization: authBearer,
     "content-type": opts.contentType ?? "image/png",
   };
+  if (authBearer) {
+    headers.authorization = authBearer;
+  }
   if (opts.channelIdHeader !== null) {
     headers["x-raltic-channel-id"] = opts.channelIdHeader ?? channelId;
   }
@@ -157,6 +159,18 @@ describe("POST /api/v1/uploads/message-attachment", () => {
     const obj = await env.UPLOADS.get(row!.r2Key);
     expect(obj).not.toBeNull();
     expect(Array.from(new Uint8Array(await obj!.arrayBuffer()))).toEqual(Array.from(SMALL_PNG));
+  });
+
+  it("rejects unauthenticated uploads", async () => {
+    const owner = await seedUser({ name: "Owner" });
+    const srv = await seedServer(owner);
+    const channel = await seedChannel(srv, "public", [owner]);
+
+    const res = await uploadAttachment(null, channel.id);
+    expect(res.status).toBe(401);
+    const body = await res.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("UNAUTHENTICATED");
+    expect(body.error.message).toBe("sign in");
   });
 
   it("rejects machine-key bearers", async () => {
@@ -314,23 +328,25 @@ describe("POST /api/v1/uploads/message-attachment", () => {
     expect(res.status).toBe(200);
     const uploadBody = await res.json() as { attachmentId: string; filename: string };
     expect(uploadBody.filename).toBe("dir_sub_tiny.png");
+    expect(uploadBody.filename).not.toContain("/");
+    expect(uploadBody.filename).not.toContain("\\");
     const row = await attachmentRow(uploadBody.attachmentId);
     expect(row?.filename).toBe("dir_sub_tiny.png");
   });
 
-  it("decodes URL-encoded filenames from the client", async () => {
+  it("decodes URL-encoded filenames from the client before storing metadata", async () => {
     const owner = await seedUser({ name: "Owner" });
     const srv = await seedServer(owner);
     const channel = await seedChannel(srv, "public", [owner]);
 
     const res = await uploadAttachment(await userBearer(owner), channel.id, {
-      filename: "%E4%B8%AD",
+      filename: "%E4%B8%AD%20file.png",
     });
     expect(res.status).toBe(200);
     const body = await res.json() as { attachmentId: string; filename: string };
-    expect(body.filename).toBe("\u4e2d");
+    expect(body.filename).toBe("\u4e2d file.png");
     const row = await attachmentRow(body.attachmentId);
-    expect(row?.filename).toBe("\u4e2d");
+    expect(row?.filename).toBe("\u4e2d file.png");
   });
 
   it("allows an agent owner who is not a human channel member per canAddMember semantics", async () => {
@@ -534,6 +550,30 @@ describe("POST /api/v1/messages attachment link flow", () => {
     const row = await attachmentRow(upload.attachmentId);
     expect(row?.messageId).toBe(body.messageId);
     await flushChannel(channel.id);
+  });
+
+  it("rejects sending a message with attachments to an archived channel", async () => {
+    const owner = await seedUser({ name: "Owner" });
+    const srv = await seedServer(owner);
+    const channel = await seedChannel(srv, "public", [owner]);
+    const bearer = await userBearer(owner);
+    const upload = await uploadAndReadBody(bearer, channel.id);
+    await db().update(schema.channels)
+      .set({ archivedAt: new Date(), archivedBy: owner.id })
+      .where(eq(schema.channels.id, channel.id));
+
+    const res = await sendMessage(bearer, {
+      channelId: channel.id,
+      content: "after archive",
+      attachmentIds: [upload.attachmentId],
+    });
+    expect(res.status).toBe(423);
+    const body = await res.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("ARCHIVED");
+    expect(body.error.message).toBe("channel is archived");
+
+    const row = await attachmentRow(upload.attachmentId);
+    expect(row?.messageId).toBeNull();
   });
 
   it("rejects empty content with no attachments", async () => {

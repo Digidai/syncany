@@ -302,6 +302,23 @@ export const RUNTIME_MODELS: Record<RuntimeId, readonly string[]> = {
   hermes:   ["auto"],
 };
 
+/**
+ * Phase C — fetch the bearer-protected attachment bytes and return a
+ * blob: URL the browser can use as `<img src>` / `<a href>`. Lives
+ * outside the `api` object because it returns a URL, not JSON.
+ */
+export async function authedAttachmentObjectURL(apiUrl: string): Promise<string> {
+  const token = await getApiToken();
+  const res = await fetch(apiUrl, {
+    method: "GET",
+    credentials: "include",
+    headers: token ? { authorization: `Bearer sy_api_${token}` } : {},
+  });
+  if (!res.ok) throw new ApiError("ATTACHMENT_FETCH_FAILED", `attachment fetch failed: HTTP ${res.status}`, res.status);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 export const api = {
   // Optional `serverId` scopes `hasConnectedBridge` to ONE workspace
   // rather than "any workspace the user has ever bridged into". The
@@ -434,12 +451,19 @@ export const api = {
    *  subsequent sendMessage call to link it. */
   uploadAttachment: async (channelId: string, file: File) => {
     const url = `${apiOrigin}/api/v1/uploads/message-attachment`;
+    // content-length is a forbidden request header per Fetch spec —
+    // the browser sets it from `body` automatically. Authorization is
+    // attached by the same fetch wrapper the rest of api.ts uses;
+    // here we rely on the credentials: 'include' + cookie/api-token
+    // pattern that other api.* calls go through, plus a bearer header
+    // synthesized via getApiToken below.
+    const token = await getApiToken();
     const res = await fetch(url, {
       method: "POST",
       credentials: "include",
       headers: {
         "content-type": file.type || "application/octet-stream",
-        "content-length": String(file.size),
+        ...(token ? { authorization: `Bearer sy_api_${token}` } : {}),
         "x-raltic-channel-id": channelId,
         "x-raltic-filename": encodeURIComponent(file.name),
       },

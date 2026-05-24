@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
 import { sendMessageRequest, editMessageRequest, toggleReactionRequest } from "@raltic/protocol";
 import { agents, channels, channelMembers, messages, messageAttachments, reactions } from "@raltic/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
 import { requireAuth, requireUser, ctxFor } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
@@ -94,14 +94,21 @@ messagesRoutes.post("/api/v1/messages", requireAuth, async (c) => {
         }));
       }
       if (valid.length > 0) {
-        // Drizzle's UPDATE … WHERE id IN (?) renders a single
-        // placeholder against D1 (codex C-test repro), so the array
-        // never binds. Loop one UPDATE per attachment — max 10 by
-        // protocol cap so cost is bounded.
+        // Conditional UPDATE per attachment — TOCTOU guard against
+        // two concurrent sends sharing an attachmentId (codex C-sec
+        // MED). The WHERE clause re-checks message_id IS NULL +
+        // uploaderId + channelId, so the second send finds 0 rows to
+        // update (no overwrite). Looping is mandatory because drizzle
+        // renders inArray as a single placeholder against D1.
         for (const v of valid) {
           await db.update(messageAttachments)
             .set({ messageId: data.messageId })
-            .where(eq(messageAttachments.id, v.id));
+            .where(and(
+              eq(messageAttachments.id, v.id),
+              eq(messageAttachments.uploaderId, subject.userId),
+              eq(messageAttachments.channelId, body.channelId),
+              sqlFn`${messageAttachments.messageId} IS NULL`,
+            ));
         }
       }
     } catch (e) {

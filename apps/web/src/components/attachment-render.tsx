@@ -2,6 +2,7 @@
 
 import { File as FileIcon, Download, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { authedAttachmentObjectURL } from "@/lib/api";
 
 interface Attachment {
   id: string;
@@ -38,34 +39,72 @@ export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
 
 function ImageAttachment({ a }: { a: Attachment }) {
   const [open, setOpen] = useState(false);
+  // The attachment GET requires auth, but <img src> can't send a
+  // bearer header. Fetch the bytes once + use an object URL. Revoke
+  // on unmount so we don't leak blobs (codex C-sec HIGH).
+  const objectUrl = useAuthedAttachment(a.url);
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="group relative overflow-hidden rounded-md border bg-card transition-colors hover:border-foreground/30"
+        onClick={() => objectUrl && setOpen(true)}
+        disabled={!objectUrl}
+        className="group relative overflow-hidden rounded-md border bg-card transition-colors hover:border-foreground/30 disabled:cursor-default"
         aria-label={`Open ${a.filename} in lightbox`}
       >
-        {/* max-h keeps tall screenshots from eating the message column */}
-        <img
-          src={a.url}
-          alt={a.filename}
-          loading="lazy"
-          className="block max-h-64 max-w-xs cursor-zoom-in object-contain"
-          referrerPolicy="no-referrer"
-        />
+        {objectUrl ? (
+          <img
+            src={objectUrl}
+            alt={a.filename}
+            loading="lazy"
+            className="block max-h-64 max-w-xs cursor-zoom-in object-contain"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-32 w-48 items-center justify-center bg-muted/40 text-[10.5px] text-muted-foreground">
+            Loading {a.filename}…
+          </div>
+        )}
       </button>
-      {open && (
-        <Lightbox attachment={a} onClose={() => setOpen(false)} />
+      {open && objectUrl && (
+        <Lightbox attachment={a} objectUrl={objectUrl} onClose={() => setOpen(false)} />
       )}
     </>
   );
 }
 
+/** Fetch the bearer-protected attachment once and return an object URL.
+ *  Returns null while loading. Revokes on unmount. */
+function useAuthedAttachment(apiUrl: string): string | null {
+  const [obj, setObj] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    (async () => {
+      try {
+        const u = await authedAttachmentObjectURL(apiUrl);
+        if (cancelled) { URL.revokeObjectURL(u); return; }
+        createdUrl = u;
+        setObj(u);
+      } catch { /* swallow — UI shows placeholder */ }
+    })();
+    return () => {
+      cancelled = true;
+      if (createdUrl) try { URL.revokeObjectURL(createdUrl); } catch { /* ignore */ }
+    };
+  }, [apiUrl]);
+  return obj;
+}
+
 function FileAttachment({ a }: { a: Attachment }) {
+  // Same bearer issue as images — anchor href can't send Authorization,
+  // so fetch once + serve from object URL. The browser still treats the
+  // download="..." attribute correctly against blob: URLs.
+  const objectUrl = useAuthedAttachment(a.url);
   return (
     <a
-      href={a.url}
+      href={objectUrl ?? "#"}
+      onClick={(e) => { if (!objectUrl) e.preventDefault(); }}
       download={a.filename}
       target="_blank"
       rel="noopener noreferrer"
@@ -84,7 +123,7 @@ function FileAttachment({ a }: { a: Attachment }) {
   );
 }
 
-function Lightbox({ attachment, onClose }: { attachment: Attachment; onClose: () => void }) {
+function Lightbox({ attachment, objectUrl, onClose }: { attachment: Attachment; objectUrl: string; onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   // Codex C-ui HIGH 1+2 — focus management: capture the previously-focused
   // element on mount so we can restore on unmount, focus the Close
@@ -119,14 +158,14 @@ function Lightbox({ attachment, onClose }: { attachment: Attachment; onClose: ()
         <X className="h-5 w-5" />
       </button>
       <img
-        src={attachment.url}
+        src={objectUrl}
         alt={attachment.filename}
         className="max-h-full max-w-full object-contain"
         onClick={(e) => e.stopPropagation()}
         referrerPolicy="no-referrer"
       />
       <a
-        href={attachment.url}
+        href={objectUrl}
         download={attachment.filename}
         target="_blank"
         rel="noopener noreferrer"
