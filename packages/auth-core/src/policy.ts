@@ -322,15 +322,19 @@ export const policy = {
     /**
      * Add new members (humans or agents) to a channel.
      *
-     * Rule: caller must already be a member of the channel. This is the
-     * Slack model for private channels, and it scales to public too —
-     * if you're not in the room, you're not pulling people into it.
-     * For public channels, anyone who wants in can self-join via
-     * `/channels/:id/join`, so there's no exclusion problem.
+     * Rule: caller must already be a participant — either a channel
+     * member themselves OR the owner of an agent that's in the
+     * channel. This is the Slack model for private channels, and it
+     * scales to public too: if you're not in the room, you're not
+     * pulling people into it. For public channels, anyone who wants in
+     * can self-join via `/channels/:id/join`, so there's no exclusion
+     * problem.
      *
-     * Side benefit: keeps the "outsider can't add themselves to a
-     * private channel" invariant — they're not a member, so this gate
-     * fails before any DB write.
+     * Including agent owners is intentional (codex C1 MED): a user who
+     * deploys an agent into a channel is logically a stakeholder of
+     * that channel and should be able to invite collaborators, even if
+     * they aren't a human member themselves (e.g. a service-account-
+     * style agent in an ops channel).
      *
      * DM channels are special-cased at the route layer (always 2
      * fixed members); this gate doesn't see them.
@@ -354,8 +358,13 @@ export const policy = {
     canRemoveMember: async (ctx: AuthCtx, channelId: string): Promise<boolean> =>
       policy.channels.canUpdate(ctx, channelId),
     /**
-     * Leave the channel yourself. Only check: you have to be a member
-     * (or own an agent that's a member, for the agent self-leave path).
+     * Leave the channel yourself. Caller must be a current
+     * participant — either a channel member directly OR the owner of
+     * an agent in the channel (so an agent owner can self-leave via
+     * the agent path; route-level filter scopes the actual DELETE to
+     * the calling user's row, so the agent-owner branch is a harmless
+     * no-op delete unless the user is also a member).
+     *
      * No "last admin" lock — abandoned channels can be cleaned up by
      * the server owner via DELETE. Keeps the gate dumb + predictable.
      */

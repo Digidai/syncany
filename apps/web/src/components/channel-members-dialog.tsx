@@ -10,6 +10,7 @@ import { Button } from "@raltic/ui/components/ui/button";
 import { Input } from "@raltic/ui/components/ui/input";
 import { api, ApiError, type Agent, type Channel, type ChannelMember } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type PersonRow = { userId: string; name: string; email: string | null; image: string | null };
 
@@ -18,11 +19,12 @@ interface Props {
   /** Channel members straight from api.getChannel. The dialog
    *  re-fetches names/avatars separately to keep this prop simple. */
   initialMembers: ChannelMember[];
-  /** True if the viewer is allowed to add OR remove members. Caller
-   *  computes this — usually channel creator OR server owner OR
-   *  (for "Add", any current member). Splitting the two would let
-   *  ordinary members add but not remove; v1 keeps it simple. */
-  canManage: boolean;
+  /** Viewer can add new humans + agents (any current member can,
+   *  matches policy.channels.canAddMember). */
+  canAdd: boolean;
+  /** Viewer can remove OTHER members (channel creator OR workspace
+   *  owner only, matches policy.channels.canRemoveMember). */
+  canRemove: boolean;
   /** Self user id — needed to disable the "remove me" button on
    *  self-row (self-leave uses a different endpoint). */
   selfUserId: string;
@@ -33,7 +35,7 @@ interface Props {
 }
 
 export function ChannelMembersDialog({
-  channel, initialMembers, canManage, selfUserId, open, onOpenChange, onChanged,
+  channel, initialMembers, canAdd, canRemove, selfUserId, open, onOpenChange, onChanged,
 }: Props) {
   // Resolved roster (names + avatars). Keyed by `${type}:${id}`.
   const [people, setPeople] = useState<Map<string, PersonRow>>(new Map());
@@ -47,6 +49,11 @@ export function ChannelMembersDialog({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Pending-removal target — drives the ConfirmDialog. Cleared when
+  // the dialog closes (cancel) or after the remove call completes.
+  const [removeTarget, setRemoveTarget] = useState<
+    { type: "human" | "agent"; id: string; label: string } | null
+  >(null);
 
   useEffect(() => {
     if (!open) return;
@@ -128,14 +135,14 @@ export function ChannelMembersDialog({
     }
   }
 
-  async function handleRemove(memberType: "human" | "agent", memberId: string, label: string) {
-    if (busy) return;
-    if (!confirm(`Remove ${label} from #${channel.name}?`)) return;
+  async function performRemove() {
+    if (!removeTarget || busy) return;
     setBusy(true);
     try {
-      await api.removeChannelMember(channel.id, memberType, memberId);
-      notifySuccess(`Removed ${label}`);
+      await api.removeChannelMember(channel.id, removeTarget.type, removeTarget.id);
+      notifySuccess(`Removed ${removeTarget.label}`);
       window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+      setRemoveTarget(null);
       onChanged?.();
     } catch (e) {
       notifyThrown("Couldn't remove member", e);
@@ -155,7 +162,7 @@ export function ChannelMembersDialog({
           <DialogPanel>
             {!pickerOpen ? (
               <div className="space-y-3">
-                {canManage && (
+                {canAdd && (
                   <Button
                     type="button"
                     variant="outline"
@@ -165,6 +172,13 @@ export function ChannelMembersDialog({
                     <UserPlus className="h-4 w-4" />
                     Add people or agents
                   </Button>
+                )}
+                {/* Surface initial-load error in the roster view too —
+                    codex C3 MED: error was only rendered inside the
+                    picker branch, so a roster-only viewer would never
+                    see why their list is empty. */}
+                {error && !pickerOpen && (
+                  <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
                 )}
                 <div className="max-h-80 overflow-y-auto rounded-md border bg-card/40">
                   {humanMembers.length === 0 && agentMembers.length === 0 ? (
@@ -192,8 +206,8 @@ export function ChannelMembersDialog({
                                 )}
                                 primary={label + (isSelf ? " (you)" : "")}
                                 secondary={p?.email ?? ""}
-                                canRemove={canManage && !isSelf}
-                                onRemove={() => handleRemove("human", m.memberId, label)}
+                                canRemove={canRemove && !isSelf}
+                                onRemove={() => setRemoveTarget({ type: "human", id: m.memberId, label })}
                               />
                             );
                           })}
@@ -217,8 +231,8 @@ export function ChannelMembersDialog({
                                 }
                                 primary={label}
                                 secondary={a ? `${a.runtime} · @${a.name}` : ""}
-                                canRemove={canManage}
-                                onRemove={() => handleRemove("agent", m.memberId, label)}
+                                canRemove={canRemove}
+                                onRemove={() => setRemoveTarget({ type: "agent", id: m.memberId, label })}
                               />
                             );
                           })}
@@ -332,6 +346,18 @@ export function ChannelMembersDialog({
           )}
         </DialogPopup>
       </DialogPortal>
+      {removeTarget && (
+        <ConfirmDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}
+          title={`Remove ${removeTarget.label} from #${channel.name}?`}
+          description="They lose access immediately. You can add them back at any time."
+          confirmLabel="Remove"
+          destructive
+          busy={busy}
+          onConfirm={performRemove}
+        />
+      )}
     </Dialog>
   );
 }

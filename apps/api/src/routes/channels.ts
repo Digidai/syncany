@@ -126,9 +126,14 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
   const channel = chRows[0];
   // viewerCanManage = same gate as PATCH/DELETE (channel creator OR
   // workspace owner). UI uses it to show Rename/Delete/Remove-other.
-  // Computing it here saves the client a second round-trip and keeps
-  // the policy as the single source of truth.
-  const viewerCanManage = await policy.channels.canUpdate(ctx, channelId);
+  // viewerCanAddMembers = any current member can add (matches
+  // policy.channels.canAddMember). Split into two flags after codex
+  // C5 MED — earlier UI conflated them and under-exposed Add for
+  // non-creator members.
+  const [viewerCanManage, viewerCanAddMembers] = await Promise.all([
+    policy.channels.canUpdate(ctx, channelId),
+    policy.channels.canAddMember(ctx, channelId),
+  ]);
 
   // DM peer resolution — same shape as /servers/by-slug returns per
   // channel. The message-area header uses this to render the OTHER
@@ -162,7 +167,7 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
       }
     }
   }
-  return c.json({ channel, members, peer, viewerCanManage });
+  return c.json({ channel, members, peer, viewerCanManage, viewerCanAddMembers });
 });
 
 // ---------------------------------------------------------------------------
@@ -304,8 +309,14 @@ channelsRoutes.post("/api/v1/channels/:id/members", requireAuth, requireUser, as
     return c.json({ error: { code: "BAD_REQ", message: "cannot add members to a DM" } }, 400);
   }
 
-  const reqMemberIds = body.memberIds ?? [];
-  const reqAgentIds = body.agentIds ?? [];
+  // Dedupe each list — protect against a misbehaving client and against
+  // the cross-type PK collision codex M3 flagged (channel_members PK is
+  // (channel_id, member_id) WITHOUT member_type, so the same id can't be
+  // both a human and an agent in the same channel). If a caller sends
+  // an id in BOTH lists we drop it from the agent list — human wins.
+  const reqMemberIds = Array.from(new Set(body.memberIds ?? []));
+  const reqAgentIds = Array.from(new Set(body.agentIds ?? []))
+    .filter((id) => !reqMemberIds.includes(id));
 
   // Validate every human is in the same workspace — otherwise a caller
   // could shove strangers into private channels of their workspace.
@@ -354,24 +365,51 @@ channelsRoutes.post("/api/v1/channels/:id/members", requireAuth, requireUser, as
     ]);
   }
 
-  // Real-time fanout to each newly-added human + each newly-added agent's
-  // owner so their sidebars pick up the channel without a refresh. The
-  // existing member_add event is already wired into UserGateway.
-  const userIdsToNotify = new Set<string>(newHumans);
+  // Real-time fanout, per-recipient + per-event-type.
+  //
+  // Codex C2 HIGH: previous version always sent {memberType: "human",
+  // memberId: <recipientUserId>} even when the actual event was an
+  // agent join. The bridge listens to member_add to update its
+  // channel→agent map (packages/bridge-core/src/agent-manager.ts) and
+  // never sees the new agent if we mislabel it as a human-self-join,
+  // so the agent stays silent in the channel until the bridge reconnects.
+  //
+  // Build one notification per (recipient, event) pair: a human gets
+  // an add for themselves; an agent's owner gets an add for the agent.
+  type Notify = { userId: string; ev: { v: 1; t: "member_add"; channelId: string; memberId: string; memberType: "human" | "agent" } };
+  const notifs: Notify[] = newHumans.map((h) => ({
+    userId: h,
+    ev: { v: 1, t: "member_add", channelId, memberId: h, memberType: "human" },
+  }));
   if (newAgents.length > 0) {
-    const ownerRows = await db.select({ ownerId: agents.ownerId }).from(agents)
+    const ownerRows = await db.select({ id: agents.id, ownerId: agents.ownerId }).from(agents)
       .where(inArray(agents.id, newAgents));
-    for (const r of ownerRows) userIdsToNotify.add(r.ownerId);
+    for (const r of ownerRows) {
+      notifs.push({
+        userId: r.ownerId,
+        ev: { v: 1, t: "member_add", channelId, memberId: r.id, memberType: "agent" },
+      });
+    }
   }
-  // allSettled — a fanout miss must not 500 a successful insert.
-  const results = await Promise.allSettled([...userIdsToNotify].map((uid) =>
-    notifyGateway(c.env, uid, {
-      v: 1, t: "member_add", channelId, memberId: uid, memberType: "human" as const,
-    }),
+  // Also notify the initiator so their OTHER tabs/devices pick up the
+  // change. Skip if they're already in `notifs` as a freshly-added human
+  // (which would only happen if the caller added themselves, currently
+  // impossible since canAddMember requires caller is already a member).
+  if (!notifs.some((n) => n.userId === subject.userId)) {
+    // No payload "you were added" — use a self-targeted member_add that
+    // re-affirms membership. Web handler treats it as a sidebar refresh
+    // trigger. Cheaper than inventing a new "roster_changed" event.
+    notifs.push({
+      userId: subject.userId,
+      ev: { v: 1, t: "member_add", channelId, memberId: subject.userId, memberType: "human" },
+    });
+  }
+  const results = await Promise.allSettled(notifs.map((n) =>
+    notifyGateway(c.env, n.userId, n.ev),
   ));
   for (const r of results) {
     if (r.status === "rejected") {
-      console.error(JSON.stringify({
+      console.warn(JSON.stringify({
         ts: new Date().toISOString(), level: "warn",
         msg: "channel.add_member.notify_failed", channelId,
         error: r.reason instanceof Error ? r.reason.message : String(r.reason),
@@ -421,23 +459,53 @@ channelsRoutes.delete("/api/v1/channels/:id/members/:type/:memberId", requireAut
     return c.json({ error: { code: "BAD_REQ", message: "use POST /leave to remove yourself" } }, 400);
   }
 
-  const result = await db.delete(channelMembers).where(and(
+  // Codex C2 MED: precheck membership BEFORE delete so we don't fan out
+  // a notify (or do a cross-workspace agent owner lookup) for a no-op
+  // call. Idempotent semantics: not-a-member → 200 alreadyRemoved=true.
+  const existing = await db.select({ memberId: channelMembers.memberId })
+    .from(channelMembers).where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, memberId),
+      eq(channelMembers.memberType, memberType as "human" | "agent"),
+    )).limit(1);
+  if (existing.length === 0) {
+    return c.json({ ok: true, alreadyRemoved: true });
+  }
+
+  await db.delete(channelMembers).where(and(
     eq(channelMembers.channelId, channelId),
     eq(channelMembers.memberId, memberId),
     eq(channelMembers.memberType, memberType as "human" | "agent"),
   ));
-  // D1 doesn't return affected-rows for delete in a portable way; the
-  // operation is idempotent so a no-op silent success is fine.
-  void result;
+
+  // SECURITY TODO (codex C2/C4/C5 HIGH): we delete the D1 row + emit
+  // member_remove via UserGateway, but ChatRoom DO keeps any open
+  // channel WS bound to this user/agent and continues broadcasting.
+  // Until ChatRoom learns to drop sockets on membership change, a
+  // removed user with an open tab keeps receiving messages until
+  // reload. Bridge tokens are 7-day signed and channel-scoped; same
+  // window. See docs/SECURITY_TODO_channel_member_kick.md (todo).
+  //
+  // Mitigation in scope: server already refuses sends/typing/history
+  // from non-members (chat-room.ts canPost/canRead checks per RPC),
+  // so the removed party can only PASSIVELY receive — not post.
 
   // Notify the removed party so their sidebar drops the channel live.
+  // Send with the actual removed memberId+memberType so the receiving
+  // UserGateway / bridge can identify what to drop.
   let notifyTargetUserId: string | null = null;
   if (memberType === "human") {
     notifyTargetUserId = memberId;
   } else {
-    const owner = await db.select({ ownerId: agents.ownerId }).from(agents)
-      .where(eq(agents.id, memberId)).limit(1);
-    if (owner[0]) notifyTargetUserId = owner[0].ownerId;
+    // Scope agent lookup to the channel's workspace — defense-in-depth
+    // against a future bug where canRemoveMember passes incorrectly.
+    const chRow = await db.select({ serverId: channels.serverId }).from(channels)
+      .where(eq(channels.id, channelId)).limit(1);
+    if (chRow[0]) {
+      const owner = await db.select({ ownerId: agents.ownerId }).from(agents)
+        .where(and(eq(agents.id, memberId), eq(agents.serverId, chRow[0].serverId))).limit(1);
+      if (owner[0]) notifyTargetUserId = owner[0].ownerId;
+    }
   }
   if (notifyTargetUserId) {
     void notifyGateway(c.env, notifyTargetUserId, {
@@ -462,9 +530,6 @@ channelsRoutes.post("/api/v1/channels/:id/leave", requireAuth, requireUser, asyn
   const limited = await rateLimit(c, "channel_leave", subject.userId, 30, 3600);
   if (limited) return limited;
 
-  const ctx = ctxFor(c);
-  await requirePolicy(policy.channels.canLeave(ctx, channelId));
-
   const db = drizzle(c.env.DB);
   const chRows = await db.select({ type: channels.type }).from(channels)
     .where(eq(channels.id, channelId)).limit(1);
@@ -472,6 +537,23 @@ channelsRoutes.post("/api/v1/channels/:id/leave", requireAuth, requireUser, asyn
   if (chRows[0].type === "dm") {
     return c.json({ error: { code: "BAD_REQ", message: "cannot leave a DM" } }, 400);
   }
+
+  // Idempotency (codex C2 MED): don't require policy.canLeave gate to
+  // pass for "already left" — a second click after sidebar removal
+  // races a stale tab. Pre-check membership and return alreadyLeft=true
+  // when there's nothing to delete. Real auth still needed for FIRST leave.
+  const existing = await db.select({ memberId: channelMembers.memberId })
+    .from(channelMembers).where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, subject.userId),
+      eq(channelMembers.memberType, "human"),
+    )).limit(1);
+  if (existing.length === 0) {
+    return c.json({ ok: true, alreadyLeft: true });
+  }
+  // Now run the actual auth gate — channel + workspace scoping.
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canLeave(ctx, channelId));
 
   await db.delete(channelMembers).where(and(
     eq(channelMembers.channelId, channelId),
@@ -583,7 +665,7 @@ channelsRoutes.post("/api/v1/channels", requireAuth, async (c) => {
   ));
   for (const r of results) {
     if (r.status === "rejected") {
-      console.error(JSON.stringify({
+      console.warn(JSON.stringify({
         ts: new Date().toISOString(), level: "warn",
         msg: "channel.create.notify_failed", channelId: id,
         error: r.reason instanceof Error ? r.reason.message : String(r.reason),

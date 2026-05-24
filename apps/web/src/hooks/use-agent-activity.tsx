@@ -243,6 +243,34 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
                   [msg.userId]: { online: msg.online, lastSeenAt: msg.lastSeenAt },
                 },
               }));
+            } else if (msg.t === "member_add" || msg.t === "member_remove") {
+              // Cross-tab + cross-device sidebar refresh. The acting
+              // tab dispatches this locally too via "raltic:channels-changed",
+              // so this path is for OTHER tabs/devices of the same user.
+              // We just nudge — sidebar refetches getServerBySlug from
+              // its own listener and gets the truth.
+              //
+              // On member_remove, also clear cached unread/maxSeq for
+              // the dropped channel so a future rejoin doesn't carry
+              // stale seqs (codex C4 MED — seedChannel merges with
+              // Math.max, otherwise the old marker would stick).
+              if (msg.t === "member_remove") {
+                setChannelMaxSeq((prev) => {
+                  if (!(msg.channelId in prev)) return prev;
+                  const next = { ...prev };
+                  delete next[msg.channelId];
+                  return next;
+                });
+                setChannelLastRead((prev) => {
+                  if (!(msg.channelId in prev)) return prev;
+                  const next = { ...prev };
+                  delete next[msg.channelId];
+                  return next;
+                });
+              }
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+              }
             }
           } catch { /* ignore decode errors */ }
         };

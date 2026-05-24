@@ -387,7 +387,15 @@ export const api = {
   getServerBySlug: (slug: string) =>
     call<{ server: Server; channels: Channel[]; agents: Agent[] }>(`/api/v1/servers/by-slug/${encodeURIComponent(slug)}`),
   getChannel: (id: string) =>
-    call<{ channel: Channel; members: ChannelMember[]; peer: Channel["peer"]; viewerCanManage: boolean }>(`/api/v1/channels/${encodeURIComponent(id)}`),
+    call<{
+      channel: Channel;
+      members: ChannelMember[];
+      peer: Channel["peer"];
+      /** Creator OR workspace owner — can rename, delete, remove others. */
+      viewerCanManage: boolean;
+      /** Any current channel member — can invite humans + agents. */
+      viewerCanAddMembers: boolean;
+    }>(`/api/v1/channels/${encodeURIComponent(id)}`),
   listAgents: () => call<{ agents: Agent[] }>("/api/v1/agents"),
   mintWsToken: (channelId: string) =>
     call<{ token: string; wsUrl: string }>("/api/v1/ws/token", {

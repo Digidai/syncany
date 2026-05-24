@@ -38,6 +38,9 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   // Cached viewer-can-manage flag from api.getChannel — drives the
   // header's settings/delete affordances. Re-fetched every channel switch.
   const [viewerCanManage, setViewerCanManage] = useState(false);
+  // viewerCanAddMembers — any channel member can invite. Separate flag
+  // because canManage is creator/owner-only and would under-expose Add.
+  const [viewerCanAddMembers, setViewerCanAddMembers] = useState(false);
   // DM peer — populated by api.getChannel; used by the header to render
   // the OTHER party's display name instead of channels.name (which for
   // human↔human DMs is just a hex slug, never an actual person's name).
@@ -123,6 +126,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         setChannelPeer(chData.peer);
         setMembers(chData.members);
         setViewerCanManage(chData.viewerCanManage ?? false);
+        setViewerCanAddMembers(chData.viewerCanAddMembers ?? false);
         setAgents(agData.agents);
         setMessages(msgData.messages);
         setToken(tokData.token);
@@ -499,7 +503,10 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   return (
     <div className="flex flex-1 flex-col min-w-0">
       <header className="flex items-center justify-between gap-3 border-b bg-gradient-to-b from-card to-card/60 px-6 py-3.5">
-        <div className="flex min-w-0 items-center gap-2.5">
+        {/* Left cluster: type chip + title. min-w-0 + flex-1 lets the
+            title truncate when the right cluster squeezes (codex C5
+            MED — narrow-pane overflow). */}
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {channel?.type && (
             <span
               aria-hidden
@@ -547,12 +554,14 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               selfUserId={userId}
               serverSlug={serverSlug}
               canManage={viewerCanManage}
+              canAddMembers={viewerCanAddMembers}
               onChanged={async () => {
                 try {
                   const r = await api.getChannel(channel.id);
                   setChannel(r.channel);
                   setMembers(r.members);
                   setViewerCanManage(r.viewerCanManage ?? false);
+                  setViewerCanAddMembers(r.viewerCanAddMembers ?? false);
                 } catch { /* noop — next nav refetches */ }
               }}
             />

@@ -11,6 +11,7 @@ import { api, ApiError, type Channel, type ChannelMember } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { ChannelSettingsDialog } from "./channel-settings-dialog";
 import { ChannelMembersDialog } from "./channel-members-dialog";
+import { ConfirmDialog } from "./confirm-dialog";
 
 interface Props {
   channel: Channel;
@@ -18,10 +19,11 @@ interface Props {
   selfUserId: string;
   serverSlug: string;
   /** True if viewer is channel creator OR workspace owner. Used to
-   *  gate Settings (rename/desc/delete) + Remove other members.
-   *  Computed by the caller from `channel.createdBy === selfUserId
-   *  || viewerRole === "owner"`. */
+   *  gate Settings (rename/desc/delete) + Remove other members. */
   canManage: boolean;
+  /** True if viewer is any current channel member — used to gate
+   *  the Add Members action (server's policy.canAddMember). */
+  canAddMembers: boolean;
   /** Called after any successful add/remove/rename so the channel
    *  header re-fetches member + channel state. */
   onChanged?: () => void;
@@ -36,28 +38,25 @@ interface Props {
  * DMs are special-cased out at the call site; they don't have
  * members to manage or a name to rename.
  */
-export function ChannelActions({ channel, members, selfUserId, serverSlug, canManage, onChanged }: Props) {
+export function ChannelActions({ channel, members, selfUserId, serverSlug, canManage, canAddMembers, onChanged }: Props) {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const humanCount = members.filter(m => m.memberType === "human").length;
 
   async function handleLeave() {
     if (leaving) return;
-    if (!confirm(`Leave #${channel.name}? You'll lose access to its history until someone adds you back.`)) return;
     setLeaving(true);
     try {
       await api.leaveChannel(channel.id);
       notifySuccess(`Left #${channel.name}`);
       window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+      setLeaveConfirmOpen(false);
       router.push(`/s/${serverSlug}`);
     } catch (e) {
-      if (e instanceof ApiError) {
-        notifyThrown("Couldn't leave channel", e);
-      } else {
-        notifyThrown("Couldn't leave channel", e);
-      }
+      notifyThrown("Couldn't leave channel", e instanceof ApiError ? e : new Error(String(e)));
     } finally {
       setLeaving(false);
     }
@@ -65,6 +64,9 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      {/* Members chip — count visible at >=sm, icon-only on narrow.
+          The label-only-on-wider-viewports rule keeps the right cluster
+          from squeezing the title on mobile (codex C5 MED). */}
       <button
         type="button"
         onClick={() => setMembersOpen(true)}
@@ -73,7 +75,7 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
         title="View members"
       >
         <Users className="h-3.5 w-3.5" />
-        {humanCount}
+        <span className="hidden sm:inline">{humanCount}</span>
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -92,7 +94,7 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
             {canManage ? "Channel settings" : "View details"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLeave} variant="destructive" disabled={leaving}>
+          <DropdownMenuItem onClick={() => setLeaveConfirmOpen(true)} variant="destructive">
             <LogOut className="h-4 w-4" />
             Leave channel
           </DropdownMenuItem>
@@ -110,11 +112,22 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
       <ChannelMembersDialog
         channel={channel}
         initialMembers={members}
-        canManage={canManage}
+        canRemove={canManage}
+        canAdd={canAddMembers}
         selfUserId={selfUserId}
         open={membersOpen}
         onOpenChange={setMembersOpen}
         onChanged={onChanged}
+      />
+      <ConfirmDialog
+        open={leaveConfirmOpen}
+        onOpenChange={setLeaveConfirmOpen}
+        title={`Leave #${channel.name}?`}
+        description="You'll lose access to its history until someone adds you back."
+        confirmLabel="Leave channel"
+        destructive
+        busy={leaving}
+        onConfirm={handleLeave}
       />
     </div>
   );
