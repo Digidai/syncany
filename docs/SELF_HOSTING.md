@@ -5,11 +5,14 @@ This guide walks you through deploying your own Raltic on Cloudflare Workers, en
 ## What you'll end up with
 
 - Two Cloudflare Workers: `raltic-web` (Next.js UI + auth) and `raltic-api` (Hono REST + WS + Durable Objects).
-- One D1 database holding all data (12 tables).
+- One D1 database holding all application data.
 - One KV namespace for sliding-window rate limiting.
+- Two R2 buckets: uploads and daily D1 backups.
+- Durable Objects for channels, user gateways, workspace presence, cloud agents, and sandbox containers.
+- Optional-but-current production bindings for Workers AI, Vectorize, and an OpenAI-compatible LLM gateway.
 - Auth + email via better-auth + Cloudflare Email Sending (Workers Paid plan, currently in public beta).
 - Optional Google OAuth.
-- A bridge running on each machine where you want agents to live.
+- A bridge running on each machine where you want local agents to live.
 
 ## Prerequisites
 
@@ -34,12 +37,27 @@ wrangler whoami
 ```bash
 wrangler d1 create raltic-prod                # → note database_id
 wrangler kv namespace create raltic-rate-limits   # → note id
+wrangler r2 bucket create raltic-uploads
+wrangler r2 bucket create raltic-backups
+wrangler vectorize create raltic-messages-v2 --dimensions 1024 --metric cosine
+wrangler vectorize create-metadata-index raltic-messages-v2 --property-name channelId --type string
+wrangler vectorize create-metadata-index raltic-messages-v2 --property-name senderType --type string
+wrangler vectorize create-metadata-index raltic-messages-v2 --property-name ts --type number
 ```
 
 Edit `apps/web/wrangler.jsonc` and `apps/api/wrangler.jsonc`:
-- replace `database_id`, `kv_namespaces[0].id`, and `account_id`
+- replace `database_id`, `kv_namespaces[0].id`, bucket names if changed, Vectorize index name, and `account_id`
 - update `vars.WEB_ORIGIN`, `vars.NEXT_PUBLIC_RALTIC_API_URL`, `vars.EMAIL_FROM`
 - if not using Google OAuth, remove `vars.GOOGLE_CLIENT_ID`
+
+For cloud-native agents, build and push the sandbox image before API deploy:
+
+```bash
+docker build --platform linux/amd64 -f packages/sandbox-image/Dockerfile -t raltic-sandbox:0.1.0 .
+npx wrangler containers push raltic-sandbox:0.1.0
+```
+
+Then update the `containers[0].image` tag in `apps/api/wrangler.jsonc`.
 
 ## 3. Apply the database schema
 
@@ -54,7 +72,7 @@ npx wrangler d1 execute raltic-prod --remote \
   --command "select name from sqlite_master where type='table';"
 ```
 
-You should see `user`, `session`, `account`, `verification`, `servers`, `server_members`, `agents`, `channels`, `channel_members`, `messages`, `tasks`, `machine_keys`.
+You should see the better-auth tables (`user`, `session`, `account`, `verification`) plus Raltic tables such as `servers`, `server_members`, `agents`, `channels`, `channel_members`, `messages`, `tasks`, `machine_keys`, connector tables, and upload/vector indexing columns. The exact list follows `packages/db/migrations/`.
 
 ## 4. Set secrets
 
@@ -65,6 +83,15 @@ For each Worker (`raltic-web` and `raltic-api`) you need the **same** values for
 
 …and `raltic-web` additionally needs (optional):
 - `BETTER_AUTH_GOOGLE_CLIENT_SECRET` (Google OAuth)
+
+`raltic-api` additionally needs these for production-equivalent cloud agents, backups, and connector encryption:
+
+- `CONNECTOR_TOKEN_KEY`
+- `LLM_API_KEY`
+- `CF_API_TOKEN`
+- `AI_GATEWAY_TOKEN` (only if `AI_GATEWAY_BASE` points at Cloudflare AI Gateway)
+
+`CF_ACCOUNT_ID` and `D1_DATABASE_ID` live in `apps/api/wrangler.jsonc` vars because they are identifiers, not secrets.
 
 Email sending uses the `EMAIL` worker binding declared in both
 `apps/web/wrangler.jsonc` and `apps/api/wrangler.jsonc` under `send_email[]`;
@@ -110,6 +137,25 @@ curl -i -X POST https://raltic-web.<sub>.workers.dev/api/auth/sign-up/email \
 
 Then check your inbox.
 
+Run the read-only E2E smoke against the deployed workers:
+
+```bash
+E2E_BASE_URL=https://raltic-web.<sub>.workers.dev \
+E2E_API_URL=https://raltic-api.<sub>.workers.dev \
+pnpm e2e
+```
+
+Authenticated channel E2E is opt-in and writes rows; use a seeded staging/local account, not a real production account:
+
+```bash
+E2E_RUN_CHANNELS=1 \
+RALTIC_E2E_EMAIL=... \
+RALTIC_E2E_PASSWORD=... \
+E2E_BASE_URL=https://raltic-web.<sub>.workers.dev \
+E2E_API_URL=https://raltic-api.<sub>.workers.dev \
+pnpm e2e -- channels-flow.spec.ts
+```
+
 ## 7. Connect your laptop's bridge
 
 Web UI → **Settings → Machine API keys → Create**. Copy the `npx -y @raltic/bridge --api-key …` command and run it on your laptop. The bridge will appear "online" within ~5 seconds.
@@ -136,8 +182,9 @@ Cloudflare dashboard → each Worker → **Settings → Triggers → Custom Doma
 - **Email not arriving** — `EMAIL_FROM` domain not verified for Cloudflare Email Sending. Verify in dashboard → Email → Domains; ensure DKIM/SPF/DMARC TXT records were added (auto for zones on Cloudflare DNS).
 - **`Invalid email or password` even with correct password** — secrets out of sync between web and api Workers (BETTER_AUTH_SECRET specifically). Re-run step 4 with the same value on both.
 - **Bridge `npx` 404** — Try `pnpm dlx @raltic/bridge` or `git clone … && pnpm dev:bridge`.
-- **Verify-email link 404** — middleware likely intercepting `/api/auth/*`. `apps/web/src/middleware.ts` PUBLIC_PATHS must include `/api/auth`.
+- **Verify-email link 404** — `apps/web/src/middleware.ts` likely does not allow `/api/auth/*`; `PUBLIC_PATHS` must include `/api/auth`.
 - **Welcome messages don't appear** — web Worker needs `NEXT_PUBLIC_RALTIC_API_URL` var pointing at the deployed api Worker.
+- **Cloud agents fail before first turn** — confirm `LLM_API_KEY`, `AI_GATEWAY_BASE`, `CONNECTOR_TOKEN_KEY`, the `SANDBOX` Durable Object binding, and the container image tag all exist in `apps/api/wrangler.jsonc`.
 
 ## Future migrations
 

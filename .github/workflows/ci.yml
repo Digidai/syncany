@@ -23,16 +23,17 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Typecheck every workspace package via direct tsc, bypassing turbo
-      # (turbo runs `lint` script per package, which is ESLint for web — its
-      # advisory React Compiler warnings aren't gating bugs and have their
-      # own dev-loop signal). Direct tsc gates every package's TypeScript
-      # without ESLint noise, and auto-picks up new packages.
+      # Typecheck every workspace package via direct tsc, bypassing turbo so
+      # packages that use `lint` as their tsc wrapper and apps that use ESLint
+      # can be gated independently.
       - name: Typecheck all packages (direct tsc)
         run: pnpm --filter './packages/*' --filter './apps/*' --filter '!@raltic/web' --filter '!@raltic/sandbox-image' exec tsc --noEmit
       - name: Typecheck web (separate — uses Next plugin)
         working-directory: apps/web
         run: npx tsc --noEmit
+      - name: Lint web
+        working-directory: apps/web
+        run: pnpm run lint
 
   build:
     name: Build (Next + Worker dry-run)
@@ -47,9 +48,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build Next.js (web)
+      - name: Build OpenNext Worker (web)
         working-directory: apps/web
-        run: npx next build
+        run: npx opennextjs-cloudflare build
         env:
           NEXT_PUBLIC_RALTIC_API_URL: https://raltic-api.example.workers.dev
       - name: Build api Worker (dry run)
@@ -72,6 +73,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify test migration imports
+        run: pnpm test:migrations
       - name: Run all package tests
         run: pnpm -r test --run
 
@@ -108,7 +111,7 @@ jobs:
           fi
       - name: Install Playwright browser
         run: pnpm e2e:install
-      - name: Run E2E
+      - name: Run read-only E2E smoke
         run: pnpm e2e
       - name: Upload Playwright report on failure
         if: failure()

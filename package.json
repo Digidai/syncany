@@ -10,7 +10,10 @@
     "db:generate": "pnpm --filter @raltic/db generate",
     "db:push": "pnpm --filter @raltic/db push",
     "test": "pnpm -r test --run",
+    "test:migrations": "node scripts/check-test-migrations.mjs",
     "e2e": "playwright test",
+    "e2e:visual": "E2E_RUN_VISUAL=1 playwright test e2e/visual-snapshots.spec.ts",
+    "e2e:update-visual": "E2E_RUN_VISUAL=1 playwright test e2e/visual-snapshots.spec.ts --update-snapshots",
     "e2e:install": "playwright install chromium"
   },
   "devDependencies": {

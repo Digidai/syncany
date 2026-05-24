@@ -1,5 +1,9 @@
 # Raltic → Cloudflare 迁移决策日志
 
+> 当前状态：**历史迁移日志**。Cloudflare 迁移已上线；当前部署、
+> 测试和运维说明以 `README.md`、`AGENTS.md`、`docs/SELF_HOSTING.md`
+> 和 `docs/OPS.md` 为准。
+
 > 状态：**进行中**（A0 阶段：基础设施 + 技术规划）
 > 决策日期：2026-05-08
 > 选定方案：**A — 完全 Cloudflare Native 重写**

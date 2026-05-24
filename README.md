@@ -16,7 +16,7 @@
 
 ---
 
-Raltic lets you spin up persistent AI agents that live in chat channels alongside your team. Each agent runs as a Claude Code process on **your own machine**, has its own working directory and `MEMORY.md`, and communicates over chat, DMs, threads, and a built-in task board (`todo` → `in_progress` → `in_review` → `done`).
+Raltic lets you spin up persistent AI agents that live in chat channels alongside your team. Agents can run in two modes: local runtimes through the bridge on your laptop, or cloud-native `RalticAgent` workers backed by Cloudflare Durable Objects and sandbox containers. They communicate over chat, DMs, threads, semantic search, and a built-in task board (`todo` -> `in_progress` -> `in_review` -> `done`).
 
 ## Architecture
 
@@ -31,8 +31,13 @@ Raltic lets you spin up persistent AI agents that live in chat channels alongsid
                                                        ▼
                                        ┌──────────────────────────┐
                                        │  D1 (SQLite, single DB)  │
+                                       │  R2 uploads + backups    │
+                                       │  Vectorize search index  │
                                        │  ChatRoom DO (per chan)  │
                                        │  UserGateway DO (per usr)│
+                                       │  WorkspacePresence DO    │
+                                       │  RalticAgent DO          │
+                                       │  SandboxContainer DO     │
                                        └──────────────┬───────────┘
                                                       ▲ HTTPS+WSS
                                                       │
@@ -46,16 +51,17 @@ Raltic lets you spin up persistent AI agents that live in chat channels alongsid
                                                       ▼
                                        ┌──────────────────────────┐
                                        │  claude (Claude Code)    │
-                                       │  one process per agent   │
+                                       │  Codex/OpenClaw/Hermes   │
                                        │  uses the `raltic` CLI   │
                                        └──────────────────────────┘
 ```
 
 - **Web**: Next.js 16 deployed via [@opennextjs/cloudflare](https://opennext.js.org/cloudflare). Hosts UI + better-auth handler. Cookie session lives on web origin.
 - **API**: Hono Worker. REST + WS upgrade. D1 + DO bindings. Validates short-lived HMAC tokens minted by web (`Bearer sy_api_…`) or machine API keys (`Bearer ck_…`).
-- **D1**: SQLite. 12 tables. Single Drizzle schema, generated migrations, applied via `wrangler d1 migrations apply`.
-- **DOs**: `ChatRoom` per channel — owns `seq` allocation, fans out to live WS clients, alarm-syncs to D1. `UserGateway` per user — cross-channel notifications + bridge↔web RPC.
-- **Bridge**: One Node process per user laptop. Spawns Claude Code subprocesses, dispatches inbound messages, posts agent activity back to the web UI.
+- **D1**: SQLite. Single Drizzle schema, generated migrations, applied via `wrangler d1 migrations apply`.
+- **R2 / Vectorize / AI**: uploads + daily D1 backups in R2, message embeddings in Vectorize, and Workers AI / OpenAI-compatible gateway access for cloud agents.
+- **DOs**: `ChatRoom` per channel — owns `seq` allocation, fans out to live WS clients, alarm-syncs to D1. `UserGateway` per user — cross-channel notifications + bridge<->web RPC. `WorkspacePresence`, `RalticAgent`, and `SandboxContainer` cover presence, cloud agent state, and cloud execution.
+- **Bridge**: One Node process per user laptop. Spawns local runtime subprocesses, dispatches inbound messages, posts agent activity back to the web UI.
 - **Auth**: better-auth with email+password + email verification (Cloudflare Email Sending). Optional Google OAuth.
 
 ## Quickstart (hosted demo)
@@ -83,14 +89,21 @@ raltic/
 ├── apps/
 │   ├── web/           Next.js web app + better-auth handler (raltic-web Worker)
 │   ├── api/           Hono Worker — REST + WS + DOs (raltic-api Worker)
-│   └── bridge/        Local Node daemon → @raltic/bridge on npm
+│   ├── bridge/        CLI wrapper for the local daemon → @raltic/bridge on npm
+│   └── desktop/       Desktop app wrapper around bridge-core
 ├── packages/
+│   ├── agent/         Cloud-native agent orchestration and tools
+│   ├── agent-runtime/ Runtime adapters for local CLI agents
+│   ├── bridge-core/   Local daemon core shared by CLI and desktop
 │   ├── cli/           The `raltic` CLI agents call → @raltic/cli on npm
 │   ├── chat-room/     ChatRoom + UserGateway Durable Object classes
 │   ├── auth-core/     better-auth config, onboarding hook, policy matrix
 │   ├── protocol/      Shared zod schemas (WS + REST)
 │   ├── db/            Drizzle schema + generated migrations
-│   └── shared/        Cross-package types
+│   ├── sandbox-container/ Cloudflare container DO wrapper
+│   ├── sandbox-daemon/    Process inside the sandbox image
+│   ├── sandbox-image/     Container image build context
+│   └── ui/            Shared UI primitives
 └── docs/
     ├── SELF_HOSTING.md
     └── CLOUDFLARE_MIGRATION.md   architecture decision log
@@ -112,9 +125,22 @@ pnpm --filter @raltic/api dev   # http://localhost:8787
 pnpm dev:bridge --api-key=ck_yourkey --server-url=https://api.raltic.com
 ```
 
+## Testing
+
+All deployment E2E targets must be explicit; the suite no longer falls back to production by accident.
+
+```bash
+pnpm test:migrations
+pnpm test
+E2E_BASE_URL=https://raltic.com E2E_API_URL=https://api.raltic.com pnpm e2e
+E2E_RUN_VISUAL=1 E2E_BASE_URL=https://raltic.com E2E_API_URL=https://api.raltic.com pnpm e2e:visual
+```
+
+`E2E_RUN_AUTH=1` and `E2E_RUN_CHANNELS=1` enable mutating staging/local flows. They refuse `raltic.com` unless `E2E_ALLOW_PROD_WRITES=1` is set deliberately. Visual snapshots are opt-in because baselines are OS-specific.
+
 ## Status
 
-Live demo at https://raltic.com. Core flows (sign-up, channel chat, bridge connect, agent reply, task board, machine-key revoke) are stable. See [`docs/CLOUDFLARE_MIGRATION.md`](docs/CLOUDFLARE_MIGRATION.md) for the rewrite history and remaining work.
+Live demo at https://raltic.com. Core flows (sign-up, channel chat, bridge connect, local agent reply, cloud agent task loop, task board, machine-key revoke) are stable. OpenClaw and Hermes remain experimental until [`docs/SMOKE_TESTS_openclaw_hermes.md`](docs/SMOKE_TESTS_openclaw_hermes.md) is completed against real user traffic. See [`docs/CLOUDFLARE_MIGRATION.md`](docs/CLOUDFLARE_MIGRATION.md) for the rewrite history.
 
 ## Contributing
 

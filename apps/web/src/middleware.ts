@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Keep this as middleware.ts for Cloudflare/OpenNext. Next.js 16 recommends
+// proxy.ts, but Proxy always runs on the Node runtime and OpenNext Cloudflare
+// does not support Node middleware yet.
+
 // Routes that DON'T require a session cookie. They handle their own auth
 // (return 401 JSON instead of being middleware-redirected to /login).
 //
@@ -161,7 +165,7 @@ function applySecurityHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (isPublicPath(pathname)) return applySecurityHeaders(NextResponse.next());
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {

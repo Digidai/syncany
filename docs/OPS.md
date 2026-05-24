@@ -19,25 +19,24 @@ Targeted at the on-call/maintainer rotating through Raltic infra. Pair with
 ### Backup token — least privilege
 
 The scheduled handler calls Cloudflare's D1 export endpoint with
-`Authorization: Bearer ${CF_API_TOKEN}`. The token only needs:
+`Authorization: Bearer ${CF_API_TOKEN}`. Cloudflare currently requires:
 
-- **Account → D1 Read** (account-scoped to the Raltic CF account).
+- **Account -> D1 Edit** (account-scoped to the Raltic CF account).
 - No zone-level permissions.
 - No user-level permissions, no Global API Key.
 
 Rotation:
 
 1. Cloudflare dash → My Profile → API Tokens → Create Token →
-   custom template, single permission `Account / D1 / Read`, scoped to
+   custom template, single permission `Account / D1 / Edit`, scoped to
    the Raltic account.
 2. `wrangler secret put CF_API_TOKEN --name raltic-api` (paste new token).
 3. Wait for the next cron tick (or force one in dev) and verify a fresh
    object appears under `r2://raltic-backups/d1/`.
 4. Revoke the previous token.
 
-If the D1 export endpoint ever rejects with 403 against `D1 Read`, fall
-back to `D1 Edit` and document the reason in the commit message — we want
-the minimum scope that actually works, not the minimum scope on paper.
+If Cloudflare later narrows export permission to `D1 Read`, reduce the
+scope in a follow-up commit and verify the next backup object lands in R2.
 
 ## HSTS — preload checklist
 
@@ -86,9 +85,10 @@ gunzip /tmp/backup.sql.gz
 npx wrangler d1 execute raltic-restore --remote --file /tmp/backup.sql
 ```
 
-After the restore DB looks correct, swap the `database_id` binding in
-`apps/api/wrangler.jsonc` and redeploy. Old DB stays around as a safety net
-for at least 7 days before deletion.
+After the restore DB looks correct, swap the `database_id` binding and
+`D1_DATABASE_ID` var in `apps/api/wrangler.jsonc`, swap the `database_id`
+binding in `apps/web/wrangler.jsonc`, then redeploy both Workers. Old DB
+stays around as a safety net for at least 7 days before deletion.
 
 ## Logs & errors
 
@@ -108,3 +108,20 @@ curl -fsS https://api.raltic.com/health             # api worker reachable
 curl -fsS https://raltic.com/robots.txt | head      # web worker + CSP headers
 curl -sI https://raltic.com/ | grep -iE 'strict-transport|content-security|x-frame'
 ```
+
+## Post-deploy verification
+
+Run read-only deployment smoke with explicit targets:
+
+```bash
+E2E_BASE_URL=https://raltic.com E2E_API_URL=https://api.raltic.com pnpm e2e
+```
+
+Run visual snapshots separately on the OS that owns the checked-in baselines:
+
+```bash
+E2E_RUN_VISUAL=1 E2E_BASE_URL=https://raltic.com E2E_API_URL=https://api.raltic.com pnpm e2e:visual
+```
+
+OpenClaw and Hermes remain controlled-release runtimes until
+`docs/SMOKE_TESTS_openclaw_hermes.md` passes against real CLI installs.

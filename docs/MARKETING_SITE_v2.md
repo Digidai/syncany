@@ -1,6 +1,8 @@
 # Marketing Site v2 — GTM-driven plan
 
-Status: **PROPOSAL v2 — codex-reviewed (NEEDS WORK → revised); awaiting user go/no-go before build**
+Status: **IMPLEMENTED reference note** — public marketing source of truth is now
+`apps/web/src/app/(marketing)`, `apps/web/src/middleware.ts`,
+`apps/web/src/app/sitemap.ts`, and the Playwright specs under `e2e/`.
 Author: design pass following the OpenClaw+Hermes integration (RuntimeId × 4, runtimeMode × 2).
 Last updated: 2026-05-23.
 

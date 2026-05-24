@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { mutatingTargetSkipReason } from "./helpers/env";
 
 /**
  * Channels feature — end-to-end regression against the deployed
@@ -8,6 +9,8 @@ import { test, expect, type Page } from "@playwright/test";
  *   RALTIC_E2E_EMAIL=ch-rt-…@raltic-test.local \
  *   RALTIC_E2E_PASSWORD='Test123!secure' \
  *   E2E_RUN_CHANNELS=1 \
+ *   E2E_BASE_URL=https://staging.example.com \
+ *   E2E_API_URL=https://api-staging.example.com \
  *   pnpm e2e -- channels-flow.spec.ts
  *
  * The user must already exist and have email_verified=1 (bootstrap via
@@ -27,9 +30,11 @@ import { test, expect, type Page } from "@playwright/test";
 const RUN = process.env.E2E_RUN_CHANNELS === "1";
 const EMAIL = process.env.RALTIC_E2E_EMAIL ?? "";
 const PASSWORD = process.env.RALTIC_E2E_PASSWORD ?? "";
+const TARGET_SKIP = mutatingTargetSkipReason();
 
 test.describe(RUN ? "channels flow" : "channels flow (skipped — set E2E_RUN_CHANNELS=1)", () => {
   test.skip(!RUN, "writes real channel rows to the target DB; opt-in only");
+  test.skip(Boolean(TARGET_SKIP), TARGET_SKIP ?? "");
   test.skip(RUN && (!EMAIL || !PASSWORD), "RALTIC_E2E_EMAIL + RALTIC_E2E_PASSWORD required");
 
   test.beforeEach(async ({ page }) => {

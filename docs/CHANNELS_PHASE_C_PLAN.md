@@ -1,6 +1,7 @@
-# Channels Phase C — file/image attachments (DEFERRED)
+# Channels Phase C — file/image attachments (SUPERSEDED)
 
-Status: **PLANNED, NOT STARTED**
+Status: **SUPERSEDED implementation plan**. Upload routes and later channel work
+have shipped; use current API/web code and E2E specs as source of truth.
 Owner: TBD
 Estimate: 5–7h end-to-end (schema + R2 flow + UI + codex review)
 

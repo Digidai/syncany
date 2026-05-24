@@ -1,6 +1,7 @@
 import { devices, expect, type Page, test } from "@playwright/test";
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
+const RUN_VISUAL = process.env.E2E_RUN_VISUAL === "1";
 
 async function gotoStable(page: Page, path: string) {
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
@@ -20,6 +21,8 @@ function rgbChannels(value: string): [number, number, number] {
 }
 
 test.describe("marketing visual snapshots", () => {
+  test.skip(!RUN_VISUAL, "visual snapshots are opt-in; set E2E_RUN_VISUAL=1 and run on the OS that owns the baselines");
+
   test("home desktop full page", async ({ page }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
     await gotoStable(page, "/");
@@ -121,6 +124,8 @@ const IPHONE_14 = {
 };
 
 test.describe("marketing visual snapshots on iPhone 14", () => {
+  test.skip(!RUN_VISUAL, "visual snapshots are opt-in; set E2E_RUN_VISUAL=1 and run on the OS that owns the baselines");
+
   test("home mobile", async ({ browser }) => {
     const ctx = await browser.newContext(IPHONE_14);
     const page = await ctx.newPage();

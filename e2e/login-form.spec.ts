@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const BASE_URL = process.env.E2E_BASE_URL ?? "https://raltic.com";
 const AUTH_ROUTE = "**/api/auth/**";
 
 function emailInput(page: Page): Locator {
