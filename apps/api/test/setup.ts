@@ -32,11 +32,21 @@ import migration7 from "../../../packages/db/migrations/0007_task_inbox_index.sq
 import migration8 from "../../../packages/db/migrations/0008_default_server.sql?raw";
 import migration9 from "../../../packages/db/migrations/0009_servers_seeded.sql?raw";
 import migration10 from "../../../packages/db/migrations/0010_friendly_mac_gargan.sql?raw";
+import migration11 from "../../../packages/db/migrations/0011_greedy_night_thrasher.sql?raw";
+import migration12 from "../../../packages/db/migrations/0012_keen_iron_fist.sql?raw";
+import migration13 from "../../../packages/db/migrations/0013_polite_charles_xavier.sql?raw";
+import migration14 from "../../../packages/db/migrations/0014_connector_constraints.sql?raw";
+import migration15 from "../../../packages/db/migrations/0015_invite_email_binding.sql?raw";
+import migration16 from "../../../packages/db/migrations/0016_peaceful_sway.sql?raw";
+import migration17 from "../../../packages/db/migrations/0017_aromatic_baron_zemo.sql?raw";
+import migration18 from "../../../packages/db/migrations/0018_motionless_kree.sql?raw";
+import migration19 from "../../../packages/db/migrations/0019_sloppy_wolf_cub.sql?raw";
 
 const ALL_MIGRATIONS = [
   migration0, migration1, migration2, migration3, migration4,
   migration5, migration6, migration7, migration8, migration9,
-  migration10,
+  migration10, migration11, migration12, migration13, migration14,
+  migration15, migration16, migration17, migration18, migration19,
 ].join("\n");
 
 beforeAll(async () => {
