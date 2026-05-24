@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, BellOff, Bot, LogOut, MoreHorizontal, Settings, Users } from "lucide-react";
+import { Bell, BellOff, Bot, LogOut, MoreHorizontal, Settings, Star, StarOff, Users } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
@@ -45,6 +45,27 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [togglingMute, setTogglingMute] = useState(false);
+  const [togglingStar, setTogglingStar] = useState(false);
+
+  async function handleToggleStar() {
+    if (togglingStar) return;
+    setTogglingStar(true);
+    try {
+      if (channel.starredAt != null) {
+        await api.unstarChannel(channel.id);
+        notifySuccess(`#${channel.name} unstarred`);
+      } else {
+        await api.starChannel(channel.id);
+        notifySuccess(`#${channel.name} starred`);
+      }
+      window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+      onChanged?.();
+    } catch (e) {
+      notifyThrown("Couldn't update star", e);
+    } finally {
+      setTogglingStar(false);
+    }
+  }
 
   async function handleToggleMute() {
     if (togglingMute) return;
@@ -130,6 +151,13 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
           <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
             <Settings className="h-4 w-4" />
             {canManage ? "Channel settings" : "View details"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggleStar} disabled={togglingStar}>
+            {channel.starredAt != null ? (
+              <><StarOff className="h-4 w-4" />Unstar channel</>
+            ) : (
+              <><Star className="h-4 w-4" />Star channel</>
+            )}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleToggleMute} disabled={togglingMute}>
             {channel.mutedAt != null ? (

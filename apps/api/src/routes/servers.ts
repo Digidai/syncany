@@ -249,6 +249,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
       channelId: channelMembers.channelId,
       lastReadSeq: channelMembers.lastReadSeq,
       mutedAt: channelMembers.mutedAt,
+      starredAt: channelMembers.starredAt,
     }).from(channelMembers).where(and(
       eq(channelMembers.memberId, subject.userId),
       eq(channelMembers.memberType, "human"),
@@ -257,6 +258,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
   // Compute unread per channel via a single SQL aggregation.
   const lastReadByChannel = new Map(unreadRows.map(r => [r.channelId, r.lastReadSeq ?? 0]));
   const mutedByChannel = new Map(unreadRows.map(r => [r.channelId, r.mutedAt]));
+  const starredByChannel = new Map(unreadRows.map(r => [r.channelId, r.starredAt]));
   const channelIds = chans.map(c => c.id);
   const seqRows = channelIds.length === 0 ? [] : await db
     .select({ channelId: messages.channelId, maxSeq: sqlFn<number>`max(${messages.seq})` })
@@ -342,6 +344,7 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
     const maxSeq = maxSeqByChannel.get(c.id) ?? 0;
     const lastReadSeq = lastReadByChannel.get(c.id) ?? 0;
     const muted = mutedByChannel.get(c.id);
+    const starred = starredByChannel.get(c.id);
     return {
       ...c,
       maxSeq,
@@ -355,6 +358,9 @@ serversRoutes.get("/api/v1/servers/by-slug/:slug", requireAuth, async (c) => {
       // Phase A — null = not muted. Sidebar uses this to de-emphasize
       // muted channels (no bold + no badge). Per-user, not per-channel.
       mutedAt: muted instanceof Date ? muted.getTime() : (muted ?? null),
+      // Phase E — null = not starred. Sidebar sorts starred above
+      // non-starred within the same section + shows a ⭐ marker.
+      starredAt: starred instanceof Date ? starred.getTime() : (starred ?? null),
     };
   });
 

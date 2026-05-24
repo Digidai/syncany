@@ -141,21 +141,27 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
   const [viewerCanManage, viewerCanAddMembers, viewerMembership] = await Promise.all([
     policy.channels.canUpdate(ctx, channelId),
     policy.channels.canAddMember(ctx, channelId),
-    // Viewer-specific mutedAt (Phase A bug found by codex PA3 HIGH):
-    // the bare channels row doesn't carry per-user mute state. Pull
-    // it explicitly so ChannelActions can render the Unmute branch.
-    db.select({ mutedAt: channelMembers.mutedAt })
+    // Viewer-specific mutedAt + starredAt (Phase A/E): the bare channels
+    // row doesn't carry per-user state. Pull both in one query so
+    // ChannelActions can render Mute/Unmute + Star/Unstar correctly.
+    db.select({
+      mutedAt: channelMembers.mutedAt,
+      starredAt: channelMembers.starredAt,
+    })
       .from(channelMembers).where(and(
         eq(channelMembers.channelId, channelId),
         eq(channelMembers.memberId, subject.userId),
         eq(channelMembers.memberType, "human"),
       )).limit(1),
   ]);
-  // Surface as a millisecond timestamp so the wire shape matches the
-  // sidebar's mutedAt from /servers/by-slug.
+  // Surface as ms timestamps so the wire shape matches what the sidebar
+  // already gets from /servers/by-slug.
   const viewerMutedAt = viewerMembership[0]?.mutedAt instanceof Date
     ? viewerMembership[0].mutedAt.getTime()
     : (viewerMembership[0]?.mutedAt ?? null);
+  const viewerStarredAt = viewerMembership[0]?.starredAt instanceof Date
+    ? viewerMembership[0].starredAt.getTime()
+    : (viewerMembership[0]?.starredAt ?? null);
 
   // DM peer resolution — same shape as /servers/by-slug returns per
   // channel. The message-area header uses this to render the OTHER
@@ -194,7 +200,7 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
     // fix). Spreading lets the web client just read channel.mutedAt
     // without a separate field — the sidebar already does this via
     // getServerBySlug, keeping the two shapes aligned.
-    channel: { ...channel, mutedAt: viewerMutedAt },
+    channel: { ...channel, mutedAt: viewerMutedAt, starredAt: viewerStarredAt },
     members, peer, viewerCanManage, viewerCanAddMembers,
   });
 });
@@ -736,6 +742,52 @@ channelsRoutes.post("/api/v1/channels/:id/mute", requireAuth, requireUser, async
   // user's tabs need to know; they update via the local channels-changed
   // event the UI dispatches alongside.
   return c.json({ ok: true, mutedAt: now.getTime() });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/channels/:id/star  +  DELETE — per-user sidebar pin
+//
+// Same membership requirement as mute: only members can star their
+// own channels. Starred channels sort above non-starred peers in the
+// sidebar but stay in the same section (no separate "Starred" group).
+// Idempotent: re-starring just refreshes starred_at.
+// ---------------------------------------------------------------------------
+channelsRoutes.post("/api/v1/channels/:id/star", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_star", subject.userId, 60, 3600);
+  if (limited) return limited;
+  const db = drizzle(c.env.DB);
+  const membership = await db.select({ memberId: channelMembers.memberId })
+    .from(channelMembers).where(and(
+      eq(channelMembers.channelId, channelId),
+      eq(channelMembers.memberId, subject.userId),
+      eq(channelMembers.memberType, "human"),
+    )).limit(1);
+  if (membership.length === 0) {
+    return c.json({ error: { code: "NOT_MEMBER", message: "join the channel before starring it" } }, 403);
+  }
+  const now = new Date();
+  await db.update(channelMembers).set({ starredAt: now }).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, subject.userId),
+    eq(channelMembers.memberType, "human"),
+  ));
+  return c.json({ ok: true, starredAt: now.getTime() });
+});
+
+channelsRoutes.delete("/api/v1/channels/:id/star", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_unstar", subject.userId, 60, 3600);
+  if (limited) return limited;
+  const db = drizzle(c.env.DB);
+  await db.update(channelMembers).set({ starredAt: null }).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, subject.userId),
+    eq(channelMembers.memberType, "human"),
+  ));
+  return c.json({ ok: true });
 });
 
 channelsRoutes.delete("/api/v1/channels/:id/mute", requireAuth, requireUser, async (c) => {

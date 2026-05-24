@@ -1,0 +1,1 @@
+ALTER TABLE `channel_members` ADD `starred_at` integer;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { api, type Channel, type Agent } from "@/lib/api";
-import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Users } from "lucide-react";
+import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Star, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
@@ -75,9 +75,19 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
     return () => window.removeEventListener("raltic:channels-changed", onChanged);
   }, [reloadChannels]);
 
-  const publicChannels = channels.filter((c) => c.type === "public");
-  const dmChannels = channels.filter((c) => c.type === "dm");
-  const privateChannels = channels.filter((c) => c.type === "private");
+  // Phase E — within each section, starred channels sort first
+  // (most recently starred → least). Non-starred follow in their
+  // existing order. Single source of truth so no other component
+  // has to re-do the sort.
+  const sortStarredFirst = (a: Channel, b: Channel) => {
+    const aS = a.starredAt ?? 0;
+    const bS = b.starredAt ?? 0;
+    if (aS !== bS) return bS - aS;
+    return 0; // preserve original order otherwise
+  };
+  const publicChannels = channels.filter((c) => c.type === "public").sort(sortStarredFirst);
+  const dmChannels = channels.filter((c) => c.type === "dm").sort(sortStarredFirst);
+  const privateChannels = channels.filter((c) => c.type === "private").sort(sortStarredFirst);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col">
@@ -439,6 +449,9 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
     >
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 truncate leading-tight">{displayName}</span>
+      {channel.starredAt != null && (
+        <Star className="h-3 w-3 shrink-0 fill-current text-amber-500" aria-label="Starred" />
+      )}
       {isMuted && (
         <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Muted" />
       )}

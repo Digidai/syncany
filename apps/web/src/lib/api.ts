@@ -214,6 +214,8 @@ export interface Channel {
   /** Phase B — null when active; timestamp when archived. */
   archivedAt?: number | null;
   archivedBy?: string | null;
+  /** Phase E — per-user star/pin. Sidebar sorts starred above peers. */
+  starredAt?: number | null;
   unread?: number; maxSeq?: number; lastReadSeq?: number;
   /** Per-user mute timestamp (Phase A). Null = not muted. Sidebar
    *  uses this to suppress unread badge + bold weight for muted channels. */
@@ -399,6 +401,16 @@ export const api = {
     }),
   unmuteChannel: (channelId: string) =>
     call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/mute`, {
+      method: "DELETE",
+    }),
+  /** Star / unstar — per-user sidebar pin (Phase E). Starred channels
+   *  float above non-starred peers in the same section. */
+  starChannel: (channelId: string) =>
+    call<{ ok: true; starredAt: number }>(`/api/v1/channels/${encodeURIComponent(channelId)}/star`, {
+      method: "POST",
+    }),
+  unstarChannel: (channelId: string) =>
+    call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/star`, {
       method: "DELETE",
     }),
   /** Convert channel public↔private (Phase B). Membership preserved

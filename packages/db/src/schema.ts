@@ -209,6 +209,12 @@ export const channelMembers = sqliteTable("channel_members", {
   // Nullable timestamp doubles as "muted since" for any future
   // analytics; null = not muted.
   mutedAt: integer("muted_at", { mode: "timestamp_ms" }),
+  // Phase E: per-user star/pin in sidebar. Starred channels sort
+  // above their section's non-starred peers (no new "Starred" group
+  // — keeps Slack-style channel grouping intact). Timestamp doubles
+  // as "starred since" so we can sort by recency-of-pin if multiple
+  // are starred. Null = not starred.
+  starredAt: integer("starred_at", { mode: "timestamp_ms" }),
 }, (t) => [
   primaryKey({ columns: [t.channelId, t.memberId] }),
   index("ix_cm_member").on(t.memberId),
