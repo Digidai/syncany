@@ -69,7 +69,9 @@ test.describe(RUN ? "channels flow" : "channels flow (skipped — set E2E_RUN_CH
     await expect(page).toHaveURL(/\/channel\/[0-9a-f-]+$/);
 
     // -------- 2. Members chip + dialog --------
-    const membersChip = page.getByRole("button", { name: /^\d+ members?$/ });
+    // New chip surfaces both humans + agents; aria-label is
+    // "Members: N people[, M agents]" — see channel-actions.tsx.
+    const membersChip = page.getByRole("button", { name: /^Members: \d+ (person|people)/ });
     await expect(membersChip).toBeVisible({ timeout: 10000 });
     await membersChip.click();
     const membersDialog = page.getByRole("dialog", { name: new RegExp(`Members of #${channelName}`) });

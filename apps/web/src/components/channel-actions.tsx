@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, MoreHorizontal, Settings, Users } from "lucide-react";
+import { Bot, LogOut, MoreHorizontal, Settings, Users } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
@@ -45,6 +45,13 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const humanCount = members.filter(m => m.memberType === "human").length;
+  const agentCount = members.filter(m => m.memberType === "agent").length;
+  // Compose the human-readable label for tooltip + aria-label. Mirrors
+  // the Members dialog's two-section structure so a screen reader user
+  // hears the same breakdown a sighted user reads in the chip.
+  const peoplePart = `${humanCount} ${humanCount === 1 ? "person" : "people"}`;
+  const agentPart = agentCount > 0 ? `, ${agentCount} agent${agentCount === 1 ? "" : "s"}` : "";
+  const membersLabel = peoplePart + agentPart;
 
   async function handleLeave() {
     if (leaving) return;
@@ -64,18 +71,27 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {/* Members chip — count visible at >=sm, icon-only on narrow.
-          The label-only-on-wider-viewports rule keeps the right cluster
-          from squeezing the title on mobile (codex C5 MED). */}
+      {/* Members chip — surfaces BOTH humans and agents because in
+          Raltic agents are first-class channel members (matches the
+          Members dialog's two-section roster). Agent half hidden when
+          zero so single-human channels still look clean. Numbers are
+          hidden below `sm` so the right cluster doesn't squeeze the
+          channel title on mobile (codex C5 MED). */}
       <button
         type="button"
         onClick={() => setMembersOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
-        aria-label={`${humanCount} member${humanCount === 1 ? "" : "s"}`}
-        title="View members"
+        aria-label={`Members: ${membersLabel}`}
+        title={`Members: ${membersLabel}`}
       >
-        <Users className="h-3.5 w-3.5" />
+        <Users className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="hidden sm:inline">{humanCount}</span>
+        {agentCount > 0 && (
+          <>
+            <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">{agentCount}</span>
+          </>
+        )}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
