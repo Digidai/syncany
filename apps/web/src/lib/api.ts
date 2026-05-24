@@ -361,11 +361,33 @@ export const api = {
     call<{ ok: true; alreadyMember: boolean }>(`/api/v1/channels/${encodeURIComponent(channelId)}/join`, {
       method: "POST",
     }),
+  /** Bulk-add members + agents to a channel. Server validates same-workspace
+   *  for all ids and silently skips already-joined ones (returned in `skipped`). */
+  addChannelMembers: (channelId: string, body: { memberIds?: string[]; agentIds?: string[] }) =>
+    call<{
+      ok: true;
+      added: { humans: number; agents: number };
+      skipped: { humans: number; agents: number };
+    }>(`/api/v1/channels/${encodeURIComponent(channelId)}/members`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+  /** Remove ONE member from a channel. Gated server-side to channel
+   *  creator or workspace owner; self-remove rejected — use leaveChannel. */
+  removeChannelMember: (channelId: string, memberType: "human" | "agent", memberId: string) =>
+    call<{ ok: true }>(
+      `/api/v1/channels/${encodeURIComponent(channelId)}/members/${memberType}/${encodeURIComponent(memberId)}`,
+      { method: "DELETE" },
+    ),
+  /** Self-leave a channel. Always allowed for members; rejects on DMs. */
+  leaveChannel: (channelId: string) =>
+    call<{ ok: true }>(`/api/v1/channels/${encodeURIComponent(channelId)}/leave`, {
+      method: "POST",
+    }),
   listServers: () => call<{ servers: Server[] }>("/api/v1/servers"),
   getServerBySlug: (slug: string) =>
     call<{ server: Server; channels: Channel[]; agents: Agent[] }>(`/api/v1/servers/by-slug/${encodeURIComponent(slug)}`),
   getChannel: (id: string) =>
-    call<{ channel: Channel; members: ChannelMember[]; peer: Channel["peer"] }>(`/api/v1/channels/${encodeURIComponent(id)}`),
+    call<{ channel: Channel; members: ChannelMember[]; peer: Channel["peer"]; viewerCanManage: boolean }>(`/api/v1/channels/${encodeURIComponent(id)}`),
   listAgents: () => call<{ agents: Agent[] }>("/api/v1/agents"),
   mintWsToken: (channelId: string) =>
     call<{ token: string; wsUrl: string }>("/api/v1/ws/token", {

@@ -162,6 +162,21 @@ export const createChannelRequest = z.object({
 });
 export type CreateChannelRequest = z.infer<typeof createChannelRequest>;
 
+// ---- POST /api/v1/channels/:id/members ----
+//
+// Bulk-add members to an existing channel. Either list can be empty
+// but not both — sending an empty body is a no-op masquerading as an
+// API call, which is almost always a UI bug worth surfacing.
+export const addChannelMembersRequest = z
+  .object({
+    memberIds: z.array(z.string()).max(100).optional(),
+    agentIds: z.array(z.string()).max(50).optional(),
+  })
+  .refine((b) => (b.memberIds?.length ?? 0) + (b.agentIds?.length ?? 0) > 0, {
+    message: "must add at least one member or agent",
+  });
+export type AddChannelMembersRequest = z.infer<typeof addChannelMembersRequest>;
+
 // ---- PATCH /api/v1/messages/:id (edit) ----
 
 export const editMessageRequest = z.object({

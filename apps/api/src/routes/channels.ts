@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { requirePolicy, policy } from "@raltic/auth-core";
-import { listMessagesQuery, createChannelRequest, markReadRequest } from "@raltic/protocol";
+import { listMessagesQuery, createChannelRequest, markReadRequest, addChannelMembersRequest } from "@raltic/protocol";
 import { servers, serverMembers, agents, channels, channelMembers, messages, reactions, user } from "@raltic/db";
 import { and, desc, eq, lt, inArray, sql as sqlFn } from "drizzle-orm";
 import type { Env, Variables } from "../lib/env";
@@ -124,6 +124,11 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
   ]);
   if (chRows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
   const channel = chRows[0];
+  // viewerCanManage = same gate as PATCH/DELETE (channel creator OR
+  // workspace owner). UI uses it to show Rename/Delete/Remove-other.
+  // Computing it here saves the client a second round-trip and keeps
+  // the policy as the single source of truth.
+  const viewerCanManage = await policy.channels.canUpdate(ctx, channelId);
 
   // DM peer resolution — same shape as /servers/by-slug returns per
   // channel. The message-area header uses this to render the OTHER
@@ -157,7 +162,7 @@ channelsRoutes.get("/api/v1/channels/:id", requireAuth, async (c) => {
       }
     }
   }
-  return c.json({ channel, members, peer });
+  return c.json({ channel, members, peer, viewerCanManage });
 });
 
 // ---------------------------------------------------------------------------
@@ -263,6 +268,224 @@ channelsRoutes.patch("/api/v1/channels/:id", requireAuth, async (c) => {
   if (body.name !== undefined) patch.name = body.name;
   if (body.description !== undefined) patch.description = body.description;
   await db.update(channels).set(patch).where(eq(channels.id, id));
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/channels/:id/members — add humans + agents to a channel
+//
+// Authorization: caller must be a member of the channel (policy.canAddMember).
+// For private channels this enforces the invariant that only insiders can
+// pull more people in. For DMs we 400 — DMs are pairwise by definition.
+//
+// All new members must belong to the channel's server (validated here,
+// not just at create-time, since this is a separate codepath).
+//
+// Idempotent: already-member ids are silently skipped. Result reports
+// `added` + `skipped` so the UI can show "Added 3 (2 already in channel)".
+// ---------------------------------------------------------------------------
+channelsRoutes.post("/api/v1/channels/:id/members", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  // 60/hr/user — bulk-add usually one batch per channel; this cap catches a
+  // misbehaving picker firing on every keystroke.
+  const limited = await rateLimit(c, "channel_add_member", subject.userId, 60, 3600);
+  if (limited) return limited;
+  const body = addChannelMembersRequest.parse(await c.req.json());
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canAddMember(ctx, channelId));
+
+  const db = drizzle(c.env.DB);
+  const chRows = await db.select({ serverId: channels.serverId, type: channels.type })
+    .from(channels).where(eq(channels.id, channelId)).limit(1);
+  if (chRows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  const ch = chRows[0];
+  if (ch.type === "dm") {
+    return c.json({ error: { code: "BAD_REQ", message: "cannot add members to a DM" } }, 400);
+  }
+
+  const reqMemberIds = body.memberIds ?? [];
+  const reqAgentIds = body.agentIds ?? [];
+
+  // Validate every human is in the same workspace — otherwise a caller
+  // could shove strangers into private channels of their workspace.
+  if (reqMemberIds.length > 0) {
+    const rows = await db.select({ memberId: serverMembers.memberId })
+      .from(serverMembers).where(and(
+        eq(serverMembers.serverId, ch.serverId),
+        inArray(serverMembers.memberId, reqMemberIds),
+        eq(serverMembers.memberType, "human"),
+      ));
+    if (rows.length !== reqMemberIds.length) {
+      return c.json({ error: { code: "BAD_REQ", message: "one or more memberIds are not workspace members" } }, 400);
+    }
+  }
+  if (reqAgentIds.length > 0) {
+    const rows = await db.select({ id: agents.id, serverId: agents.serverId })
+      .from(agents).where(inArray(agents.id, reqAgentIds));
+    if (rows.length !== reqAgentIds.length) {
+      return c.json({ error: { code: "BAD_REQ", message: "one or more agentIds not found" } }, 400);
+    }
+    if (rows.some((r) => r.serverId !== ch.serverId)) {
+      return c.json({ error: { code: "BAD_REQ", message: "agents must belong to the same workspace" } }, 400);
+    }
+  }
+
+  // Find existing membership so we can dedupe + report skipped count.
+  const allIds = [...reqMemberIds, ...reqAgentIds];
+  const existing = allIds.length === 0 ? [] : await db
+    .select({ memberId: channelMembers.memberId, memberType: channelMembers.memberType })
+    .from(channelMembers)
+    .where(and(
+      eq(channelMembers.channelId, channelId),
+      inArray(channelMembers.memberId, allIds),
+    ));
+  const existingHuman = new Set(existing.filter(r => r.memberType === "human").map(r => r.memberId));
+  const existingAgent = new Set(existing.filter(r => r.memberType === "agent").map(r => r.memberId));
+
+  const newHumans = reqMemberIds.filter((id) => !existingHuman.has(id));
+  const newAgents = reqAgentIds.filter((id) => !existingAgent.has(id));
+
+  const now = new Date();
+  if (newHumans.length + newAgents.length > 0) {
+    await db.insert(channelMembers).values([
+      ...newHumans.map((memberId) => ({ channelId, memberId, memberType: "human" as const, joinedAt: now })),
+      ...newAgents.map((memberId) => ({ channelId, memberId, memberType: "agent" as const, joinedAt: now })),
+    ]);
+  }
+
+  // Real-time fanout to each newly-added human + each newly-added agent's
+  // owner so their sidebars pick up the channel without a refresh. The
+  // existing member_add event is already wired into UserGateway.
+  const userIdsToNotify = new Set<string>(newHumans);
+  if (newAgents.length > 0) {
+    const ownerRows = await db.select({ ownerId: agents.ownerId }).from(agents)
+      .where(inArray(agents.id, newAgents));
+    for (const r of ownerRows) userIdsToNotify.add(r.ownerId);
+  }
+  // allSettled — a fanout miss must not 500 a successful insert.
+  const results = await Promise.allSettled([...userIdsToNotify].map((uid) =>
+    notifyGateway(c.env, uid, {
+      v: 1, t: "member_add", channelId, memberId: uid, memberType: "human" as const,
+    }),
+  ));
+  for (const r of results) {
+    if (r.status === "rejected") {
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(), level: "warn",
+        msg: "channel.add_member.notify_failed", channelId,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      }));
+    }
+  }
+
+  return c.json({
+    ok: true,
+    added: { humans: newHumans.length, agents: newAgents.length },
+    skipped: { humans: reqMemberIds.length - newHumans.length, agents: reqAgentIds.length - newAgents.length },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/channels/:id/members/:type/:memberId — remove ONE member
+//
+// `:type` = "human" | "agent". Tighter gate than add: only channel creator
+// OR server owner (canRemoveMember). Self-removal goes through POST /leave
+// to keep the intent obvious in audit logs + so the rate limit + policy gate
+// can differ in the future (e.g. block "last admin" leaves without blocking
+// owner-driven removals).
+// ---------------------------------------------------------------------------
+channelsRoutes.delete("/api/v1/channels/:id/members/:type/:memberId", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const memberType = c.req.param("type");
+  const memberId = c.req.param("memberId");
+  if (memberType !== "human" && memberType !== "agent") {
+    return c.json({ error: { code: "BAD_REQ", message: "type must be human or agent" } }, 400);
+  }
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_remove_member", subject.userId, 60, 3600);
+  if (limited) return limited;
+
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canRemoveMember(ctx, channelId));
+
+  const db = drizzle(c.env.DB);
+  const chRows = await db.select({ type: channels.type }).from(channels)
+    .where(eq(channels.id, channelId)).limit(1);
+  if (chRows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  if (chRows[0].type === "dm") {
+    return c.json({ error: { code: "BAD_REQ", message: "cannot remove members from a DM" } }, 400);
+  }
+  // Block self-remove on this endpoint — force /leave so intent is clear.
+  if (memberType === "human" && memberId === subject.userId) {
+    return c.json({ error: { code: "BAD_REQ", message: "use POST /leave to remove yourself" } }, 400);
+  }
+
+  const result = await db.delete(channelMembers).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, memberId),
+    eq(channelMembers.memberType, memberType as "human" | "agent"),
+  ));
+  // D1 doesn't return affected-rows for delete in a portable way; the
+  // operation is idempotent so a no-op silent success is fine.
+  void result;
+
+  // Notify the removed party so their sidebar drops the channel live.
+  let notifyTargetUserId: string | null = null;
+  if (memberType === "human") {
+    notifyTargetUserId = memberId;
+  } else {
+    const owner = await db.select({ ownerId: agents.ownerId }).from(agents)
+      .where(eq(agents.id, memberId)).limit(1);
+    if (owner[0]) notifyTargetUserId = owner[0].ownerId;
+  }
+  if (notifyTargetUserId) {
+    void notifyGateway(c.env, notifyTargetUserId, {
+      v: 1, t: "member_remove", channelId, memberId, memberType: memberType as "human" | "agent",
+    }).catch(() => { /* swallow — sidebar refreshes on next nav */ });
+  }
+
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/channels/:id/leave — self-exit a channel
+//
+// Anyone in the channel can leave. No "last admin" lock — abandoned
+// channels can be cleaned up by the server owner via DELETE. DMs can't
+// be left (they're the entire conversation; use server-level
+// settings/people page to mute or block instead).
+// ---------------------------------------------------------------------------
+channelsRoutes.post("/api/v1/channels/:id/leave", requireAuth, requireUser, async (c) => {
+  const channelId = c.req.param("id");
+  const subject = c.get("subject");
+  const limited = await rateLimit(c, "channel_leave", subject.userId, 30, 3600);
+  if (limited) return limited;
+
+  const ctx = ctxFor(c);
+  await requirePolicy(policy.channels.canLeave(ctx, channelId));
+
+  const db = drizzle(c.env.DB);
+  const chRows = await db.select({ type: channels.type }).from(channels)
+    .where(eq(channels.id, channelId)).limit(1);
+  if (chRows.length === 0) return c.json({ error: { code: "NOT_FOUND", message: "no such channel" } }, 404);
+  if (chRows[0].type === "dm") {
+    return c.json({ error: { code: "BAD_REQ", message: "cannot leave a DM" } }, 400);
+  }
+
+  await db.delete(channelMembers).where(and(
+    eq(channelMembers.channelId, channelId),
+    eq(channelMembers.memberId, subject.userId),
+    eq(channelMembers.memberType, "human"),
+  ));
+
+  // Notify own UserGateway so this user's other tabs drop the channel
+  // from their sidebar live (the tab that initiated the leave already
+  // mutates locally; this catches multi-tab users).
+  void notifyGateway(c.env, subject.userId, {
+    v: 1, t: "member_remove", channelId, memberId: subject.userId, memberType: "human" as const,
+  }).catch(() => { /* swallow — sidebar refreshes on next nav */ });
+
   return c.json({ ok: true });
 });
 

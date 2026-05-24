@@ -140,6 +140,16 @@ export const serverMemberAdd = z.object({
   memberType: z.enum(["human", "agent"]),
 });
 
+/** Sent via UserGateway DO when a member is removed from a channel —
+ *  either kicked by an admin or self-leave. The recipient's sidebar
+ *  drops the channel live without waiting for a refresh. */
+export const serverMemberRemove = z.object({
+  v: z.literal(1), t: z.literal("member_remove"),
+  channelId: z.string(),
+  memberId: z.string(),
+  memberType: z.enum(["human", "agent"]),
+});
+
 export const serverActivity = z.object({
   v: z.literal(1), t: z.literal("activity"),
   agentId: z.string(),
@@ -226,7 +236,7 @@ export const serverRpc = z.object({
 
 export const serverMessage = z.discriminatedUnion("t", [
   serverAck, serverErr, serverMessageEvent, serverTyping, serverPresence,
-  serverMemberAdd, serverHistory, serverRpc, serverActivity,
+  serverMemberAdd, serverMemberRemove, serverHistory, serverRpc, serverActivity,
   serverMessageUpdate, serverReaction, serverChannelNew, serverRead,
   serverLeaderStatus,
   serverPresenceSnapshot, serverPresenceUpdate,

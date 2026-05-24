@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "next/navigation";
+import { ChannelActions } from "./channel-actions";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Channel, type ChannelMember, type Agent, ApiError } from "@/lib/api";
@@ -25,9 +27,17 @@ const QUICK_REACTIONS = ["👍", "❤️", "😄", "🎉", "👀", "🚀"];
 export function MessageArea({ channelId }: MessageAreaProps) {
   const session = authClient.useSession();
   const userId = session.data?.user?.id ?? "";
+  // Workspace slug used by ChannelActions for "leave / delete" router pushes.
+  // MessageArea is always rendered under /s/[slug]/{channel,dm}/[id] so
+  // the param is always present.
+  const params = useParams<{ slug?: string }>();
+  const serverSlug = params?.slug ?? "";
   const { bumpRead, seedChannel } = useGateway();
 
   const [channel, setChannel] = useState<Channel | null>(null);
+  // Cached viewer-can-manage flag from api.getChannel — drives the
+  // header's settings/delete affordances. Re-fetched every channel switch.
+  const [viewerCanManage, setViewerCanManage] = useState(false);
   // DM peer — populated by api.getChannel; used by the header to render
   // the OTHER party's display name instead of channels.name (which for
   // human↔human DMs is just a hex slug, never an actual person's name).
@@ -112,6 +122,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         setChannel(chData.channel);
         setChannelPeer(chData.peer);
         setMembers(chData.members);
+        setViewerCanManage(chData.viewerCanManage ?? false);
         setAgents(agData.agents);
         setMessages(msgData.messages);
         setToken(tokData.token);
@@ -518,13 +529,35 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             )}
           </div>
         </div>
-        <PresencePill
-          channel={channel}
-          channelPeer={channelPeer}
-          members={members}
-          userId={userId}
-          connected={connected}
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <PresencePill
+            channel={channel}
+            channelPeer={channelPeer}
+            members={members}
+            userId={userId}
+            connected={connected}
+          />
+          {/* Channel actions: members chip + ⋯ menu (Settings / Leave).
+              DMs deliberately skip this — no rename / no members to
+              manage / "leaving" a DM isn't a thing in v1. */}
+          {channel && (channel.type === "public" || channel.type === "private") && (
+            <ChannelActions
+              channel={channel}
+              members={members}
+              selfUserId={userId}
+              serverSlug={serverSlug}
+              canManage={viewerCanManage}
+              onChanged={async () => {
+                try {
+                  const r = await api.getChannel(channel.id);
+                  setChannel(r.channel);
+                  setMembers(r.members);
+                  setViewerCanManage(r.viewerCanManage ?? false);
+                } catch { /* noop — next nav refetches */ }
+              }}
+            />
+          )}
+        </div>
       </header>
 
       <div ref={scrollWrapperRef} className="relative flex-1 min-h-0">

@@ -319,6 +319,51 @@ export const policy = {
     },
     canDelete: async (ctx: AuthCtx, channelId: string) =>
       policy.channels.canUpdate(ctx, channelId),
+    /**
+     * Add new members (humans or agents) to a channel.
+     *
+     * Rule: caller must already be a member of the channel. This is the
+     * Slack model for private channels, and it scales to public too —
+     * if you're not in the room, you're not pulling people into it.
+     * For public channels, anyone who wants in can self-join via
+     * `/channels/:id/join`, so there's no exclusion problem.
+     *
+     * Side benefit: keeps the "outsider can't add themselves to a
+     * private channel" invariant — they're not a member, so this gate
+     * fails before any DB write.
+     *
+     * DM channels are special-cased at the route layer (always 2
+     * fixed members); this gate doesn't see them.
+     */
+    canAddMember: async (ctx: AuthCtx, channelId: string): Promise<boolean> => {
+      if (!(await machineScopedByChannel(ctx, channelId))) return false;
+      return (await userIsChannelMember(ctx, channelId))
+        || (await userHasAgentInChannel(ctx, channelId));
+    },
+    /**
+     * Remove another member (human or agent) from a channel.
+     *
+     * Tighter than add: only the channel creator OR the server owner.
+     * Avoids member-vs-member kick-fights; reuses the same gate as
+     * rename/delete so anyone who can mutate channel metadata can also
+     * mutate its membership.
+     *
+     * Self-leave goes through `canLeave` (always true for members) —
+     * this gate is for removing SOMEONE ELSE.
+     */
+    canRemoveMember: async (ctx: AuthCtx, channelId: string): Promise<boolean> =>
+      policy.channels.canUpdate(ctx, channelId),
+    /**
+     * Leave the channel yourself. Only check: you have to be a member
+     * (or own an agent that's a member, for the agent self-leave path).
+     * No "last admin" lock — abandoned channels can be cleaned up by
+     * the server owner via DELETE. Keeps the gate dumb + predictable.
+     */
+    canLeave: async (ctx: AuthCtx, channelId: string): Promise<boolean> => {
+      if (!(await machineScopedByChannel(ctx, channelId))) return false;
+      return (await userIsChannelMember(ctx, channelId))
+        || (await userHasAgentInChannel(ctx, channelId));
+    },
   },
   messages: {
     canRead: (ctx: AuthCtx, channelId: string) => policy.channels.canRead(ctx, channelId),
