@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       # Typecheck every workspace package via direct tsc, bypassing turbo so
       # packages that use `lint` as their tsc wrapper and apps that use ESLint
       # can be gated independently.
@@ -48,6 +50,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       - name: Build OpenNext Worker (web)
         working-directory: apps/web
         run: npx opennextjs-cloudflare build
@@ -73,6 +77,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       - name: Verify test migration imports
         run: pnpm test:migrations
       - name: Run all package tests
@@ -91,6 +97,9 @@ jobs:
     env:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
       E2E_API_URL: ${{ vars.E2E_API_URL }}
+      E2E_RUN_WORKSPACE: ${{ vars.E2E_RUN_WORKSPACE }}
+      RALTIC_E2E_EMAIL: ${{ secrets.RALTIC_E2E_EMAIL }}
+      RALTIC_E2E_PASSWORD: ${{ secrets.RALTIC_E2E_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -99,6 +108,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       - name: Validate E2E target
         run: |
           if [[ -z "${E2E_BASE_URL}" ]]; then

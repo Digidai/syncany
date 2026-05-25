@@ -29,6 +29,11 @@
     "@slock-ai/daemon": "^0.40.2"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "@heroui-pro/react",
+      "electron",
+      "heroui-pro"
+    ],
     "overrides": {
       "react-notion-avatar>@types/react": "^19",
       "react-notion-avatar>@types/react-dom": "^19",

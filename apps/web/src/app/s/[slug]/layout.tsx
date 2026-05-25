@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Sidebar } from "@/components/sidebar";
 import { api, ApiError, type Server } from "@/lib/api";
 import { AgentActivityProvider } from "@/hooks/use-agent-activity";
 import { WelcomeToast } from "@/components/welcome-toast";
+import { WorkspaceShell } from "@/components/workspace-shell";
 
 export default function ServerLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -84,16 +84,7 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
       {/* Brand background — two soft brand-tinted radial washes give the
           shell a sense of place vs flat #fff. Static, GPU-cheap, ignored
           on dark mode where they'd muddy the contrast. */}
-      <div className="relative flex h-screen overflow-hidden bg-background p-2">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 dark:hidden">
-          <div className="absolute -top-40 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(6,182,212,0.10),_transparent_65%)]" />
-          <div className="absolute -bottom-32 right-[-120px] h-[360px] w-[480px] rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(245,158,11,0.08),_transparent_65%)]" />
-        </div>
-        <Sidebar serverSlug={server.slug} serverId={server.id} serverName={server.name} serverIconUrl={server.iconUrl} />
-        <div className="flex flex-1 overflow-hidden rounded-2xl border bg-card shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.08)]">
-          {children}
-        </div>
-      </div>
+      <WorkspaceShell server={server}>{children}</WorkspaceShell>
     </AgentActivityProvider>
   );
 }

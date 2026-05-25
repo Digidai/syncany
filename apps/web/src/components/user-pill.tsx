@@ -66,6 +66,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-testid="user-pill-trigger"
         className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
         // No aria-label here — when present, it OVERRIDES the accessible
         // name computed from contents, hiding the visible username from
