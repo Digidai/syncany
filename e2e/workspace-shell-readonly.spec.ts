@@ -65,6 +65,20 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
     });
   });
 
+  test("keeps the message composer aligned as one input surface", async ({ page }) => {
+    const composer = page.getByTestId("message-composer");
+    await expect(composer).toBeVisible();
+
+    const delta = await page.evaluate(() => {
+      const attach = document.querySelector("[title='Attach file or image']")?.getBoundingClientRect();
+      const input = document.querySelector("[data-testid='message-composer-input']")?.getBoundingClientRect();
+      if (!attach || !input) return Number.POSITIVE_INFINITY;
+      return Math.abs((attach.top + attach.height / 2) - (input.top + input.height / 2));
+    });
+
+    expect(delta).toBeLessThanOrEqual(4);
+  });
+
   test("opens workspace navigation from the mobile shell", async ({ page, context }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();

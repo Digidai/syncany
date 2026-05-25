@@ -557,13 +557,24 @@ textarea:-webkit-autofill {
 }
 
 /* ── Tiptap editor in input area ── */
+.tiptap-input {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+}
+.tiptap-input > div {
+  width: 100%;
+}
 .tiptap-input .ProseMirror {
-  min-height: 24px;
+  min-height: 1.5rem;
   max-height: 160px;
   overflow-y: auto;
+  padding-block: 0.125rem;
+  line-height: 1.5;
 }
 .tiptap-input .ProseMirror p {
   margin: 0;
+  min-height: 1.5em;
 }
 .tiptap-input .ProseMirror ul,
 .tiptap-input .ProseMirror ol {

@@ -813,7 +813,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         )}
       </div>
 
-      <footer className="border-t px-6 py-3">
+      <footer className="border-t bg-card/95 px-5 py-3">
         {/* Picker floats above the composer when active. The wrapper has
             position relative so the absolute panel stays anchored to the
             footer rather than the viewport. */}
@@ -869,9 +869,12 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               when the user navigates between channels — without it the draft
               text from channel A leaks into channel B's composer because the
               editor instance is reused. */}
-          <div className="flex items-end gap-2">
+          <div
+            data-testid="message-composer"
+            className="flex min-h-11 items-center gap-2 rounded-xl border bg-background px-2 py-1.5 shadow-sm"
+          >
             <label
-              className={`inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground ${
+              className={`inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-muted/70 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
                 channel?.archivedAt != null ? "pointer-events-none opacity-50" : ""
               }`}
               title="Attach file or image"
@@ -889,24 +892,24 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 }}
               />
             </label>
-            <div className="min-w-0 flex-1">
-          <TiptapMessageInput
-            key={channelId ?? "no-channel"}
-            ref={inputRef}
-            onSend={handleSend}
-            // Phase B — composer disabled when the channel is archived.
-            // Backend rejects with 423 even if a stale tab tries to
-            // POST, but disabling client-side avoids the bad-request
-            // round-trip + clearly signals read-only state.
-            disabled={channel?.archivedAt != null}
-            placeholder={
-              channel?.archivedAt != null
-                ? "This channel is archived — read-only"
-                : composerPlaceholder
-            }
-            onTextUpdate={picker.onTextUpdate}
-            onKeyDown={picker.onKeyDown}
-          />
+            <div data-testid="message-composer-input" className="min-w-0 flex-1 px-1 text-sm">
+              <TiptapMessageInput
+                key={channelId ?? "no-channel"}
+                ref={inputRef}
+                onSend={handleSend}
+                // Phase B — composer disabled when the channel is archived.
+                // Backend rejects with 423 even if a stale tab tries to
+                // POST, but disabling client-side avoids the bad-request
+                // round-trip + clearly signals read-only state.
+                disabled={channel?.archivedAt != null}
+                placeholder={
+                  channel?.archivedAt != null
+                    ? "This channel is archived — read-only"
+                    : composerPlaceholder
+                }
+                onTextUpdate={picker.onTextUpdate}
+                onKeyDown={picker.onKeyDown}
+              />
             </div>
           </div>
         </div>
