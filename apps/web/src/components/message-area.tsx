@@ -669,8 +669,8 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950">
-      <header className="flex min-h-16 items-center justify-between gap-3 border-b border-zinc-200/70 bg-white/90 px-5 py-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90">
+    <div className="flex min-w-0 flex-1 flex-col bg-zinc-50/60 dark:bg-zinc-950">
+      <header className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-zinc-200/60 bg-white/70 px-5 py-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/80">
         {/* Left cluster: type chip + title. min-w-0 + flex-1 lets the
             title truncate when the right cluster squeezes (codex C5
             MED — narrow-pane overflow). */}
@@ -679,12 +679,8 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             <span
               aria-hidden
               className={cn(
-                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-sm font-medium shadow-sm",
-                channel.type === "dm"
-                  ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300"
-                  : channel.type === "private"
-                  ? "border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-300"
-                  : "border-cyan-200/70 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300",
+                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-medium shadow-[0_12px_28px_-18px_rgba(15,23,42,0.8)]",
+                "border-zinc-950/90 bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950",
               )}
             >
               {channel.type === "dm" ? (
@@ -748,12 +744,12 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         </div>
       </header>
 
-      <div ref={scrollWrapperRef} className="relative min-h-0 flex-1 bg-[linear-gradient(180deg,#ffffff_0%,#fbfcfd_100%)] dark:bg-[linear-gradient(180deg,#09090b_0%,#111113_100%)]">
+      <div ref={scrollWrapperRef} className="relative min-h-0 flex-1 bg-zinc-50/40 dark:bg-zinc-950">
         <ScrollArea className="absolute inset-0">
           {/* Bottom padding leaves room for the floating "N new" pill
               so it never overlaps reactions on the last message
               (codex a11y MED). 64px = pill height + breathing room. */}
-          <div ref={innerRef} className="space-y-6 px-6 pt-6 pb-16">
+          <div ref={innerRef} className="space-y-6 px-7 pt-7 pb-16">
             {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
           {!loading && loadError && (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-foreground">
@@ -820,7 +816,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         )}
       </div>
 
-      <footer className="border-t border-zinc-200/70 bg-white/90 px-5 py-3.5 shadow-[0_-1px_0_rgba(15,23,42,0.02)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90">
+      <footer className="border-t border-zinc-200/60 bg-zinc-50/70 px-5 py-3.5 shadow-[0_-1px_0_rgba(15,23,42,0.02)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/80">
         {/* Picker floats above the composer when active. The wrapper has
             position relative so the absolute panel stays anchored to the
             footer rather than the viewport. */}
@@ -878,7 +874,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               editor instance is reused. */}
           <div
             data-testid="message-composer"
-            className="flex min-h-12 items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white px-2.5 py-1.5 shadow-[0_12px_32px_-24px_rgba(15,23,42,0.45),0_1px_0_rgba(255,255,255,0.75)_inset] transition-colors focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-white/10 dark:bg-zinc-900"
+            className="flex min-h-12 items-center gap-2 rounded-2xl border border-zinc-200/75 bg-white/95 px-2.5 py-1.5 shadow-[0_12px_32px_-24px_rgba(15,23,42,0.45),0_1px_0_rgba(255,255,255,0.75)_inset] transition-colors focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-white/10 dark:bg-zinc-900"
           >
             <label
               className={`inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-zinc-100 text-muted-foreground transition-colors hover:bg-cyan-50 hover:text-cyan-700 dark:bg-white/10 dark:hover:bg-white/15 ${
