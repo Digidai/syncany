@@ -107,7 +107,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
   const sidebarContent = () => (
     <>
-      <HeroSidebar.Header className="!flex-row !items-center !gap-1 !px-2 !pb-2 !pt-2">
+      <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-3 !pb-3 !pt-3">
         <div className="flex-1 min-w-0">
           <WorkspaceSwitcher
             currentServerId={serverId}
@@ -118,7 +118,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         </div>
         <button
           onClick={() => setOpenCreate(true)}
-          className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/70 text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
           title="New channel"
           aria-label="Create channel"
         >
@@ -128,11 +128,11 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
       <HeroSidebar.Content
         data-testid="workspace-sidebar-scroll"
-        className="!min-h-0 !flex-1 !gap-0 !px-2 !pb-2 !pt-0 text-sm"
+        className="!min-h-0 !flex-1 !gap-0 !px-3 !pb-3 !pt-0 text-sm"
       >
         <nav aria-label="Workspace navigation" className="text-sm">
           {isLoading ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
+            <p className="rounded-xl border border-white/60 bg-white/50 px-3 py-2 text-xs text-muted-foreground shadow-sm dark:border-white/10 dark:bg-white/5">Loading…</p>
           ) : (
             <>
               {/* Top-level destination — sibling of Channels / DMs / Agents,
@@ -206,7 +206,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 headerAction={
                   <Link
                     href={`/s/${serverSlug}/channels`}
-                    className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-white hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10"
                     title="Browse all channels"
                     aria-label="Browse all public channels"
                   >
@@ -230,7 +230,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                   <button
                     type="button"
                     onClick={() => setOpenNewDm(true)}
-                    className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-white hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10"
                     title="Start a new direct message"
                     aria-label="Start a new direct message"
                   >
@@ -240,7 +240,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 // Render the empty-state row so the "+" stays discoverable
                 // for a brand-new workspace user who has zero DMs yet.
                 emptyHint={
-                  <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-zinc-200/80 bg-white/50 px-3 py-2 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
                     No conversations yet. Tap <span className="font-mono">+</span> to start one.
                   </p>
                 }
@@ -266,7 +266,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
-      <HeroSidebar.Footer className="!gap-0 border-t !px-2 !py-2">
+      <HeroSidebar.Footer className="!gap-0 border-t border-white/60 bg-white/25 !px-3 !py-3 dark:border-white/10 dark:bg-white/5">
         <UserPill serverSlug={serverSlug} />
       </HeroSidebar.Footer>
     </>
@@ -277,16 +277,20 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       {!isMobile && (
         <HeroSidebar.Root
           data-testid="workspace-sidebar"
-          className="!static !h-full !min-h-0 !bg-transparent !shadow-none"
+          className="!sticky !top-0 !min-h-0 !border-white/70 !bg-white/80 !shadow-[0_18px_55px_-34px_rgba(15,23,42,0.55),0_0_0_1px_rgba(255,255,255,0.66)] backdrop-blur-xl dark:!border-white/10 dark:!bg-zinc-950/80"
           style={{
-            "--sidebar-width": "16rem",
-            "--sidebar-width-collapsed": "16rem",
+            "--sidebar-width": "17.25rem",
+            "--sidebar-width-collapsed": "17.25rem",
           } as CSSProperties}
         >
           {sidebarContent()}
         </HeroSidebar.Root>
       )}
-      <HeroSidebar.Mobile data-testid="workspace-sidebar-mobile" className="!bg-background">
+      <HeroSidebar.Mobile
+        data-testid="workspace-sidebar-mobile"
+        aria-label="Workspace navigation"
+        className="!bg-white/95 dark:!bg-zinc-950"
+      >
         {isMobile ? sidebarContent() : null}
       </HeroSidebar.Mobile>
 
@@ -320,15 +324,14 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 // ── Building blocks (one source of truth for sidebar row rhythm) ──
 
 const ROW_BASE =
-  "group relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors";
-const ROW_HOVER = "hover:bg-accent";
-// Active state: cyan accent bar + soft tinted bg + a subtle glow on the
-// bar itself. The glow is what makes this feel like our app, not just
-// shadcn defaults.
+  "group relative flex min-h-9 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-all";
+const ROW_HOVER =
+  "text-zinc-700 hover:bg-white/80 hover:text-zinc-950 hover:shadow-sm dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white";
+// Active state is now a full selected surface, not the old cyan left rule.
+// That makes the HeroUI Pro rail read as a real shell instead of a restyled
+// legacy sidebar.
 const ROW_ACTIVE =
-  "bg-gradient-to-r from-cyan-500/10 to-cyan-500/[0.03] text-cyan-700 dark:text-cyan-400 " +
-  "before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:rounded-full before:bg-cyan-500 " +
-  "before:shadow-[0_0_10px_rgba(6,182,212,0.55)]";
+  "bg-zinc-950 text-white shadow-[0_12px_28px_-16px_rgba(15,23,42,0.85)] dark:bg-white dark:text-zinc-950";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
@@ -351,18 +354,18 @@ function SidebarGroup({
 }) {
   const dot = GROUP_DOT[label] ?? "bg-muted-foreground/40";
   return (
-    <div className="group/group mt-5 first:mt-0">
-      <div className="flex items-center gap-1.5 px-2 pb-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80">
+    <HeroSidebar.Group className="group/group mt-5 !gap-1.5 first:mt-0">
+      <HeroSidebar.GroupLabel className="!flex !items-center !gap-1.5 !px-2 !py-1 text-[10.5px] font-medium uppercase text-muted-foreground/80">
         <span className={cn("h-1.5 w-1.5 rounded-full", dot)} aria-hidden />
         <span className="flex-1">{label}</span>
         {headerAction}
-      </div>
-      <ul className="space-y-0.5">
+      </HeroSidebar.GroupLabel>
+      <ul className="space-y-1">
         {Array.isArray(children)
           ? children.map((c, i) => <li key={i}>{c}</li>)
           : <li>{children}</li>}
       </ul>
-    </div>
+    </HeroSidebar.Group>
   );
 }
 
@@ -385,7 +388,7 @@ function TopLevelLink({ href, icon, label, active }: {
     >
       {/* Icon takes the row's active color when selected so the active
           state reads as a single intent, not a half-tinted row. */}
-      <span className={active ? undefined : "text-muted-foreground"}>{icon}</span>
+      <span className={active ? "text-current opacity-80" : "text-muted-foreground group-hover:text-current"}>{icon}</span>
       <span className="flex-1 truncate leading-tight">{label}</span>
     </Link>
   );
@@ -435,7 +438,7 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
         isMuted && !isActive && "text-muted-foreground",
       )}
     >
-      <span className="text-muted-foreground">{icon}</span>
+      <span className={isActive ? "text-current opacity-80" : "text-muted-foreground group-hover:text-current"}>{icon}</span>
       <span className="flex-1 truncate leading-tight">{displayName}</span>
       {channel.type !== "dm" && channel.starredAt != null && (
         <Star className="h-3 w-3 shrink-0 fill-current text-amber-500" aria-label="Starred" />
@@ -464,7 +467,14 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
         <RuntimeDot runtime={channel.peer.runtime} />
       )}
       {unread > 0 && (
-        <span className="rounded-full bg-cyan-600 px-1.5 text-[10px] font-medium leading-tight text-white">
+        <span
+          className={cn(
+            "rounded-full px-1.5 text-[10px] font-medium leading-tight shadow-sm",
+            isActive
+              ? "bg-white text-zinc-950 ring-1 ring-white/30 dark:bg-zinc-950 dark:text-white dark:ring-zinc-950/20"
+              : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950",
+          )}
+        >
           {unread > 99 ? "99+" : unread}
         </span>
       )}

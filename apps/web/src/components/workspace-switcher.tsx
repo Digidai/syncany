@@ -135,7 +135,7 @@ export function WorkspaceSwitcher({
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
         onPointerDown={ensureLoaded}
-        className="group flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+        className="group flex w-full items-center gap-2.5 rounded-xl border border-white/60 bg-white/60 px-2 py-2 text-left shadow-sm transition-colors hover:border-cyan-200 hover:bg-white focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
         aria-label="Switch workspace"
       >
         <WorkspaceIcon iconUrl={currentIconUrl} name={currentServerName} size="md" />
@@ -143,7 +143,9 @@ export function WorkspaceSwitcher({
           <div className="truncate text-sm font-semibold tracking-tight">{currentServerName}</div>
           <div className="truncate text-[11px] text-muted-foreground">/{currentServerSlug}</div>
         </div>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-100/75 text-muted-foreground transition-colors group-hover:bg-cyan-50 group-hover:text-cyan-700 dark:bg-white/10">
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-(--anchor-width) min-w-72">
         {servers === null ? (
@@ -278,7 +280,7 @@ function WorkspaceIcon({
       <img
         src={iconUrl}
         alt=""
-        className={cn(dim, "rounded-md object-cover ring-1 ring-border shrink-0")}
+        className={cn(dim, "rounded-xl object-cover ring-1 ring-white/70 shrink-0 shadow-sm dark:ring-white/10")}
         referrerPolicy="no-referrer"
         loading="lazy"
       />
@@ -288,7 +290,7 @@ function WorkspaceIcon({
     <div
       className={cn(
         dim, text,
-        "flex shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-cyan-500 to-amber-500 font-semibold text-white",
+        "flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-amber-500 font-semibold text-white shadow-sm",
       )}
       aria-hidden="true"
     >

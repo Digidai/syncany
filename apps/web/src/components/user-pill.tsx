@@ -45,8 +45,8 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
   // review MED — without the reservation the footer jumps ~14px.
   if (isPending || !session?.user) {
     return (
-      <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
-        <div className="h-6 w-6 animate-pulse rounded-full bg-muted/60" />
+      <div className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/60 px-2 py-2 shadow-sm dark:border-white/10 dark:bg-white/5">
+        <div className="h-8 w-8 animate-pulse rounded-xl bg-muted/60" />
         <div className="min-w-0 flex-1">
           {/* Skeleton heights match the resolved pill: name row uses
               text-xs (~12px) → h-3 placeholder; status row uses
@@ -67,7 +67,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         data-testid="user-pill-trigger"
-        className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+        className="group flex w-full items-center gap-2 rounded-xl border border-white/60 bg-white/60 px-2 py-2 text-left shadow-sm transition-colors hover:border-cyan-200 hover:bg-white focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
         // No aria-label here — when present, it OVERRIDES the accessible
         // name computed from contents, hiding the visible username from
         // screen readers. The trigger's accessible name now comes from
@@ -80,12 +80,12 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
           <img
             src={user.image}
             alt=""
-            className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-border"
+            className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/70 dark:ring-white/10"
             referrerPolicy="no-referrer"
             loading="lazy"
           />
         ) : (
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-amber-500 text-xs font-semibold text-white shadow-sm">
             {initial}
           </div>
         )}
@@ -103,7 +103,9 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
               (mirrored in the sr-only suffix above for AT users). */}
           <SelfStatusLine />
         </div>
-        <ChevronUp className="h-3 w-3 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-100/75 text-muted-foreground transition-colors group-hover:bg-cyan-50 group-hover:text-cyan-700 dark:bg-white/10">
+          <ChevronUp className="h-3 w-3" aria-hidden="true" />
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={4} className="w-60">
         {/* Base UI 1.4 requires MenuGroupLabel (= DropdownMenuLabel) to

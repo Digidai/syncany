@@ -12,11 +12,12 @@ import { notifyThrown } from "@/lib/notify";
 import { useChannelSocket } from "@/hooks/use-channel-socket";
 import { useGateway, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 import type { MessageRow } from "@raltic/protocol";
 import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown } from "lucide-react";
+import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown, Hash, AtSign, LockKeyhole } from "lucide-react";
 import { useMentionPicker, type MentionMember } from "./mention-picker";
 import { notifySuccess } from "@/lib/notify";
 
@@ -668,32 +669,38 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   }
 
   return (
-    <div className="flex flex-1 flex-col min-w-0">
-      <header className="flex items-center justify-between gap-3 border-b bg-gradient-to-b from-card to-card/60 px-6 py-3.5">
+    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950">
+      <header className="flex min-h-16 items-center justify-between gap-3 border-b border-zinc-200/70 bg-white/90 px-5 py-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90">
         {/* Left cluster: type chip + title. min-w-0 + flex-1 lets the
             title truncate when the right cluster squeezes (codex C5
             MED — narrow-pane overflow). */}
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {channel?.type && (
             <span
               aria-hidden
-              className={
-                "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-medium " +
-                (channel.type === "dm"
-                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-sm font-medium shadow-sm",
+                channel.type === "dm"
+                  ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300"
                   : channel.type === "private"
-                  ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-                  : "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400")
-              }
+                  ? "border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-300"
+                  : "border-cyan-200/70 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300",
+              )}
             >
-              {channel.type === "dm" ? "@" : channel.type === "private" ? "🔒" : "#"}
+              {channel.type === "dm" ? (
+                <AtSign className="h-4 w-4" />
+              ) : channel.type === "private" ? (
+                <LockKeyhole className="h-4 w-4" />
+              ) : (
+                <Hash className="h-4 w-4" />
+              )}
             </span>
           )}
           <div className="min-w-0">
             {/* For DMs, header shows the OTHER party's name (peer.name).
                 For channels, shows channel.name. Falls back to the raw
                 channel.name only if peer wasn't returned (older API). */}
-            <h3 className="truncate text-base font-semibold leading-tight">
+            <h3 className="truncate text-[15px] font-semibold leading-tight text-zinc-950 dark:text-white">
               {channel?.type === "dm" && channelPeer?.name
                 ? channelPeer.name
                 : channel?.name ?? "Channel"}
@@ -741,7 +748,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         </div>
       </header>
 
-      <div ref={scrollWrapperRef} className="relative flex-1 min-h-0">
+      <div ref={scrollWrapperRef} className="relative min-h-0 flex-1 bg-[linear-gradient(180deg,#ffffff_0%,#fbfcfd_100%)] dark:bg-[linear-gradient(180deg,#09090b_0%,#111113_100%)]">
         <ScrollArea className="absolute inset-0">
           {/* Bottom padding leaves room for the floating "N new" pill
               so it never overlaps reactions on the last message
@@ -813,7 +820,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         )}
       </div>
 
-      <footer className="border-t bg-card/95 px-5 py-3">
+      <footer className="border-t border-zinc-200/70 bg-white/90 px-5 py-3.5 shadow-[0_-1px_0_rgba(15,23,42,0.02)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90">
         {/* Picker floats above the composer when active. The wrapper has
             position relative so the absolute panel stays anchored to the
             footer rather than the viewport. */}
@@ -871,10 +878,10 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               editor instance is reused. */}
           <div
             data-testid="message-composer"
-            className="flex min-h-11 items-center gap-2 rounded-xl border bg-background px-2 py-1.5 shadow-sm"
+            className="flex min-h-12 items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white px-2.5 py-1.5 shadow-[0_12px_32px_-24px_rgba(15,23,42,0.45),0_1px_0_rgba(255,255,255,0.75)_inset] transition-colors focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-white/10 dark:bg-zinc-900"
           >
             <label
-              className={`inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-muted/70 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+              className={`inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-zinc-100 text-muted-foreground transition-colors hover:bg-cyan-50 hover:text-cyan-700 dark:bg-white/10 dark:hover:bg-white/15 ${
                 channel?.archivedAt != null ? "pointer-events-none opacity-50" : ""
               }`}
               title="Attach file or image"
@@ -892,7 +899,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 }}
               />
             </label>
-            <div data-testid="message-composer-input" className="min-w-0 flex-1 px-1 text-sm">
+            <div data-testid="message-composer-input" className="min-w-0 flex-1 px-1.5 text-sm">
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}

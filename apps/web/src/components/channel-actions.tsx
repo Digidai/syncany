@@ -123,7 +123,7 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
       <button
         type="button"
         onClick={() => setMembersOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:text-foreground dark:border-white/10 dark:bg-white/5"
         aria-label={`Members: ${membersLabel}`}
         title={`Members: ${membersLabel}`}
       >
@@ -138,7 +138,7 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200/80 bg-white/80 text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:text-foreground dark:border-white/10 dark:bg-white/5"
           aria-label="Channel actions"
         >
           <MoreHorizontal className="h-4 w-4" />

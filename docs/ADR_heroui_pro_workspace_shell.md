@@ -93,3 +93,27 @@ Required before merging Phase 1:
 - Workspace a11y axe expansion beyond the new shell smoke gate
 - Bundle budget baseline and gzip delta reporting for workspace chunks
 - Removing legacy Base UI dropdowns from `UserPill`
+
+## 2026-05-25 Visual Pass Amendment
+
+The first implementation proved the technical integration but did not create a visibly different workspace. It kept too much of the old visual language:
+
+- `Sidebar.Root` was forced transparent and shadowless.
+- Navigation rows still used the old cyan left-rule active state.
+- `WorkspaceSwitcher`, `UserPill`, and the composer kept flat legacy surfaces.
+- The chat main panel looked like the previous card with slightly larger radius.
+
+The corrected visual pass keeps the same architectural constraints but changes the visible shell:
+
+- Use HeroUI Pro `Sidebar.Provider` in `floating` mode.
+- Let the desktop sidebar read as a distinct floating rail with border, blur, and elevation.
+- Turn active navigation into a full selected pill instead of a left accent line.
+- Make `WorkspaceSwitcher` and `UserPill` look like Pro sidebar controls.
+- Make the chat header and composer part of the same inset application panel.
+
+Still preserved:
+
+- HeroUI Pro remains scoped to `apps/web`.
+- `packages/ui`, desktop, API, bridge, DB, protocol, auth, and realtime contracts stay untouched.
+- Existing Next `<Link>` navigation semantics remain in place until the `Sidebar.MenuItem` migration has its own browser-verified pass.
+- `raltic:channels-changed`, unread seeding, presence, dialogs, and message scroll behavior remain acceptance constraints.

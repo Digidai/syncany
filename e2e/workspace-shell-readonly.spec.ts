@@ -20,6 +20,7 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
     const nav = page.getByRole("navigation", { name: "Workspace navigation" });
 
     await expect(shell).toBeVisible();
+    await expect(shell).toHaveAttribute("data-visual-pass", "heroui-pro-v2");
     await expect(sidebar).toHaveAttribute("data-state", "expanded");
     await expect(nav).toBeVisible();
     await expect(main).toBeVisible();
