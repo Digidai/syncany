@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { Sidebar as HeroSidebar, useSidebar } from "@heroui-pro/react/sidebar";
 import { api, type Channel, type Agent } from "@/lib/api";
 import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Star, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,10 +103,11 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
   const dmChannels = channels.filter((c) => c.type === "dm").sort(sortStarredFirst);
   const privateChannels = channels.filter((c) => c.type === "private").sort(sortStarredFirst);
   const isLoading = loading || loadedServerSlug !== serverSlug;
+  const { isMobile } = useSidebar();
 
-  return (
-    <aside className="flex w-64 shrink-0 flex-col">
-      <div className="flex items-center gap-1 px-2 pt-2 pb-2">
+  const sidebarContent = () => (
+    <>
+      <HeroSidebar.Header className="!flex-row !items-center !gap-1 !px-2 !pb-2 !pt-2">
         <div className="flex-1 min-w-0">
           <WorkspaceSwitcher
             currentServerId={serverId}
@@ -122,130 +124,135 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         >
           <Plus className="h-4 w-4" />
         </button>
-      </div>
+      </HeroSidebar.Header>
 
-      <nav className="flex-1 overflow-y-auto px-2 pb-2 text-sm">
-        {isLoading ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
-        ) : (
-          <>
-            {/* Top-level destination — sibling of Channels / DMs / Agents,
-                rendered as a single row (no section header) since there's
-                only one item under "Tasks". */}
-            <ul className="space-y-0.5">
-              <li>
-                <TopLevelLink
-                  href={`/s/${serverSlug}/inbox`}
-                  icon={<InboxIcon className="h-4 w-4" />}
-                  label="Inbox"
-                  active={pathname === `/s/${serverSlug}/inbox`}
-                />
-              </li>
-              <li>
-                <TopLevelLink
-                  href={`/s/${serverSlug}/tasks`}
-                  icon={<ListTodo className="h-4 w-4" />}
-                  label="Tasks"
-                  // Exact match — `endsWith("/tasks")` would light up
-                  // any future sub-route or a literally-named channel.
-                  active={pathname === `/s/${serverSlug}/tasks`}
-                />
-              </li>
-              <li>
-                {/* Agents promoted to top-level destination — used to be
-                    a separate sidebar SECTION listing every agent inline.
-                    Problem: each agent has an auto-created DM channel
-                    (channels.type='dm'), so the same agent showed up TWICE
-                    in the sidebar — once under Direct messages (chat),
-                    once under Agents (profile). Two parallel lists of the
-                    same entity is confusing. Now Direct messages stays
-                    (hot path = chat) and the dedicated browse + profile
-                    surface lives at /s/{slug}/agents. */}
-                <TopLevelLink
-                  href={`/s/${serverSlug}/agents`}
-                  icon={<Cpu className="h-4 w-4" />}
-                  label="Agents"
-                  // Light up for both the index page and any agent
-                  // profile sub-page so the user knows which top-level
-                  // destination they're inside.
-                  active={pathname === `/s/${serverSlug}/agents` || pathname.startsWith(`/s/${serverSlug}/agents/`)}
-                />
-              </li>
-              <li>
-                {/* People = workspace HUMAN members directory. Without
-                    this, an invitee couldn't see who else is in the
-                    workspace or DM them. Pairs with the (new) human↔
-                    human DM find-or-create flow under "Direct messages
-                    [+]". */}
-                <TopLevelLink
-                  href={`/s/${serverSlug}/people`}
-                  icon={<Users className="h-4 w-4" />}
-                  label="People"
-                  active={pathname === `/s/${serverSlug}/people` || pathname.startsWith(`/s/${serverSlug}/people/`)}
-                />
-              </li>
-            </ul>
-            <ChannelGroup
-              label="Channels"
-              icon={<Hash className="h-3.5 w-3.5" />}
-              channels={publicChannels}
-              activeId={activeChannelId}
-              serverSlug={serverSlug}
-              serverId={serverId}
-              // "+" reveals on group hover (same pattern as Direct
-              // messages). Click → workspace's create-channel dialog if
-              // admin, else routes to /s/{slug}/channels for browse +
-              // join. Keeps the discovery path visible without taking
-              // permanent sidebar real estate.
-              headerAction={
-                <Link
-                  href={`/s/${serverSlug}/channels`}
-                  className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-                  title="Browse all channels"
-                  aria-label="Browse all public channels"
-                >
-                  <Hash className="h-3 w-3" />
-                </Link>
-              }
-            />
-            <ChannelGroup
-              label="Direct messages"
-              icon={<MessageSquare className="h-3.5 w-3.5" />}
-              channels={dmChannels}
-              activeId={activeChannelId}
-              serverSlug={serverSlug}
-              serverId={serverId}
-              // "+" reveals on group hover (group/group class on
-              // SidebarGroup wrapper). Click opens the new-DM picker
-              // covering both humans + agents — the discoverable entry
-              // point for starting a DM with someone NOT yet in the
-              // sidebar list (an invitee, a newly-created agent, etc.).
-              headerAction={
-                <button
-                  type="button"
-                  onClick={() => setOpenNewDm(true)}
-                  className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-                  title="Start a new direct message"
-                  aria-label="Start a new direct message"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-              }
-              // Render the empty-state row so the "+" stays discoverable
-              // for a brand-new workspace user who has zero DMs yet.
-              emptyHint={
-                <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
-                  No conversations yet. Tap <span className="font-mono">+</span> to start one.
-                </p>
-              }
-            />
-            {privateChannels.length > 0 && (
-              <ChannelGroup label="Private" icon={<Lock className="h-3.5 w-3.5" />}
-                channels={privateChannels} activeId={activeChannelId} serverSlug={serverSlug} serverId={serverId} />
-            )}
-          </>
-        )}
-      </nav>
+      <HeroSidebar.Content
+        data-testid="workspace-sidebar-scroll"
+        className="!min-h-0 !flex-1 !gap-0 !px-2 !pb-2 !pt-0 text-sm"
+      >
+        <nav aria-label="Workspace navigation" className="text-sm">
+          {isLoading ? (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              {/* Top-level destination — sibling of Channels / DMs / Agents,
+                  rendered as a single row (no section header) since there's
+                  only one item under "Tasks". */}
+              <ul className="space-y-0.5">
+                <li>
+                  <TopLevelLink
+                    href={`/s/${serverSlug}/inbox`}
+                    icon={<InboxIcon className="h-4 w-4" />}
+                    label="Inbox"
+                    active={pathname === `/s/${serverSlug}/inbox`}
+                  />
+                </li>
+                <li>
+                  <TopLevelLink
+                    href={`/s/${serverSlug}/tasks`}
+                    icon={<ListTodo className="h-4 w-4" />}
+                    label="Tasks"
+                    // Exact match — `endsWith("/tasks")` would light up
+                    // any future sub-route or a literally-named channel.
+                    active={pathname === `/s/${serverSlug}/tasks`}
+                  />
+                </li>
+                <li>
+                  {/* Agents promoted to top-level destination — used to be
+                      a separate sidebar SECTION listing every agent inline.
+                      Problem: each agent has an auto-created DM channel
+                      (channels.type='dm'), so the same agent showed up TWICE
+                      in the sidebar — once under Direct messages (chat),
+                      once under Agents (profile). Two parallel lists of the
+                      same entity is confusing. Now Direct messages stays
+                      (hot path = chat) and the dedicated browse + profile
+                      surface lives at /s/{slug}/agents. */}
+                  <TopLevelLink
+                    href={`/s/${serverSlug}/agents`}
+                    icon={<Cpu className="h-4 w-4" />}
+                    label="Agents"
+                    // Light up for both the index page and any agent
+                    // profile sub-page so the user knows which top-level
+                    // destination they're inside.
+                    active={pathname === `/s/${serverSlug}/agents` || pathname.startsWith(`/s/${serverSlug}/agents/`)}
+                  />
+                </li>
+                <li>
+                  {/* People = workspace HUMAN members directory. Without
+                      this, an invitee couldn't see who else is in the
+                      workspace or DM them. Pairs with the (new) human↔
+                      human DM find-or-create flow under "Direct messages
+                      [+]". */}
+                  <TopLevelLink
+                    href={`/s/${serverSlug}/people`}
+                    icon={<Users className="h-4 w-4" />}
+                    label="People"
+                    active={pathname === `/s/${serverSlug}/people` || pathname.startsWith(`/s/${serverSlug}/people/`)}
+                  />
+                </li>
+              </ul>
+              <ChannelGroup
+                label="Channels"
+                icon={<Hash className="h-3.5 w-3.5" />}
+                channels={publicChannels}
+                activeId={activeChannelId}
+                serverSlug={serverSlug}
+                serverId={serverId}
+                // "+" reveals on group hover (same pattern as Direct
+                // messages). Click → workspace's create-channel dialog if
+                // admin, else routes to /s/{slug}/channels for browse +
+                // join. Keeps the discovery path visible without taking
+                // permanent sidebar real estate.
+                headerAction={
+                  <Link
+                    href={`/s/${serverSlug}/channels`}
+                    className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                    title="Browse all channels"
+                    aria-label="Browse all public channels"
+                  >
+                    <Hash className="h-3 w-3" />
+                  </Link>
+                }
+              />
+              <ChannelGroup
+                label="Direct messages"
+                icon={<MessageSquare className="h-3.5 w-3.5" />}
+                channels={dmChannels}
+                activeId={activeChannelId}
+                serverSlug={serverSlug}
+                serverId={serverId}
+                // "+" reveals on group hover (group/group class on
+                // SidebarGroup wrapper). Click opens the new-DM picker
+                // covering both humans + agents — the discoverable entry
+                // point for starting a DM with someone NOT yet in the
+                // sidebar list (an invitee, a newly-created agent, etc.).
+                headerAction={
+                  <button
+                    type="button"
+                    onClick={() => setOpenNewDm(true)}
+                    className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                    title="Start a new direct message"
+                    aria-label="Start a new direct message"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                }
+                // Render the empty-state row so the "+" stays discoverable
+                // for a brand-new workspace user who has zero DMs yet.
+                emptyHint={
+                  <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                    No conversations yet. Tap <span className="font-mono">+</span> to start one.
+                  </p>
+                }
+              />
+              {privateChannels.length > 0 && (
+                <ChannelGroup label="Private" icon={<Lock className="h-3.5 w-3.5" />}
+                  channels={privateChannels} activeId={activeChannelId} serverSlug={serverSlug} serverId={serverId} />
+              )}
+            </>
+          )}
+        </nav>
+      </HeroSidebar.Content>
 
       {/* Footer: identity-only.
           - bottom-left: UserPill (avatar + name + visible "Online"
@@ -259,9 +266,29 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
-      <div className="border-t px-2 py-2">
+      <HeroSidebar.Footer className="!gap-0 border-t !px-2 !py-2">
         <UserPill serverSlug={serverSlug} />
-      </div>
+      </HeroSidebar.Footer>
+    </>
+  );
+
+  return (
+    <>
+      {!isMobile && (
+        <HeroSidebar.Root
+          data-testid="workspace-sidebar"
+          className="!static !h-full !min-h-0 !bg-transparent !shadow-none"
+          style={{
+            "--sidebar-width": "16rem",
+            "--sidebar-width-collapsed": "16rem",
+          } as CSSProperties}
+        >
+          {sidebarContent()}
+        </HeroSidebar.Root>
+      )}
+      <HeroSidebar.Mobile data-testid="workspace-sidebar-mobile" className="!bg-background">
+        {isMobile ? sidebarContent() : null}
+      </HeroSidebar.Mobile>
 
       <CreateChannelDialog
         serverId={serverId}
@@ -286,7 +313,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         onOpenChange={setOpenNewDm}
         onOpened={reloadChannels}
       />
-    </aside>
+    </>
   );
 }
 

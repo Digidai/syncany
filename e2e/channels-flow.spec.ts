@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { mutatingTargetSkipReason } from "./helpers/env";
+import { E2E_EMAIL, E2E_PASSWORD, login } from "./helpers/auth";
 
 /**
  * Channels feature — end-to-end regression against the deployed
@@ -28,14 +29,12 @@ import { mutatingTargetSkipReason } from "./helpers/env";
  *    no longer lists the channel
  */
 const RUN = process.env.E2E_RUN_CHANNELS === "1";
-const EMAIL = process.env.RALTIC_E2E_EMAIL ?? "";
-const PASSWORD = process.env.RALTIC_E2E_PASSWORD ?? "";
 const TARGET_SKIP = mutatingTargetSkipReason();
 
 test.describe(RUN ? "channels flow" : "channels flow (skipped — set E2E_RUN_CHANNELS=1)", () => {
   test.skip(!RUN, "writes real channel rows to the target DB; opt-in only");
   test.skip(Boolean(TARGET_SKIP), TARGET_SKIP ?? "");
-  test.skip(RUN && (!EMAIL || !PASSWORD), "RALTIC_E2E_EMAIL + RALTIC_E2E_PASSWORD required");
+  test.skip(RUN && (!E2E_EMAIL || !E2E_PASSWORD), "RALTIC_E2E_EMAIL + RALTIC_E2E_PASSWORD required");
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -118,16 +117,3 @@ test.describe(RUN ? "channels flow" : "channels flow (skipped — set E2E_RUN_CH
       .toBeHidden({ timeout: 10000 });
   });
 });
-
-/** Sign in via the better-auth handler — keeps it independent of the
- *  login form's exact placeholder text, which the visual spec tests
- *  separately. */
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByPlaceholder(/you@example\.com/i).fill(EMAIL);
-  await page.getByPlaceholder(/password/i).fill(PASSWORD);
-  await page.getByRole("button", { name: /sign in|log in/i }).click();
-  // After login better-auth redirects to /s/[slug] (the default
-  // workspace). Wait for any workspace path.
-  await expect(page).toHaveURL(/\/s\/[^/]+/, { timeout: 20000 });
-}
