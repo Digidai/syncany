@@ -880,13 +880,25 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           )}
           <div
             data-testid="message-composer"
-            className="relative w-full rounded-xl bg-background shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300"
+            className="flex w-full items-center gap-2 rounded-full bg-background px-3 py-2 shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300"
           >
-            <div data-testid="message-composer-input" className="min-w-0 text-sm">
+            <Button
+              type="button"
+              isIconOnly
+              size="sm"
+              variant="tertiary"
+              disabled={isReadOnly}
+              onPress={() => fileInputRef.current?.click()}
+              aria-label="Attach file or image"
+              className="shrink-0"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <div data-testid="message-composer-input" className="flex min-h-9 min-w-0 flex-1 items-center text-sm">
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}
-                className="tiptap-input--composer min-h-[112px] px-3 pb-14 pt-2"
+                className="tiptap-input--composer w-full px-1 py-1"
                 onSend={handleSend}
                 disabled={isReadOnly}
                 ariaLabel={`Message ${channelTitle}`}
@@ -913,42 +925,28 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 e.target.value = "";
               }}
             />
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <Button
-                  type="button"
-                  isIconOnly
-                  size="sm"
-                  variant="tertiary"
-                  disabled={isReadOnly}
-                  onPress={() => fileInputRef.current?.click()}
-                  aria-label="Attach file or image"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="tertiary"
-                  className="hidden max-w-[200px] justify-between gap-2 px-3 text-muted-foreground sm:inline-flex"
-                  disabled
-                >
-                  <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <Button
-                type="button"
-                isIconOnly
-                size="sm"
-                variant="primary"
-                disabled={!canSubmit}
-                onPress={handleComposerSubmit}
-                aria-label="Send message"
-              >
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="tertiary"
+              className="hidden max-w-[200px] shrink-0 justify-between gap-2 px-3 text-muted-foreground sm:inline-flex"
+              disabled
+            >
+              <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              isIconOnly
+              size="sm"
+              variant="primary"
+              disabled={!canSubmit}
+              onPress={handleComposerSubmit}
+              aria-label="Send message"
+              className="shrink-0"
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </footer>

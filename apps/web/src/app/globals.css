@@ -606,13 +606,13 @@ textarea:-webkit-autofill {
 }
 
 .tiptap-input--composer {
-  min-height: 112px;
-  align-items: flex-start;
+  min-height: 2.25rem;
+  align-items: center;
 }
 
 .tiptap-input--composer .ProseMirror {
-  min-height: 52px;
-  max-height: 180px;
+  min-height: 1.5rem;
+  max-height: 150px;
   padding-block: 0;
   font-size: 0.875rem;
   line-height: 1.5;

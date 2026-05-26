@@ -83,7 +83,7 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
     await expect(composer).toBeVisible();
 
     const delta = await page.evaluate(() => {
-      const attach = document.querySelector("[title='Attach file or image']")?.getBoundingClientRect();
+      const attach = document.querySelector("[aria-label='Attach file or image']")?.getBoundingClientRect();
       const input = document.querySelector("[data-testid='message-composer-input']")?.getBoundingClientRect();
       if (!attach || !input) return Number.POSITIVE_INFINITY;
       return Math.abs((attach.top + attach.height / 2) - (input.top + input.height / 2));
