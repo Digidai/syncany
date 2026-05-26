@@ -103,8 +103,8 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
             <DialogPanel>
               <div className="space-y-4">
                 <Field>
-                  <FieldLabel>Avatar</FieldLabel>
-                  <div className="flex items-center gap-3">
+                  <FieldLabel id="edit-agent-avatar-label">Avatar</FieldLabel>
+                  <div aria-labelledby="edit-agent-avatar-label" className="flex items-center gap-3">
                     <GeneratedAvatar id={agent.id} name={displayName || agent.displayName} seed={avatarSeed} size="xl" />
                     <div className="flex flex-col gap-1.5">
                       <Button type="button" variant="outline" size="sm"
@@ -124,31 +124,31 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                   </div>
                 </Field>
                 <Field>
-                  <FieldLabel>Identifier</FieldLabel>
-                  <Input value={agent.name} disabled
+                  <FieldLabel htmlFor="edit-agent-identifier">Identifier</FieldLabel>
+                  <Input id="edit-agent-identifier" value={agent.name} disabled
                     title="Identifier is immutable. Delete + recreate the agent if you need a different one." />
                 </Field>
                 <Field>
-                  <FieldLabel>Display name</FieldLabel>
-                  <Input value={displayName} required maxLength={120}
+                  <FieldLabel htmlFor="edit-agent-display-name">Display name</FieldLabel>
+                  <Input id="edit-agent-display-name" value={displayName} required maxLength={120}
                     onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)} />
                 </Field>
                 <Field>
-                  <FieldLabel>Description</FieldLabel>
-                  <Input value={description}
+                  <FieldLabel htmlFor="edit-agent-description">Description</FieldLabel>
+                  <Input id="edit-agent-description" value={description}
                     onChange={(e) => setDescription((e.target as HTMLInputElement).value)}
                     placeholder="What does this agent do?" />
                 </Field>
                 <Field>
-                  <FieldLabel>System prompt</FieldLabel>
-                  <Textarea value={systemPrompt} rows={8}
+                  <FieldLabel htmlFor="edit-agent-system-prompt">System prompt</FieldLabel>
+                  <Textarea id="edit-agent-system-prompt" value={systemPrompt} rows={8}
                     onChange={(e) => setSystemPrompt((e.target as HTMLTextAreaElement).value)}
                     placeholder="You are an expert in…" />
                 </Field>
                 {!isCloud && (
                   <Field>
-                    <FieldLabel>Runtime</FieldLabel>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <FieldLabel id="edit-agent-runtime-label">Runtime</FieldLabel>
+                    <div role="group" aria-labelledby="edit-agent-runtime-label" className="flex flex-col gap-2 sm:flex-row">
                       {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
                         <Button
                           key={r}
@@ -176,8 +176,8 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                   </p>
                 )}
                 <Field>
-                  <FieldLabel>Model</FieldLabel>
-                  <div className="flex flex-wrap gap-2">
+                  <FieldLabel id="edit-agent-model-label">Model</FieldLabel>
+                  <div role="group" aria-labelledby="edit-agent-model-label" className="flex flex-wrap gap-2">
                     {(isCloud ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
                       <Button key={m} type="button" onClick={() => setModel(m)}
                         variant="outline"

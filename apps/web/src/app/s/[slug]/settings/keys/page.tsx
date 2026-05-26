@@ -88,9 +88,10 @@ export default function MachineKeysPage() {
         <form onSubmit={handleCreate}>
           <CardPanel>
             <Field>
-              <FieldLabel>Key name</FieldLabel>
+              <FieldLabel htmlFor="machine-key-name">Key name</FieldLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
+                  id="machine-key-name"
                   value={keyName}
                   placeholder="e.g. macbook-pro"
                   className="min-w-0 flex-1"

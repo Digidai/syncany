@@ -160,9 +160,10 @@ export default function AccountSettingsPage() {
             </div>
             <div className="min-w-0 flex-1 space-y-3">
               <Field>
-                <FieldLabel>Display name</FieldLabel>
+                <FieldLabel htmlFor="account-display-name">Display name</FieldLabel>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
+                    id="account-display-name"
                     value={displayName}
                     onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
                     maxLength={120}

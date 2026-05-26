@@ -164,13 +164,13 @@ function LoginInner() {
                   </>
                 )}
                 <Field>
-                  <FieldLabel>Email</FieldLabel>
-                  <Input type="email" required autoComplete="email" value={email}
+                  <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                  <Input id="login-email" type="email" required autoComplete="email" value={email}
                     onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
                     placeholder="you@example.com" />
                 </Field>
                 <Field>
-                  <FieldLabel>
+                  <FieldLabel htmlFor="login-password">
                     <span className="flex items-center justify-between">
                       <span>Password</span>
                       <Link href="/forgot-password" className="text-[11px] text-muted-foreground hover:text-foreground">
@@ -178,7 +178,7 @@ function LoginInner() {
                       </Link>
                     </span>
                   </FieldLabel>
-                  <Input type="password" required autoComplete="current-password" value={password}
+                  <Input id="login-password" type="password" required autoComplete="current-password" value={password}
                     onChange={(e) => setPassword((e.target as HTMLInputElement).value)}
                     placeholder="Your password" />
                 </Field>

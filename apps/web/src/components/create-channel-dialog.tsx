@@ -173,8 +173,8 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Visibility</FieldLabel>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <FieldLabel id="create-channel-visibility-label">Visibility</FieldLabel>
+                  <div role="group" aria-labelledby="create-channel-visibility-label" className="flex flex-col gap-2 sm:flex-row">
                     {(["public", "private"] as const).map((t) => (
                       <Button key={t} type="button"
                         onClick={() => setType(t)}
@@ -200,7 +200,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
 
                 {/* Member / agent picker */}
                 <Field>
-                  <FieldLabel>
+                  <FieldLabel htmlFor="create-channel-member-search">
                     Add members <span className="text-muted-foreground">(optional)</span>
                     {totalSelected > 0 && (
                       <span className="ml-2 rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium">
@@ -211,6 +211,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
+                      id="create-channel-member-search"
                       className="pl-7"
                       placeholder="Search people or agents"
                       value={query}

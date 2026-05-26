@@ -221,8 +221,9 @@ export default function WorkspaceSettingsPage() {
             </div>
             <form onSubmit={handleSaveIdentity} className="min-w-0 w-full flex-1 space-y-3">
               <Field>
-                <FieldLabel>Workspace name</FieldLabel>
+                <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
                 <Input
+                  id="workspace-name"
                   value={name}
                   onChange={(e) => setName((e.target as HTMLInputElement).value)}
                   maxLength={120}
@@ -230,7 +231,7 @@ export default function WorkspaceSettingsPage() {
                 />
               </Field>
               <Field>
-                <FieldLabel>URL</FieldLabel>
+                <FieldLabel htmlFor="workspace-slug">URL</FieldLabel>
                 {/* Inline-prefix input: the "/s/" prefix is visual, the
                     user only edits the slug. Auto-lowercases on input so
                     the user can't accidentally type "Acme" and hit the
@@ -240,6 +241,7 @@ export default function WorkspaceSettingsPage() {
                     /s/
                   </span>
                   <Input
+                    id="workspace-slug"
                     type="text"
                     value={slug}
                     onChange={(e) => {

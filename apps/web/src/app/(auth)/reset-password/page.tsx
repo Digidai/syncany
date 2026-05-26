@@ -53,13 +53,13 @@ function ResetForm() {
             <CardPanel>
               <div className="space-y-4">
                 <Field>
-                  <FieldLabel>New password</FieldLabel>
-                  <Input type="password" required minLength={8} value={pwd}
+                  <FieldLabel htmlFor="reset-password-new">New password</FieldLabel>
+                  <Input id="reset-password-new" type="password" required minLength={8} value={pwd}
                     onChange={(e) => setPwd((e.target as HTMLInputElement).value)} />
                 </Field>
                 <Field>
-                  <FieldLabel>Confirm</FieldLabel>
-                  <Input type="password" required value={pwd2}
+                  <FieldLabel htmlFor="reset-password-confirm">Confirm</FieldLabel>
+                  <Input id="reset-password-confirm" type="password" required value={pwd2}
                     onChange={(e) => setPwd2((e.target as HTMLInputElement).value)} />
                 </Field>
                 {error && <Alert variant="error"><AlertDescription>{error}</AlertDescription></Alert>}

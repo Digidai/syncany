@@ -70,8 +70,8 @@ export default function ForgotPasswordPage() {
             <CardPanel>
               <div className="space-y-4">
                 <Field>
-                  <FieldLabel>Email</FieldLabel>
-                  <Input type="email" required autoComplete="email" value={email}
+                  <FieldLabel htmlFor="forgot-password-email">Email</FieldLabel>
+                  <Input id="forgot-password-email" type="email" required autoComplete="email" value={email}
                     onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
                     placeholder="you@example.com" />
                 </Field>

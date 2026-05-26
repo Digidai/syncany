@@ -166,8 +166,8 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     local-daemon flow for users who care about privacy /
                     using their own API quota. */}
                 <Field>
-                  <FieldLabel>Where does this agent live?</FieldLabel>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <FieldLabel id="create-agent-mode-label">Where does this agent live?</FieldLabel>
+                  <div role="group" aria-labelledby="create-agent-mode-label" className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       type="button"
                       onClick={() => pickRuntimeMode("raltic")}
@@ -215,8 +215,8 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
 
                 {runtimeMode === "bridge" && (
                 <Field>
-                  <FieldLabel>Runtime</FieldLabel>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <FieldLabel id="create-agent-runtime-label">Runtime</FieldLabel>
+                  <div role="group" aria-labelledby="create-agent-runtime-label" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
                       <Button
                         key={r}
@@ -264,31 +264,31 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                 )}
 
                 <Field>
-                  <FieldLabel>Identifier</FieldLabel>
-                  <Input value={name} required pattern="[a-z0-9_-]+" maxLength={64}
+                  <FieldLabel htmlFor="create-agent-identifier">Identifier</FieldLabel>
+                  <Input id="create-agent-identifier" value={name} required pattern="[a-z0-9_-]+" maxLength={64}
                     onChange={(e) => setName((e.target as HTMLInputElement).value.toLowerCase())}
                     placeholder="researcher" />
                 </Field>
                 <Field>
-                  <FieldLabel>Display name</FieldLabel>
-                  <Input value={displayName} required maxLength={120}
+                  <FieldLabel htmlFor="create-agent-display-name">Display name</FieldLabel>
+                  <Input id="create-agent-display-name" value={displayName} required maxLength={120}
                     onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
                     placeholder="Research Agent" />
                 </Field>
                 <Field>
-                  <FieldLabel>Description</FieldLabel>
-                  <Input value={description}
+                  <FieldLabel htmlFor="create-agent-description">Description</FieldLabel>
+                  <Input id="create-agent-description" value={description}
                     onChange={(e) => setDescription((e.target as HTMLInputElement).value)}
                     placeholder="What does this agent do?" />
                 </Field>
                 <Field>
-                  <FieldLabel>System prompt</FieldLabel>
-                  <Textarea value={systemPrompt} rows={6}
+                  <FieldLabel htmlFor="create-agent-system-prompt">System prompt</FieldLabel>
+                  <Textarea id="create-agent-system-prompt" value={systemPrompt} rows={6}
                     onChange={(e) => setSystemPrompt((e.target as HTMLTextAreaElement).value)}
                     placeholder="You are an expert in…" />
                 </Field>
                 <Field>
-                  <FieldLabel>
+                  <FieldLabel id="create-agent-model-label">
                     Model
                     {runtimeMode === "raltic" && (
                       <span className="ml-2 text-[11px] font-normal text-muted-foreground">
@@ -296,7 +296,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                       </span>
                     )}
                   </FieldLabel>
-                  <div className="flex flex-wrap gap-2">
+                  <div role="group" aria-labelledby="create-agent-model-label" className="flex flex-wrap gap-2">
                     {/* Cloud mode: any modern model from any provider, since
                         easyrouter handles routing. Bridge mode: only the
                         models the selected runtime's CLI knows about. */}

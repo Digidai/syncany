@@ -146,8 +146,8 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
               </Field>
               {channel.type !== "dm" && canManage && (
                 <Field>
-                  <FieldLabel>Visibility</FieldLabel>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <FieldLabel id="channel-settings-visibility-label">Visibility</FieldLabel>
+                  <div role="group" aria-labelledby="channel-settings-visibility-label" className="flex flex-col gap-2 sm:flex-row">
                     {(["public", "private"] as const).map((t) => (
                       <Button
                         key={t}

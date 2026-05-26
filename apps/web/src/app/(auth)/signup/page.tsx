@@ -227,8 +227,9 @@ function SignupInner() {
                     </>
                   )}
                   <Field>
-                    <FieldLabel>Display name</FieldLabel>
+                    <FieldLabel htmlFor="signup-display-name">Display name</FieldLabel>
                     <Input
+                      id="signup-display-name"
                       type="text"
                       autoComplete="name"
                       value={displayName}
@@ -238,8 +239,9 @@ function SignupInner() {
                   </Field>
 
                   <Field>
-                    <FieldLabel>Email</FieldLabel>
+                    <FieldLabel htmlFor="signup-email">Email</FieldLabel>
                     <Input
+                      id="signup-email"
                       type="email"
                       autoComplete="email"
                       value={email}
@@ -250,8 +252,9 @@ function SignupInner() {
                   </Field>
 
                   <Field>
-                    <FieldLabel>Password</FieldLabel>
+                    <FieldLabel htmlFor="signup-password">Password</FieldLabel>
                     <Input
+                      id="signup-password"
                       type="password"
                       autoComplete="new-password"
                       minLength={MIN_PASSWORD_LENGTH}

@@ -125,8 +125,9 @@ export default function ConnectorsPage() {
         <CardPanel>
           <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-[140px_1fr_1fr_auto]">
             <Field>
-              <FieldLabel>Service</FieldLabel>
+              <FieldLabel htmlFor="connector-kind">Service</FieldLabel>
               <Select
+                id="connector-kind"
                 value={kind}
                 onChange={(e) => setKind(e.target.value as ConnectorKind)}
                 aria-label="Connector kind"
@@ -137,12 +138,13 @@ export default function ConnectorsPage() {
               </Select>
             </Field>
             <Field>
-              <FieldLabel>Label</FieldLabel>
-              <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="personal-gh" />
+              <FieldLabel htmlFor="connector-label">Label</FieldLabel>
+              <Input id="connector-label" value={label} onChange={e => setLabel(e.target.value)} placeholder="personal-gh" />
             </Field>
             <Field>
-              <FieldLabel>Token</FieldLabel>
+              <FieldLabel htmlFor="connector-token">Token</FieldLabel>
               <Input
+                id="connector-token"
                 type="password"
                 value={token}
                 onChange={e => setToken(e.target.value)}
