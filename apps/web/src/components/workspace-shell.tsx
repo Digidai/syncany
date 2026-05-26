@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Sidebar as HeroSidebar, useSidebar } from "@heroui-pro/react/sidebar";
 import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
@@ -13,6 +14,8 @@ export function WorkspaceShell({
   children: React.ReactNode;
   server: Server;
 }) {
+  useVisualViewportHeight();
+
   return (
     <HeroSidebar.Provider
       data-testid="workspace-shell"
@@ -22,7 +25,8 @@ export function WorkspaceShell({
       open
       toggleShortcut={false}
       variant="sidebar"
-      className="relative flex h-screen !min-h-0 overflow-hidden bg-background text-foreground"
+      className="relative flex !min-h-0 overflow-hidden bg-background text-foreground"
+      style={{ height: "var(--raltic-visual-viewport-height)" }}
     >
       <Sidebar
         serverSlug={server.slug}
@@ -44,6 +48,52 @@ export function WorkspaceShell({
       </HeroSidebar.Main>
     </HeroSidebar.Provider>
   );
+}
+
+function useVisualViewportHeight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    let frame = 0;
+    let focusTimer: number | null = null;
+
+    const update = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const visualViewport = window.visualViewport;
+        const measuredHeight = visualViewport?.height ?? window.innerHeight;
+        const height = measuredHeight > 0 ? Math.round(measuredHeight) : window.innerHeight;
+        root.style.setProperty("--raltic-visual-viewport-height", `${height}px`);
+        if (focusTimer) window.clearTimeout(focusTimer);
+        focusTimer = window.setTimeout(() => {
+          const active = document.activeElement;
+          if (isKeyboardTarget(active)) {
+            active.scrollIntoView({ block: "center", inline: "nearest" });
+          }
+        }, 50);
+      });
+    };
+
+    update();
+    window.visualViewport?.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (focusTimer) window.clearTimeout(focusTimer);
+      window.visualViewport?.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      root.style.removeProperty("--raltic-visual-viewport-height");
+    };
+  }, []);
+}
+
+function isKeyboardTarget(target: Element | null): target is HTMLElement {
+  return target instanceof HTMLElement
+    && target.matches("input, textarea, select, [contenteditable='true'], [role='textbox']");
 }
 
 function WorkspaceMobileMenuButton() {

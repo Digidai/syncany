@@ -19,6 +19,7 @@
 
 :root {
   --sidebar-width: 256px;
+  --raltic-visual-viewport-height: 100dvh;
 
   /* ── Brand tokens (cyan + amber dual-tone) ───────────── */
   /* Used by hero gradients, badges, accents — referenced via

@@ -828,7 +828,10 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-border/70 bg-background px-4 pb-4 pt-3">
+      <footer
+        data-testid="message-composer-footer"
+        className="shrink-0 border-t border-border/70 bg-background px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-4 sm:pt-3"
+      >
         <div className="relative mx-auto flex w-full max-w-[714px] flex-col gap-2">
           <div className="pointer-events-none absolute bottom-full left-0 right-0 z-20 flex justify-start pb-2">
             {picker.render()}
@@ -885,7 +888,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           )}
           <div
             data-testid="message-composer"
-            className="flex w-full items-center gap-2 rounded-full bg-background px-3 py-2 shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300"
+            className="flex w-full items-center gap-2 rounded-full bg-background px-2.5 py-2 shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300 sm:px-3"
           >
             <Button
               type="button"

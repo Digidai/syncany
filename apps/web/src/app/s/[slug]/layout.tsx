@@ -47,14 +47,14 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
   const showingStaleServer = server?.slug !== slug;
   if (loading || (!loadErr && showingStaleServer)) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-dvh items-center justify-center bg-background">
         <div className="text-sm text-muted-foreground">Loading…</div>
       </div>
     );
   }
   if (loadErr || !server) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-8">
+      <div className="flex h-dvh items-center justify-center bg-background p-8">
         <div className="max-w-md rounded-lg border bg-card p-6 text-center shadow-sm">
           <h2 className="text-base font-semibold">Couldn&apos;t load this workspace</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -75,9 +75,9 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
   }
 
   // Chat shell is fixed-viewport, no-scroll — internal regions
-  // (sidebar, message list, etc.) own their own scroll. h-screen here
-  // because s/[slug] is not nested under the (chat) route group, so the
-  // chat layout doesn't apply: this layout has to lock viewport itself.
+  // (sidebar, message list, etc.) own their own scroll. WorkspaceShell
+  // tracks the mobile visual viewport so the composer and form fields
+  // stay above the on-screen keyboard.
   return (
     <AgentActivityProvider>
       {/* One-shot "welcome to Raltic — you also have your own workspace"

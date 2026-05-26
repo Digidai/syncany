@@ -260,10 +260,11 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       {!isMobile && (
         <HeroSidebar.Root
           data-testid="workspace-sidebar"
-          className="!sticky !top-0 !h-screen !min-h-0 !border-r !border-border !bg-background !shadow-none"
+          className="!sticky !top-0 !min-h-0 !border-r !border-border !bg-background !shadow-none"
           style={{
             "--sidebar-width": "15rem",
             "--sidebar-width-collapsed": "15rem",
+            height: "var(--raltic-visual-viewport-height)",
           } as CSSProperties}
         >
           {sidebarContent()}
@@ -272,7 +273,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       <HeroSidebar.Mobile
         data-testid="workspace-sidebar-mobile"
         aria-label="Workspace navigation"
-        className="!bg-background"
+        className="!h-[var(--raltic-visual-viewport-height)] !max-h-[var(--raltic-visual-viewport-height)] !bg-background"
       >
         {isMobile ? sidebarContent() : null}
       </HeroSidebar.Mobile>

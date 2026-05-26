@@ -54,7 +54,7 @@ export function DialogPopup({
     <Modal.Backdrop variant="blur">
       <Modal.Container placement="center" scroll="inside" size={sizeFromClass(className)}>
         <Modal.Dialog
-          className={cn("flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-overlay", className)}
+          className={cn("flex max-h-[calc(var(--raltic-visual-viewport-height)-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-overlay", className)}
           {...(props as Record<string, unknown>)}
         >
           {children}

@@ -106,7 +106,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <SettingsContext.Provider value={{ server, refreshServer: loadServer }}>
-      <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
         {/* Left tab nav. min-w-0 + sticky on mobile collapses to a horizontal
             scroll bar so narrow screens still navigate without scrolling
             past the content. */}
@@ -174,7 +174,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           </ul>
         </div>
 
-        <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
       </div>
