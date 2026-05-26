@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@raltic/ui/components/ui/dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Textarea } from "@raltic/ui/components/ui/textarea";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Textarea } from "@/components/heroui-pro/textarea";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { api, ApiError, CLOUD_MODELS, RUNTIME_LABEL, RUNTIME_MODELS, type RuntimeId, type MachineRuntimeRow } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,9 @@ const RUNTIME_INSTALL_CMD: Record<RuntimeId, string> = {
   openclaw: "npm i -g openclaw && openclaw onboard --install-daemon",
   hermes:   "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
 };
+
+const optionButtonClass =
+  "!h-auto !w-full min-w-0 !items-stretch !justify-start !whitespace-normal rounded-xl px-3 py-2 text-left text-sm transition-colors";
 
 export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: Props) {
   const [name, setName] = useState("");
@@ -150,7 +153,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogBackdrop />
-        <DialogPopup>
+        <DialogPopup className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create agent</DialogTitle>
           </DialogHeader>
@@ -165,44 +168,48 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                 <Field>
                   <FieldLabel>Where does this agent live?</FieldLabel>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => pickRuntimeMode("raltic")}
                       aria-pressed={runtimeMode === "raltic"}
+                      variant="outline"
                       className={cn(
-                        "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                        optionButtonClass,
+                        "flex-1 flex-col",
                         runtimeMode === "raltic"
                           ? "border-cyan-500 bg-cyan-500/10"
                           : "border-border hover:border-foreground/20",
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Cloud (Raltic)</span>
-                        <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">recommended</span>
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="min-w-0 font-medium">Cloud (Raltic)</span>
+                        <span className="shrink-0 rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">recommended</span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         Zero install. Runs in our cloud sandbox — files, bash, git all work. Mobile-friendly.
                       </p>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => pickRuntimeMode("bridge")}
                       aria-pressed={runtimeMode === "bridge"}
+                      variant="outline"
                       className={cn(
-                        "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                        optionButtonClass,
+                        "flex-1 flex-col",
                         runtimeMode === "bridge"
                           ? "border-cyan-500 bg-cyan-500/10"
                           : "border-border hover:border-foreground/20",
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">My machine (Bridge)</span>
-                        <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">advanced</span>
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="min-w-0 font-medium">My machine (Bridge)</span>
+                        <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">advanced</span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         Spawns on your local bridge. Use your own API key + repo on disk.
                       </p>
-                    </button>
+                    </Button>
                   </div>
                 </Field>
 
@@ -211,20 +218,22 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                   <FieldLabel>Runtime</FieldLabel>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
-                      <button
+                      <Button
                         key={r}
                         type="button"
                         onClick={() => pickRuntime(r)}
                         aria-pressed={runtime === r}
+                        variant="outline"
                         className={cn(
-                          "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                          optionButtonClass,
+                          "flex-col",
                           runtime === r
                             ? "border-cyan-500 bg-cyan-500/10"
                             : "border-border hover:border-foreground/20",
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{RUNTIME_LABEL[r]}</span>
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <span className="min-w-0 font-medium">{RUNTIME_LABEL[r]}</span>
                           <RuntimeAvailabilityChip state={runtimeAvail[r]} />
                         </div>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -248,7 +257,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                               : <>Installed but not signed in. Run: <code className="rounded bg-muted px-1">{r} login</code></>}
                           </p>
                         )}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </Field>
@@ -292,14 +301,16 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                         easyrouter handles routing. Bridge mode: only the
                         models the selected runtime's CLI knows about. */}
                     {(runtimeMode === "raltic" ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
-                      <button key={m} type="button" onClick={() => setModel(m)}
+                      <Button key={m} type="button" onClick={() => setModel(m)}
                         aria-pressed={model === m}
+                        variant="outline"
+                        size="sm"
                         className={cn(
-                          "rounded border px-3 py-1 text-sm transition-colors",
+                          "!h-auto !whitespace-normal break-all text-sm transition-colors",
                           model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",
                         )}>
                         {m}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </Field>

@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useParams } from "next/navigation";
+import { Chip } from "@heroui/react/chip";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { TextArea } from "@heroui/react/textarea";
+import { Navbar } from "@heroui-pro/react/navbar";
+import { Button } from "@/components/heroui-pro/button";
 import { ChannelActions } from "./channel-actions";
 import { AttachmentList } from "./attachment-render";
 import { Paperclip } from "lucide-react";
@@ -14,10 +19,9 @@ import { useGateway, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { MessageRow } from "@raltic/protocol";
-import { ScrollArea } from "@raltic/ui/components/ui/scroll-area";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown, Hash, AtSign, LockKeyhole } from "lucide-react";
+import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown, Hash, AtSign, LockKeyhole, SendHorizontal, ChevronDown } from "lucide-react";
 import { useMentionPicker, type MentionMember } from "./mention-picker";
 import { notifySuccess } from "@/lib/notify";
 
@@ -57,10 +61,11 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const inputRef = useRef<TiptapMessageInputHandle | null>(null);
-  // ScrollArea wrapper element — we query the actual overflow viewport
-  // out of it via data-slot (see scroll-area.tsx). The Viewport, NOT
-  // this wrapper or the inner content div, is what scrolls; targeting
-  // the wrong node was the previous "send doesn't snap to bottom" bug.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Scroll container wrapper. HeroUI ScrollShadow scrolls on its root;
+  // the data-slot fallback keeps the old ScrollArea selector harmless
+  // if this component is ever mounted through a mixed wrapper during
+  // migration.
   const scrollWrapperRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
   // Inner content div — observe its size so growing messages
@@ -96,6 +101,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const pendingAttachmentsRef = useRef<StagedAttachment[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<StagedAttachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [composerText, setComposerText] = useState("");
 
   // Only mark messages as read when this tab is actually visible.
   const isVisible = useCallback((): boolean => {
@@ -115,6 +121,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     setLoadError(null);
     setMessages([]);
     setToken(null);
+    setComposerText("");
     // Fresh channel — assume the user wants to land at the bottom.
     // Without this, switching from a scrolled-up channel back to a
     // freshly-opened one would inherit "not at bottom" state and the
@@ -181,7 +188,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
       if (process.env.NODE_ENV !== "production") {
         // Codex a11y LOW: silent no-op makes diagnosis hard. Logged
         // in dev only so prod bundles stay quiet.
-        console.warn("[message-area] scrollToBottom: viewport not found (ScrollArea data-slot may have changed)");
+        console.warn("[message-area] scrollToBottom: viewport not found (ScrollShadow root may not be mounted)");
       }
       return;
     }
@@ -272,16 +279,15 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     else if (added) setUnreadBelow(n => n + 1);
   }, [channelId, scheduleSmoothScrollToBottom]);
 
-  // Resolve the real overflow viewport out of the ScrollArea wrapper,
-  // attach scroll + resize listeners. ScrollAreaPrimitive renders its
-  // own Viewport with data-slot="scroll-area-viewport"; that's the
-  // node whose scrollTop changes (the wrapper + inner div don't have
-  // overflow). useLayoutEffect so the ref is populated before the
-  // initial-scroll effect below runs in the same commit.
+  // Resolve the real overflow viewport, then attach scroll + resize
+  // listeners. ScrollShadow scrolls on its root; the old data-slot
+  // selector is a compatibility fallback only. useLayoutEffect keeps
+  // the ref ready before the initial-scroll effect below runs in the
+  // same commit.
   useLayoutEffect(() => {
     const wrapper = scrollWrapperRef.current;
     if (!wrapper) return;
-    const v = wrapper.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    const v = wrapper.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? wrapper;
     if (!v) return;
     viewportRef.current = v;
 
@@ -296,9 +302,8 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     // ResizeObserver on the VIEWPORT (not its inner content). The
     // viewport's scrollHeight changes when content grows — observing
     // it directly is more reliable than observing the content div,
-    // whose ref can briefly be null on mount and whose size changes
-    // aren't always reported synchronously by ScrollAreaPrimitive's
-    // internal wrappers. Only re-scroll when currently stuck.
+    // whose ref can briefly be null on mount. Only re-scroll when
+    // currently stuck.
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(() => {
@@ -341,7 +346,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   }, [loading, channelId, messages.length, scrollToBottom]);
 
   // Belt-and-suspenders pin: when messages.length changes and we're
-  // stuck, snap. Some browsers / ScrollAreaPrimitive wrapping can
+  // stuck, snap. Some browsers / scroll-wrapper combinations can
   // suppress ResizeObserver fires for grandchild growth (e.g. partial
   // streams that update existing rows rather than appending new ones).
   // useLayoutEffect runs after DOM commit so scrollHeight is fresh.
@@ -537,6 +542,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
       }
       if (ok) {
         setReplyTo(null);
+        setComposerText("");
         requestAnimationFrame(() => scrollToBottom());
       }
       if (!ok && !hasAttachments) notifyThrown("Couldn't send message", new Error(connected ? "Send was not acknowledged." : "Not connected."));
@@ -584,6 +590,16 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   function removeStagedAttachment(attachmentId: string) {
     pendingAttachmentsRef.current = pendingAttachmentsRef.current.filter((a) => a.attachmentId !== attachmentId);
     setPendingAttachments([...pendingAttachmentsRef.current]);
+  }
+
+  async function handleComposerSubmit() {
+    const ok = await handleSend(inputRef.current?.getMarkdown() ?? "");
+    if (ok) inputRef.current?.clear();
+  }
+
+  function handleComposerTextUpdate(textBeforeCursor: string, fullText: string) {
+    setComposerText(fullText);
+    picker.onTextUpdate(textBeforeCursor);
   }
 
   async function handleTogglePin(m: MessageRow) {
@@ -668,164 +684,152 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     catch (e) { notifyThrown("Couldn't react", e); }
   }
 
+  const isReadOnly = channel?.archivedAt != null;
+  const canSubmit = !isReadOnly && uploadingCount === 0 && (
+    composerText.trim().length > 0 || pendingAttachments.length > 0
+  );
+  const channelTitle = channel?.type === "dm" && channelPeer?.name
+    ? channelPeer.name
+    : channel?.name ?? "Channel";
+  const channelSubtitle = channel?.topic || channel?.description || "Get familiar with Raltic";
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-zinc-50/60 dark:bg-zinc-950">
-      <header className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-zinc-200/60 bg-white/70 px-5 py-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/80">
-        {/* Left cluster: type chip + title. min-w-0 + flex-1 lets the
-            title truncate when the right cluster squeezes (codex C5
-            MED — narrow-pane overflow). */}
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          {channel?.type && (
+    <div
+      className="flex min-w-0 flex-1 flex-col bg-background"
+      data-chat-surface="heroui-pro-template-chat"
+      style={{ "--chat-navbar-height": "64px" } as CSSProperties}
+    >
+      <Navbar.Root
+        aria-label="Conversation header"
+        height="var(--chat-navbar-height)"
+        maxWidth="full"
+        className="shrink-0 border-b border-border/70 bg-background px-4"
+      >
+        <Navbar.Header className="flex w-full items-center justify-between gap-4">
+          <Navbar.Brand className="flex min-w-0 items-center gap-3">
             <span
               aria-hidden
-              className={cn(
-                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-medium shadow-[0_12px_28px_-18px_rgba(15,23,42,0.8)]",
-                "border-zinc-950/90 bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950",
-              )}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 text-cyan-700 shadow-[0_0_0_4px_rgba(6,182,212,0.08)]"
             >
-              {channel.type === "dm" ? (
+              {channel?.type === "dm" ? (
                 <AtSign className="h-4 w-4" />
-              ) : channel.type === "private" ? (
+              ) : channel?.type === "private" ? (
                 <LockKeyhole className="h-4 w-4" />
               ) : (
                 <Hash className="h-4 w-4" />
               )}
             </span>
-          )}
-          <div className="min-w-0">
-            {/* For DMs, header shows the OTHER party's name (peer.name).
-                For channels, shows channel.name. Falls back to the raw
-                channel.name only if peer wasn't returned (older API). */}
-            <h3 className="truncate text-[15px] font-semibold leading-tight text-zinc-950 dark:text-white">
-              {channel?.type === "dm" && channelPeer?.name
-                ? channelPeer.name
-                : channel?.name ?? "Channel"}
-            </h3>
-            {/* Topic OR description below name — topic wins when set
-                because it reflects current focus; falls back to the
-                permanent description. */}
-            {(channel?.topic || channel?.description) && (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {channel.topic || channel.description}
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold text-foreground sm:text-base">
+                {channelTitle}
+              </h1>
+              <p className="truncate text-xs text-muted-foreground">
+                {channelSubtitle}
               </p>
-            )}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <PresencePill
-            channel={channel}
-            channelPeer={channelPeer}
-            members={members}
-            userId={userId}
-            connected={connected}
-          />
-          {/* Channel actions: members chip + ⋯ menu (Settings / Leave).
-              DMs deliberately skip this — no rename / no members to
-              manage / "leaving" a DM isn't a thing in v1. */}
-          {channel && (channel.type === "public" || channel.type === "private") && (
-            <ChannelActions
+            </div>
+          </Navbar.Brand>
+          <Navbar.Content className="shrink-0 justify-end gap-2">
+            <PresencePill
               channel={channel}
+              channelPeer={channelPeer}
               members={members}
-              selfUserId={userId}
-              serverSlug={serverSlug}
-              canManage={viewerCanManage}
-              canAddMembers={viewerCanAddMembers}
-              onChanged={async () => {
-                try {
-                  const r = await api.getChannel(channel.id);
-                  setChannel(r.channel);
-                  setMembers(r.members);
-                  setViewerCanManage(r.viewerCanManage ?? false);
-                  setViewerCanAddMembers(r.viewerCanAddMembers ?? false);
-                } catch { /* noop — next nav refetches */ }
-              }}
+              userId={userId}
+              connected={connected}
             />
-          )}
-        </div>
-      </header>
-
-      <div ref={scrollWrapperRef} className="relative min-h-0 flex-1 bg-zinc-50/40 dark:bg-zinc-950">
-        <ScrollArea className="absolute inset-0">
-          {/* Bottom padding leaves room for the floating "N new" pill
-              so it never overlaps reactions on the last message
-              (codex a11y MED). 64px = pill height + breathing room. */}
-          <div ref={innerRef} className="space-y-6 px-7 pt-7 pb-16">
-            {loading && <p className="text-sm text-muted-foreground">Loading messages…</p>}
-          {!loading && loadError && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-foreground">
-              Couldn&apos;t load this conversation: {loadError}
-            </div>
-          )}
-          {!loading && !loadError && messages.length === 0 && (
-            <div className="flex h-full min-h-64 items-center justify-center">
-              <p className="text-sm text-muted-foreground">No messages yet — say hi.</p>
-            </div>
-          )}
-          {messages.map((m) => {
-            // Defensive: API has historically sent system rows without a
-            // senderId; .slice on undefined throws and would torch the
-            // whole channel page. Default to a stable placeholder so the
-            // row still renders and a single bad row can never crash the
-            // list.
-            const sid = m.senderId ?? "";
-            const parent = m.threadParentId
-              ? messages.find(p => p.id === m.threadParentId) ?? null
-              : null;
-            return (
-              <MessageRowView
-                key={m.id}
-                m={m}
-                label={memberLabel.get(sid) ?? (sid ? sid.slice(0, 8) : "Unknown")}
-                currentUserId={userId}
-                editing={editingId === m.id}
-                draft={editingDraft}
-                onStartEdit={() => startEdit(m)}
-                onCancelEdit={cancelEdit}
-                onSaveEdit={() => saveEdit(m)}
-                onDraftChange={setEditingDraft}
-                onDelete={() => handleDelete(m)}
-                onReact={(emoji) => handleReact(m, emoji)}
-                onReply={() => { setReplyTo(m); inputRef.current?.focus(); }}
-                onCopy={() => handleCopy(m)}
-                onTogglePin={() => handleTogglePin(m)}
-                parent={parent}
-                parentLabel={parent ? memberLabel.get(parent.senderId) ?? "" : ""}
+            {channel && (channel.type === "public" || channel.type === "private") && (
+              <ChannelActions
+                channel={channel}
+                members={members}
+                selfUserId={userId}
+                serverSlug={serverSlug}
+                canManage={viewerCanManage}
+                canAddMembers={viewerCanAddMembers}
+                onChanged={async () => {
+                  try {
+                    const r = await api.getChannel(channel.id);
+                    setChannel(r.channel);
+                    setMembers(r.members);
+                    setViewerCanManage(r.viewerCanManage ?? false);
+                    setViewerCanAddMembers(r.viewerCanAddMembers ?? false);
+                  } catch { /* noop — next nav refetches */ }
+                }}
               />
-            );
-          })}
+            )}
+          </Navbar.Content>
+        </Navbar.Header>
+      </Navbar.Root>
+
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <ScrollShadow
+          ref={scrollWrapperRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          hideScrollBar={false}
+          offset={24}
+          size={42}
+        >
+          <div ref={innerRef} className="mx-auto flex w-full max-w-[714px] flex-col gap-8 px-4 pb-10 pt-10">
+            {loading && <p className="text-sm text-muted-foreground">Loading messages...</p>}
+            {!loading && loadError && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-foreground">
+                Couldn&apos;t load this conversation: {loadError}
+              </div>
+            )}
+            {!loading && !loadError && messages.length === 0 && (
+              <div className="flex min-h-64 items-center justify-center">
+                <p className="text-sm text-muted-foreground">No messages yet. Say hi.</p>
+              </div>
+            )}
+            {messages.map((m) => {
+              const sid = m.senderId ?? "";
+              const parent = m.threadParentId
+                ? messages.find(p => p.id === m.threadParentId) ?? null
+                : null;
+              return (
+                <MessageRowView
+                  key={m.id}
+                  m={m}
+                  label={memberLabel.get(sid) ?? (sid ? sid.slice(0, 8) : "Unknown")}
+                  currentUserId={userId}
+                  editing={editingId === m.id}
+                  draft={editingDraft}
+                  onStartEdit={() => startEdit(m)}
+                  onCancelEdit={cancelEdit}
+                  onSaveEdit={() => saveEdit(m)}
+                  onDraftChange={setEditingDraft}
+                  onDelete={() => handleDelete(m)}
+                  onReact={(emoji) => handleReact(m, emoji)}
+                  onReply={() => { setReplyTo(m); inputRef.current?.focus(); }}
+                  onCopy={() => handleCopy(m)}
+                  onTogglePin={() => handleTogglePin(m)}
+                  parent={parent}
+                  parentLabel={parent ? memberLabel.get(parent.senderId) ?? "" : ""}
+                />
+              );
+            })}
           </div>
-        </ScrollArea>
-        {/* Floating "jump to latest" affordance. Visible only when the
-            user is scrolled away from the bottom AND new messages have
-            arrived in that window. Clicking it snaps to the newest
-            message and clears the unread counter. */}
+        </ScrollShadow>
         {unreadBelow > 0 && (
-          <button
+          <Button
             type="button"
-            onClick={() => scrollToBottom({ smooth: true })}
+            onPress={() => scrollToBottom({ smooth: true })}
             aria-label={`Jump to ${unreadBelow} new message${unreadBelow === 1 ? "" : "s"}`}
-            // min-h-9 = 36px target. Pairs with px-4 to land near the
-            // 44×44 mobile-tap recommendation while staying visually
-            // light. h-9 alone would clip mid-vertical-align on some
-            // browsers due to the icon + text baseline (codex a11y MED).
-            className="absolute bottom-4 left-1/2 z-10 flex min-h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background px-4 py-2 text-xs font-medium shadow-md transition-shadows hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            size="sm"
+            variant="tertiary"
+            className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 shadow-md"
           >
             <ArrowDown className="h-3.5 w-3.5" />
             {unreadBelow} new
-          </button>
+          </Button>
         )}
       </div>
 
-      <footer className="border-t border-zinc-200/60 bg-zinc-50/70 px-5 py-3.5 shadow-[0_-1px_0_rgba(15,23,42,0.02)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/80">
-        {/* Picker floats above the composer when active. The wrapper has
-            position relative so the absolute panel stays anchored to the
-            footer rather than the viewport. */}
-        <div className="relative">
-          <div className="pointer-events-none absolute bottom-full left-0 right-0 flex justify-start">
+      <footer className="shrink-0 border-t border-border/70 bg-background px-4 pb-4 pt-3">
+        <div className="relative mx-auto flex w-full max-w-[714px] flex-col gap-2">
+          <div className="pointer-events-none absolute bottom-full left-0 right-0 z-20 flex justify-start pb-2">
             {picker.render()}
           </div>
           {replyTo && (
-            <div className="mb-2 flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex items-start gap-2 rounded-xl border border-border bg-default px-3 py-2 text-xs">
               <MessageSquareReply className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="font-medium">Replying to {replyToLabel}</div>
@@ -833,86 +837,117 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                   {(replyTo.content ?? "").replace(/\s+/g, " ").trim() || "(empty message)"}
                 </div>
               </div>
-              <button
+              <Button
                 type="button"
-                onClick={() => setReplyTo(null)}
-                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onPress={() => setReplyTo(null)}
                 aria-label="Cancel reply"
+                className="h-7 w-7 min-w-7"
               >
-                <XIcon className="h-3 w-3" />
-              </button>
+                <XIcon className="h-3.5 w-3.5" />
+              </Button>
             </div>
           )}
-          {/* Phase C — staged attachments preview row above composer */}
           {(pendingAttachments.length > 0 || uploadingCount > 0) && (
-            <div className="flex flex-wrap gap-2 px-1 pb-2" aria-live="polite" aria-atomic="true">
+            <div className="flex flex-wrap gap-2" aria-live="polite" aria-atomic="true">
               {pendingAttachments.map((a) => (
-                <div key={a.attachmentId} className="group inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs">
-                  <Paperclip className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                  <span className="max-w-[160px] truncate font-medium">{a.filename}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeStagedAttachment(a.attachmentId)}
-                    aria-label={`Remove ${a.filename}`}
-                    className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
-                  >
-                    <XIcon className="h-3 w-3" />
-                  </button>
-                </div>
+                <Chip key={a.attachmentId} size="sm" variant="secondary" color="default" className="max-w-[220px]">
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="truncate font-medium">{a.filename}</span>
+                    <Button
+                      type="button"
+                      isIconOnly
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeStagedAttachment(a.attachmentId)}
+                      aria-label={`Remove ${a.filename}`}
+                      className="h-5 w-5 min-w-5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </Button>
+                  </span>
+                </Chip>
               ))}
               {uploadingCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md border bg-card/50 px-2 py-1 text-xs text-muted-foreground">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
-                  Uploading {uploadingCount}…
-                </span>
+                <Chip size="sm" variant="soft" color="accent">
+                  Uploading {uploadingCount}...
+                </Chip>
               )}
             </div>
           )}
-          {/* key={channelId} forces the TipTap editor to fully unmount + remount
-              when the user navigates between channels — without it the draft
-              text from channel A leaks into channel B's composer because the
-              editor instance is reused. */}
           <div
             data-testid="message-composer"
-            className="flex min-h-12 items-center gap-2 rounded-2xl border border-zinc-200/75 bg-white/95 px-2.5 py-1.5 shadow-[0_12px_32px_-24px_rgba(15,23,42,0.45),0_1px_0_rgba(255,255,255,0.75)_inset] transition-colors focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-white/10 dark:bg-zinc-900"
+            className="relative w-full rounded-xl bg-background shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300"
           >
-            <label
-              className={`inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-zinc-100 text-muted-foreground transition-colors hover:bg-cyan-50 hover:text-cyan-700 dark:bg-white/10 dark:hover:bg-white/15 ${
-                channel?.archivedAt != null ? "pointer-events-none opacity-50" : ""
-              }`}
-              title="Attach file or image"
-            >
-              <Paperclip className="h-4 w-4" />
-              <input
-                type="file"
-                multiple
-                accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
-                className="sr-only"
-                disabled={channel?.archivedAt != null}
-                onChange={(e) => {
-                  if (e.target.files) handleAttachmentPick(e.target.files);
-                  e.target.value = ""; // allow re-pick of same file
-                }}
-              />
-            </label>
-            <div data-testid="message-composer-input" className="min-w-0 flex-1 px-1.5 text-sm">
+            <div data-testid="message-composer-input" className="min-w-0 text-sm">
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}
+                className="tiptap-input--composer min-h-[112px] px-3 pb-14 pt-2"
                 onSend={handleSend}
-                // Phase B — composer disabled when the channel is archived.
-                // Backend rejects with 423 even if a stale tab tries to
-                // POST, but disabling client-side avoids the bad-request
-                // round-trip + clearly signals read-only state.
-                disabled={channel?.archivedAt != null}
+                disabled={isReadOnly}
+                ariaLabel={`Message ${channelTitle}`}
+                ariaControls={picker.aria.controls}
+                ariaActiveDescendant={picker.aria.activeDescendant}
                 placeholder={
-                  channel?.archivedAt != null
-                    ? "This channel is archived — read-only"
+                  isReadOnly
+                    ? "This channel is archived - read-only"
                     : composerPlaceholder
                 }
-                onTextUpdate={picker.onTextUpdate}
+                onTextUpdate={handleComposerTextUpdate}
                 onKeyDown={picker.onKeyDown}
               />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
+              className="sr-only"
+              disabled={isReadOnly}
+              onChange={(e) => {
+                if (e.target.files) handleAttachmentPick(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <Button
+                  type="button"
+                  isIconOnly
+                  size="sm"
+                  variant="tertiary"
+                  disabled={isReadOnly}
+                  onPress={() => fileInputRef.current?.click()}
+                  aria-label="Attach file or image"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="tertiary"
+                  className="hidden max-w-[200px] justify-between gap-2 px-3 text-muted-foreground sm:inline-flex"
+                  disabled
+                >
+                  <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                isIconOnly
+                size="sm"
+                variant="primary"
+                disabled={!canSubmit}
+                onPress={handleComposerSubmit}
+                aria-label="Send message"
+              >
+                <SendHorizontal className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -950,158 +985,244 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
   const isDeleted = !!m.deletedAt;
   const isPartial = m.id.startsWith("agent-partial:");
   const [showPicker, setShowPicker] = useState(false);
-  return (
-    <div className={
-      "group relative flex gap-3 " +
-      // Agent replies get a subtle cyan rule + tiny badge — visual cue
-      // that this came from an AI teammate, not a human. The product's
-      // whole point is humans + AI together, so the split should be
-      // legible at a glance without being noisy.
-      (isAgent
-        ? "before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:bg-gradient-to-b before:from-cyan-500/60 before:to-cyan-500/0"
-        : "")
-    }>
-      <div className="shrink-0 pt-0.5">
-        <GeneratedAvatar id={m.senderId} name={label} size="lg" />
+  const timeLabel = new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const actionButtons = !isDeleted && !isPartial ? (
+    <div className={cn(
+      "pointer-events-none absolute z-20 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+      isMine
+        ? "right-0 top-full mt-1 sm:right-full sm:top-8 sm:mr-2 sm:mt-0"
+        : "left-2 top-full mt-1 sm:left-10 sm:top-0 sm:mt-0 sm:-translate-y-1/2",
+    )}>
+      <Button
+        type="button"
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        onPress={() => setShowPicker(p => !p)}
+        aria-label="Add reaction"
+        className="h-8 w-8 min-w-8 text-muted-foreground"
+      >
+        <Smile className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        type="button"
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        onPress={onReply}
+        aria-label="Reply in thread"
+        className="h-8 w-8 min-w-8 text-muted-foreground"
+      >
+        <MessageSquareReply className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        type="button"
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        onPress={onCopy}
+        aria-label="Copy text"
+        className="h-8 w-8 min-w-8 text-muted-foreground"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        type="button"
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        onPress={onTogglePin}
+        aria-label={m.pinnedAt ? "Unpin from channel" : "Pin to channel"}
+        className="h-8 w-8 min-w-8 text-muted-foreground"
+      >
+        {m.pinnedAt ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+      </Button>
+      {isMine && (
+        <>
+          <Button
+            type="button"
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            onPress={onStartEdit}
+            aria-label="Edit"
+            className="h-8 w-8 min-w-8 text-muted-foreground"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            onPress={onDelete}
+            aria-label="Delete"
+            className="h-8 w-8 min-w-8 text-muted-foreground hover:text-destructive-foreground"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </>
+      )}
+    </div>
+  ) : null;
+
+  const parentPreview = parent ? (
+    <div className={cn(
+      "flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-default px-2 py-1 text-[11px] text-muted-foreground",
+      isMine ? "justify-end" : "justify-start",
+    )}>
+      <MessageSquareReply className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span className="shrink-0 font-medium">{parentLabel || "reply"}</span>
+      <span className="truncate">
+        {(parent.content ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || "(empty)"}
+      </span>
+    </div>
+  ) : null;
+
+  const messageBody = editing ? (
+    <div className="flex w-full flex-col gap-2">
+      <TextArea
+        value={draft}
+        onChange={(e) => onDraftChange((e.target as HTMLTextAreaElement).value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") { e.preventDefault(); onCancelEdit(); }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSaveEdit(); }
+        }}
+        autoFocus
+        rows={Math.max(2, Math.min(8, draft.split("\n").length))}
+        fullWidth
+        variant="secondary"
+        className="text-sm"
+      />
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <Button type="button" size="sm" variant="primary" onPress={onSaveEdit}>
+          Save
+        </Button>
+        <Button type="button" size="sm" variant="tertiary" onPress={onCancelEdit}>
+          Cancel
+        </Button>
+        <span>Cmd/Ctrl+Enter to save, Esc to cancel</span>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className={
-            "text-sm font-semibold leading-tight " +
-            (isAgent ? "text-cyan-700 dark:text-cyan-400" : "")
-          }>{label}</span>
-          {isAgent && (
-            <span className="rounded-full bg-cyan-500/10 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
-              AI
-            </span>
-          )}
-          <span className="text-[11px] text-muted-foreground leading-tight">
-            {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-          {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">(edited)</span>}
-          {m.pinnedAt && !isDeleted && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground" title="Pinned to channel">
-              <Pin className="h-2.5 w-2.5" aria-hidden="true" />
-              pinned
-            </span>
-          )}
-          {isSystem && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">system</span>}
-          {!isDeleted && !isPartial && (
-            <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              <button onClick={() => setShowPicker(p => !p)} title="Add reaction"
-                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-                <Smile className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={onReply} title="Reply in thread"
-                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-                <MessageSquareReply className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={onCopy} title="Copy text"
-                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={onTogglePin}
-                title={m.pinnedAt ? "Unpin from channel" : "Pin to channel"}
-                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                {m.pinnedAt ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-              </button>
-              {isMine && (
-                <>
-                  <button onClick={onStartEdit} title="Edit"
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={onDelete} title="Delete"
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive-foreground">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
+    </div>
+  ) : (
+    <>
+      {m.content && (
+        <div className={cn(
+          "prose-message prose prose-sm dark:prose-invert max-w-none text-[15px] leading-6",
+          isMine && "prose-p:my-0",
+          isDeleted && "italic text-muted-foreground",
+        )}>
+          {isAgent && !isDeleted ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>{m.content}</ReactMarkdown>
+          ) : (
+            <p className="whitespace-pre-wrap">{m.content}</p>
           )}
         </div>
-        {parent && (
-          // Tiny quote chip above thread replies — gives the reader
-          // enough context to know what this message is replying to
-          // without scrolling. Inline (not collapsible) for the common
-          // case of 1-2 deep replies; deeper threads should switch to
-          // a dedicated thread pane (P1 polish).
-          <div className="mt-0.5 mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <MessageSquareReply className="h-3 w-3" aria-hidden="true" />
-            <span className="font-medium">{parentLabel || "reply"}</span>
-            <span className="truncate">
-              {(parent.content ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || "(empty)"}
-            </span>
-          </div>
-        )}
-        {showPicker && (
-          <div className="mt-1 flex gap-1 rounded border bg-card p-1 shadow-sm">
-            {QUICK_REACTIONS.map(em => (
-              <button key={em} onClick={() => { onReact(em); setShowPicker(false); }}
-                className="rounded px-2 py-0.5 text-base hover:bg-accent">{em}</button>
-            ))}
-          </div>
-        )}
-        {editing ? (
-          <div className="mt-1 flex flex-col gap-1">
-            <textarea
-              value={draft}
-              onChange={(e) => onDraftChange((e.target as HTMLTextAreaElement).value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") { e.preventDefault(); onCancelEdit(); }
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSaveEdit(); }
-              }}
-              autoFocus
-              rows={Math.max(2, Math.min(8, draft.split("\n").length))}
-              className="w-full rounded border bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground"
-            />
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <button onClick={onSaveEdit} className="rounded bg-foreground px-2 py-0.5 text-background hover:opacity-90">
-                Save
-              </button>
-              <button onClick={onCancelEdit} className="rounded border px-2 py-0.5 hover:bg-accent">
-                Cancel
-              </button>
-              <span>⌘/Ctrl+Enter to save · Esc to cancel</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            {m.content && (
-              <div className={"prose prose-sm dark:prose-invert max-w-none mt-0.5 text-[14.5px] leading-relaxed " + (isDeleted ? "italic text-muted-foreground" : "")}>
-                {isAgent && !isDeleted ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>{m.content}</ReactMarkdown>
-                ) : (
-                  <p className="whitespace-pre-wrap">{m.content}</p>
-                )}
-              </div>
+      )}
+      {m.attachments && m.attachments.length > 0 && !isDeleted && (
+        <AttachmentList attachments={m.attachments} />
+      )}
+    </>
+  );
+
+  const reactions = m.reactions && m.reactions.length > 0 ? (
+    <div className={cn("mt-1 flex flex-wrap gap-1", isMine && "justify-end")}>
+      {m.reactions.map(r => {
+        const ids = r.reactorIds ?? [];
+        const mineReacted = ids.includes(currentUserId);
+        return (
+          <Button
+            key={r.emoji}
+            type="button"
+            onClick={() => onReact(r.emoji)}
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-7 rounded-full px-2 text-xs transition-colors",
+              mineReacted
+                ? "border-cyan-400 bg-cyan-50 text-cyan-700"
+                : "border-border bg-background hover:bg-default",
             )}
-            {m.attachments && m.attachments.length > 0 && !isDeleted && (
-              <AttachmentList attachments={m.attachments} />
-            )}
-          </>
-        )}
-        {m.reactions && m.reactions.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {m.reactions.map(r => {
-              // Defensive: a reaction with a missing/empty reactorIds list
-              // shouldn't be on the wire, but we've seen it happen during
-              // partial updates. Treat it as zero-count, not a crash.
-              const ids = r.reactorIds ?? [];
-              const mineReacted = ids.includes(currentUserId);
-              return (
-                <button key={r.emoji} onClick={() => onReact(r.emoji)}
-                  className={"rounded-full border px-2 py-0.5 text-xs transition-colors " +
-                    (mineReacted ? "border-blue-400 bg-blue-50 text-blue-700" : "border-zinc-200 bg-card hover:bg-accent")}>
-                  <span>{r.emoji}</span> <span className="text-[10px] text-muted-foreground">{ids.length}</span>
-                </button>
-              );
-            })}
+          >
+            <span>{r.emoji}</span> <span className="text-[10px] text-muted-foreground">{ids.length}</span>
+          </Button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  if (isMine && !isSystem) {
+    return (
+      <div className="group flex flex-col items-end gap-2">
+        <div className="relative flex max-w-[min(82%,560px)] flex-col items-end gap-1">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            {m.pinnedAt && !isDeleted && <Pin className="h-3 w-3" aria-label="Pinned" />}
+            {m.editedAt && !isDeleted && <span>edited</span>}
+            <span>{timeLabel}</span>
           </div>
-        )}
+          {parentPreview}
+          <div className="rounded-xl bg-default px-4 py-3 text-default-foreground">
+            {messageBody}
+          </div>
+          {showPicker && (
+            <QuickReactionPicker onReact={onReact} onClose={() => setShowPicker(false)} />
+          )}
+          {reactions}
+          {actionButtons}
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className={cn(
+      "group relative flex flex-col items-start gap-2 py-2 pl-2 pr-12",
+      isAgent && "border-l-2 border-cyan-300/70",
+    )}>
+      <div className="flex items-center gap-2">
+        <GeneratedAvatar id={m.senderId} name={label} size="sm" />
+        <span className={cn("text-sm font-semibold leading-tight", isAgent && "text-cyan-700")}>{label}</span>
+        {isAgent && <Chip size="sm" variant="soft" color="accent">AI</Chip>}
+        {isSystem && <Chip size="sm" variant="tertiary" color="default">system</Chip>}
+        <span className="text-[11px] leading-tight text-muted-foreground">{timeLabel}</span>
+        {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">edited</span>}
+        {m.pinnedAt && !isDeleted && <Pin className="h-3 w-3 text-muted-foreground" aria-label="Pinned" />}
+      </div>
+      <div className="flex w-full max-w-[620px] flex-col gap-2">
+        {parentPreview}
+        {showPicker && (
+          <QuickReactionPicker onReact={onReact} onClose={() => setShowPicker(false)} />
+        )}
+        {messageBody}
+        {reactions}
+        {actionButtons}
+      </div>
+    </div>
+  );
+}
+
+function QuickReactionPicker({
+  onReact,
+  onClose,
+}: {
+  onReact: (emoji: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex w-fit gap-1 rounded-xl border border-border bg-background p-1 shadow-sm">
+      {QUICK_REACTIONS.map((emoji) => (
+        <Button
+          key={emoji}
+          type="button"
+          size="sm"
+          variant="ghost"
+          onPress={() => { onReact(emoji); onClose(); }}
+          className="h-8 min-w-8 px-2 text-base"
+          aria-label={`React with ${emoji}`}
+        >
+          {emoji}
+        </Button>
+      ))}
     </div>
   );
 }
@@ -1137,16 +1258,16 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
   members: ChannelMember[];
   userId: string;
   connected: boolean;
-}): React.ReactElement {
+}) {
   const presence = useWorkspacePresence(channel?.serverId);
 
   // Local WS dropped → show that first; nothing else matters until reconnect.
   if (!connected) {
     return (
-      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-warning/30 bg-warning/10 text-warning-foreground">
+      <Chip size="sm" variant="soft" color="warning" className="shrink-0">
         <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-        Connecting…
-      </span>
+        Connecting...
+      </Chip>
     );
   }
 
@@ -1156,18 +1277,13 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
     if (peer) {
       const label = peer.online ? "Online" : peer.lastSeenAt ? `Last seen ${humanizeAgo(peer.lastSeenAt)}` : "Offline";
       return (
-        <span className={
-          "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium " +
-          (peer.online
-            ? "border-success/30 bg-success/10 text-success-foreground"
-            : "border-zinc-300 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400")
-        }>
+        <Chip size="sm" variant="soft" color={peer.online ? "success" : "default"} className="shrink-0">
           <span className={
             "h-1.5 w-1.5 rounded-full " +
             (peer.online ? "bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-zinc-400")
           } />
           {label}
-        </span>
+        </Chip>
       );
     }
   }
@@ -1182,10 +1298,10 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
       .map(m => m.memberId);
     const onlineCount = humanMemberIds.filter(id => id === userId || presence[id]?.online).length;
     return (
-      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-success/30 bg-success/10 text-success-foreground">
+      <Chip size="sm" variant="soft" color="success" className="shrink-0">
         <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
         {onlineCount} online
-      </span>
+      </Chip>
     );
   }
 
@@ -1193,10 +1309,10 @@ function PresencePill({ channel, channelPeer, members, userId, connected }: {
   // Agents have their own status mechanism via useAgentActivity; the
   // pill is just a "we're connected" affordance here.
   return (
-    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-medium border-success/30 bg-success/10 text-success-foreground">
+    <Chip size="sm" variant="soft" color="success" className="shrink-0">
       <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
       Live
-    </span>
+    </Chip>
   );
 }
 

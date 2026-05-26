@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { snProFont } from "@/fonts/font";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { ToastProvider } from "@raltic/ui/components/ui/toast";
+import { ToastProvider } from "@/components/heroui-pro/toast";
 import { QueryProvider } from "@/components/query-provider";
 
 const SITE_URL = "https://raltic.com";

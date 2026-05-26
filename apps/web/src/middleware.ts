@@ -73,7 +73,9 @@ function matchesBoundary(pathname: string, p: string): boolean {
 }
 function isPublicPath(pathname: string): boolean {
   return pathname === "/"
-    || pathname === "/desktop" // unsigned desktop beta landing; /desktop/launch stays auth-aware
+    // unsigned desktop beta landing + installed-app welcome; /desktop/launch stays auth-aware
+    || pathname === "/desktop"
+    || pathname === "/desktop/welcome"
     || PUBLIC_FILES.has(pathname)
     || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}-`) || pathname.startsWith(`${p}/`))
     || PUBLIC_PATHS.some((p) => matchesBoundary(pathname, p))

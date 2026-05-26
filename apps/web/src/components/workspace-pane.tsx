@@ -25,6 +25,7 @@ import { Folder, FileText, ChevronRight, ChevronDown, Loader2, FolderTree, Termi
 import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/heroui-pro/button";
 
 interface Props {
   /** Agent whose workspace to show. Cloud-mode only — null/empty pane
@@ -248,46 +249,52 @@ export function WorkspacePane({ agent }: Props) {
           <FolderTree className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Workspace</h3>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => setRefreshKey(k => k + 1)}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
           title="Refresh"
           aria-label="Refresh workspace"
         >
           <RefreshCw className="h-3 w-3" />
-        </button>
+        </Button>
       </header>
 
       <div role="tablist" aria-label="Workspace view" className="flex border-b text-[11px]">
-        <button
+        <Button
           role="tab"
           type="button"
           aria-selected={view === "files"}
           onClick={() => setView("files")}
+          variant="ghost"
+          size="xs"
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
+            "h-8 rounded-none border-b-2 px-3 text-[11px] transition-colors",
             view === "files"
-              ? "border-b-2 border-foreground font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground",
+              ? "border-foreground font-medium text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           <FolderTree className="h-3 w-3" /> Files
-        </button>
-        <button
+        </Button>
+        <Button
           role="tab"
           type="button"
           aria-selected={view === "memory"}
           onClick={() => setView("memory")}
+          variant="ghost"
+          size="xs"
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
+            "h-8 rounded-none border-b-2 px-3 text-[11px] transition-colors",
             view === "memory"
-              ? "border-b-2 border-foreground font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground",
+              ? "border-foreground font-medium text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           <Brain className="h-3 w-3" /> Memory
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -319,13 +326,15 @@ export function WorkspacePane({ agent }: Props) {
               <div className="space-y-2 px-2 py-2 text-xs">
                 <p className="text-destructive-foreground">Couldn&apos;t load workspace.</p>
                 <p className="break-words text-muted-foreground">{treeError.message}</p>
-                <button
+                <Button
                   type="button"
                   onClick={() => setRefreshKey(k => k + 1)}
-                  className="rounded border px-2 py-1 text-[11px] font-medium hover:bg-accent"
+                  variant="outline"
+                  size="xs"
+                  className="text-[11px]"
                 >
                   Retry
-                </button>
+                </Button>
               </div>
             ) : (
               <p className="px-2 py-1 text-xs text-muted-foreground">Loading…</p>
@@ -336,7 +345,16 @@ export function WorkspacePane({ agent }: Props) {
             <div className="border-t bg-card">
               <div className="flex items-center justify-between px-3 py-2 text-[11px]">
                 <span className="truncate font-mono text-muted-foreground">{activeFile.path}</span>
-                <button onClick={() => setActiveFile(null)} className="text-muted-foreground hover:text-foreground">×</button>
+                <Button
+                  type="button"
+                  onClick={() => setActiveFile(null)}
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  aria-label="Close file preview"
+                >
+                  ×
+                </Button>
               </div>
               <pre className="max-h-64 overflow-auto px-3 pb-2 text-[11px] font-mono leading-relaxed">
                 {loadingFile ? (
@@ -396,18 +414,20 @@ function MemoryList({ entries, activePath, onOpen }: {
             <ul>
               {items.map(item => (
                 <li key={item.path}>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => onOpen(item.path)}
                     aria-current={activePath === item.path ? "true" : undefined}
+                    variant="ghost"
+                    size="xs"
                     className={cn(
-                      "w-full truncate rounded px-2 py-1 text-left text-[12px] hover:bg-accent",
+                      "h-7 w-full justify-start truncate px-2 text-left text-[12px]",
                       activePath === item.path && "bg-accent font-medium",
                     )}
                     title={item.name}
                   >
                     {item.name.replace(/\.md$/, "")}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -428,14 +448,16 @@ function TreeRow({ node, depth, expanded, onToggle, onOpenFile }: {
   const isOpen = expanded.has(node.path);
   return (
     <div>
-      <button
+      <Button
         type="button"
         onClick={() => node.kind === "dir" ? onToggle(node) : onOpenFile(node.path)}
         style={{ paddingLeft: 4 + depth * 12 }}
         aria-expanded={node.kind === "dir" ? isOpen : undefined}
         aria-label={node.kind === "dir" ? `Folder ${node.name}` : `File ${node.name}`}
+        variant="ghost"
+        size="xs"
         className={cn(
-          "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-[12px] transition-colors hover:bg-accent",
+          "h-7 w-full justify-start gap-1.5 px-1.5 text-left text-[12px]",
           depth === 0 && "font-medium text-muted-foreground",
         )}
       >
@@ -450,7 +472,7 @@ function TreeRow({ node, depth, expanded, onToggle, onOpenFile }: {
           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
         )}
         <span className="truncate">{node.name}</span>
-      </button>
+      </Button>
       {isOpen && node.children && (
         <div>
           {node.children.map((c) => (

@@ -3,8 +3,8 @@
 import {
   AlertDialog, AlertDialogBackdrop, AlertDialogPopup, AlertDialogPortal,
   AlertDialogTitle, AlertDialogDescription, AlertDialogClose,
-} from "@raltic/ui/components/ui/alert-dialog";
-import { Button } from "@raltic/ui/components/ui/button";
+} from "@/components/heroui-pro/alert-dialog";
+import { Button } from "@/components/heroui-pro/button";
 
 interface Props {
   open: boolean;

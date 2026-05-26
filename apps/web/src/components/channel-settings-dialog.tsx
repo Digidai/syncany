@@ -6,10 +6,10 @@ import { Archive, ArchiveRestore, Hash, Lock, Trash2, AlertTriangle } from "luci
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@raltic/ui/components/ui/dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { api, ApiError, type Channel } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 
@@ -147,9 +147,9 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
               {channel.type !== "dm" && canManage && (
                 <Field>
                   <FieldLabel>Visibility</FieldLabel>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     {(["public", "private"] as const).map((t) => (
-                      <button
+                      <Button
                         key={t}
                         type="button"
                         disabled={convertingVisibility || channel.type === t}
@@ -170,6 +170,8 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                           }
                         }}
                         aria-pressed={channel.type === t}
+                        variant="outline"
+                        size="sm"
                         className={`flex-1 rounded-md border px-3 py-1.5 text-left text-xs transition-colors ${
                           channel.type === t ? "border-foreground bg-accent" : "border-border hover:bg-accent/40"
                         }`}
@@ -178,7 +180,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                           {t === "public" ? <Hash className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                           {t === "public" ? "Public" : "Private"}
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
@@ -211,7 +213,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                           ? "Posting is disabled and the channel is hidden from sidebars. Existing messages are preserved."
                           : "Make the channel read-only and hide it from sidebars. Reversible — no data is lost."}
                       </p>
-                      <button
+                      <Button
                         type="button"
                         disabled={archiving}
                         onClick={async () => {
@@ -234,12 +236,14 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                             setArchiving(false);
                           }
                         }}
-                        className="mt-2 inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
+                        variant="outline"
+                        size="xs"
+                        className="mt-2 text-[11px]"
                       >
                         {channel.archivedAt != null
                           ? <><ArchiveRestore className="h-3 w-3" />Unarchive</>
                           : <><Archive className="h-3 w-3" />Archive</>}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -256,13 +260,15 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                         All messages, tasks, and reactions in <strong>#{channel.name}</strong> will be permanently removed. Members will lose access immediately.
                       </p>
                       {!confirmDelete ? (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setConfirmDelete(true)}
-                          className="mt-2 inline-flex items-center gap-1 rounded border border-destructive/50 px-2 py-1 text-[11px] font-medium text-destructive-foreground hover:bg-destructive/10"
+                          variant="danger-soft"
+                          size="xs"
+                          className="mt-2 text-[11px]"
                         >
                           <Trash2 className="h-3 w-3" /> Delete channel
-                        </button>
+                        </Button>
                       ) : (
                         <div className="mt-2 space-y-2">
                           <label htmlFor="cs-del" className="text-[11px] text-muted-foreground">
@@ -274,11 +280,12 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                             onChange={(e) => setDeleteText((e.target as HTMLInputElement).value)}
                             placeholder={channel.name}
                           />
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
+                              className="w-full sm:w-auto"
                               onClick={() => { setConfirmDelete(false); setDeleteText(""); }}
                             >
                               Cancel
@@ -289,6 +296,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                               variant="destructive"
                               loading={deleting}
                               disabled={deleteText !== channel.name}
+                              className="w-full sm:w-auto"
                               onClick={handleDelete}
                             >
                               Delete forever

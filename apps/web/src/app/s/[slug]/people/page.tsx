@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { authClient } from "@/lib/auth-client";
 import { GeneratedAvatar } from "@/components/generated-avatar";
+import { Button } from "@/components/heroui-pro/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -115,7 +116,7 @@ export default function PeoplePage() {
                 const isMe = m.userId === meId;
                 return (
                   <li key={m.userId} className={cn(
-                    "flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20",
+                    "flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20",
                     isMe && "opacity-60",
                   )}>
                     {m.image ? (
@@ -124,7 +125,7 @@ export default function PeoplePage() {
                       <GeneratedAvatar id={m.userId} name={m.name} size="lg" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-medium">{m.name}</span>
                         {isMe && <span className="text-[10px] text-muted-foreground">(you)</span>}
                         <RoleChip role={m.role} />
@@ -134,15 +135,18 @@ export default function PeoplePage() {
                       )}
                     </div>
                     {!isMe && (
-                      <button
+                      <Button
+                        type="button"
                         onClick={() => handleMessage(m)}
                         disabled={opening === m.userId}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                        variant="outline"
+                        size="xs"
+                        className="w-full shrink-0 justify-center text-xs sm:ml-auto sm:w-auto"
                       >
                         <MessageSquare className="h-3 w-3" />
                         {opening === m.userId ? "Opening…" : "Message"}
                         <ArrowRight className="h-3 w-3" />
-                      </button>
+                      </Button>
                     )}
                   </li>
                 );

@@ -6,11 +6,11 @@ import { signUp, authClient } from "@/lib/auth-client";
 import { safeNext } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { Alert, AlertDescription } from "@raltic/ui/components/ui/alert";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Alert, AlertDescription } from "@/components/heroui-pro/alert";
 
 const MIN_PASSWORD_LENGTH = 8;
 const HAS_GOOGLE = !!process.env.NEXT_PUBLIC_GOOGLE_ENABLED;
@@ -370,13 +370,15 @@ function CheckInboxCard({
           {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend email"}
         </Button>
         <div className="flex w-full items-center justify-between text-sm">
-          <button
+          <Button
             type="button"
             onClick={onUseDifferentEmail}
-            className="text-muted-foreground hover:text-foreground"
+            variant="link"
+            size="sm"
+            className="px-0 text-muted-foreground"
           >
             Use a different email
-          </button>
+          </Button>
           <Link
             href={nextPath !== "/" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
             className="text-muted-foreground hover:text-foreground"

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@raltic/ui/components/ui/dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Textarea } from "@raltic/ui/components/ui/textarea";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Textarea } from "@/components/heroui-pro/textarea";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { api, ApiError, CLOUD_MODELS, RUNTIME_LABEL, RUNTIME_MODELS, type Agent, type RuntimeId } from "@/lib/api";
 import { GeneratedAvatar } from "./generated-avatar";
 import { randomAvatarSeed } from "@/lib/avatar";
@@ -21,6 +21,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
 }
+
+const optionButtonClass =
+  "!h-auto !w-full min-w-0 !items-stretch !justify-start !whitespace-normal rounded-xl px-3 py-2 text-left text-sm transition-colors";
 
 export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
   const [displayName, setDisplayName] = useState("");
@@ -92,7 +95,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogBackdrop />
-        <DialogPopup>
+        <DialogPopup className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit {agent.name}</DialogTitle>
           </DialogHeader>
@@ -109,11 +112,13 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                         <Shuffle className="mr-1 h-3.5 w-3.5" /> Shuffle
                       </Button>
                       {avatarSeed && (
-                        <button type="button"
+                        <Button type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => setAvatarSeed(null)}
-                          className="text-xs text-muted-foreground hover:text-foreground">
+                          className="text-xs text-muted-foreground">
                           Reset to default
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -145,12 +150,14 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                     <FieldLabel>Runtime</FieldLabel>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       {(["claude", "codex", "openclaw", "hermes"] as RuntimeId[]).map((r) => (
-                        <button
+                        <Button
                           key={r}
                           type="button"
                           onClick={() => pickRuntime(r)}
+                          variant="outline"
                           className={cn(
-                            "flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                            optionButtonClass,
+                            "flex-1 flex-col",
                             runtime === r ? "border-cyan-500 bg-cyan-500/10" : "border-border hover:border-foreground/20",
                           )}
                         >
@@ -158,7 +165,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                           <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {RUNTIME_MODELS[r].join(" / ")}
                           </p>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </Field>
@@ -172,13 +179,15 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                   <FieldLabel>Model</FieldLabel>
                   <div className="flex flex-wrap gap-2">
                     {(isCloud ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
-                      <button key={m} type="button" onClick={() => setModel(m)}
+                      <Button key={m} type="button" onClick={() => setModel(m)}
+                        variant="outline"
+                        size="sm"
                         className={cn(
-                          "rounded border px-3 py-1 text-sm transition-colors",
+                          "!h-auto !whitespace-normal break-all text-sm transition-colors",
                           model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",
                         )}>
                         {m}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </Field>

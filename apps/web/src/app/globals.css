@@ -289,6 +289,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  [data-slot="modal-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]),
+  [data-slot="alert-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]) {
+    color: var(--foreground);
+  }
   code,
   kbd,
   samp,
@@ -599,4 +603,17 @@ textarea:-webkit-autofill {
   pointer-events: none;
   float: left;
   height: 0;
+}
+
+.tiptap-input--composer {
+  min-height: 112px;
+  align-items: flex-start;
+}
+
+.tiptap-input--composer .ProseMirror {
+  min-height: 52px;
+  max-height: 180px;
+  padding-block: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }

@@ -6,13 +6,13 @@ import { useParams } from "next/navigation";
 import { Hash, Cpu, MessageSquare, Pencil, Trash2, Lock, Plus, ArrowRight } from "lucide-react";
 import { api, type Agent, type Channel } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { CreateChannelDialog } from "@/components/create-channel-dialog";
 import { CreateAgentDialog } from "@/components/create-agent-dialog";
 import { EditAgentDialog } from "@/components/edit-agent-dialog";
-import { ConfirmDialog } from "@raltic/ui/components/ui/confirm-dialog";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { useSettings, SettingsSection } from "../layout";
 
 // Design contract for this tab:
@@ -184,12 +184,12 @@ export default function ChannelsAgentsPage() {
 function ChannelRow({ channel, slug }: { channel: Channel; slug: string }) {
   const Icon = channel.type === "private" ? Lock : Hash;
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm transition-colors hover:border-border hover:bg-accent/40">
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm transition-colors hover:border-border hover:bg-accent/40">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-medium">{channel.name}</span>
           {channel.type === "private" && (
             <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700">private</span>
@@ -199,7 +199,7 @@ function ChannelRow({ channel, slug }: { channel: Channel; slug: string }) {
           <p className="truncate text-xs text-muted-foreground">{channel.description}</p>
         )}
       </div>
-      <Button variant="ghost" size="sm" render={<Link href={`/s/${slug}/channel/${channel.id}`} />}>
+      <Button variant="ghost" size="sm" render={<Link href={`/s/${slug}/channel/${channel.id}`} />} className="w-full shrink-0 justify-center sm:ml-auto sm:w-auto">
         Open <ArrowRight className="ms-1 h-3.5 w-3.5" />
       </Button>
     </li>
@@ -223,7 +223,7 @@ function AgentRow({
     : agent.status === "sleeping" ? "idle"
     : "offline";
   return (
-    <li className="flex items-center gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-accent/30">
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-accent/30">
       <GeneratedAvatar id={agent.id} name={agent.displayName} seed={agent.avatarSeed} size="md" />
       <div className="min-w-0 flex-1">
         {/* Name links to profile — that's the canonical "manage agent"
@@ -251,7 +251,7 @@ function AgentRow({
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{agent.description}</p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex w-full shrink-0 items-center justify-end gap-1 sm:ml-auto sm:w-auto">
         {agent.dmChannelId && (
           <Button
             variant="ghost"

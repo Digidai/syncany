@@ -9,6 +9,7 @@ import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon,
 import { cn } from "@/lib/utils";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
+import { Button } from "@/components/heroui-pro/button";
 import { useGateway, useChannelUnread, useWorkspacePresence } from "@/hooks/use-agent-activity";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { UserPill } from "./user-pill";
@@ -107,7 +108,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
   const sidebarContent = () => (
     <>
-      <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-3 !pb-3 !pt-3">
+      <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-4 !pb-3 !pt-4">
         <div className="flex-1 min-w-0">
           <WorkspaceSwitcher
             currentServerId={serverId}
@@ -116,81 +117,57 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
             currentIconUrl={serverIconUrl}
           />
         </div>
-        <button
+        <Button
+          type="button"
           onClick={() => setOpenCreate(true)}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/70 text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+          variant="outline"
+          size="icon-sm"
+          className="h-9 w-9 shrink-0 rounded-full text-muted-foreground"
           title="New channel"
           aria-label="Create channel"
         >
           <Plus className="h-4 w-4" />
-        </button>
+        </Button>
       </HeroSidebar.Header>
 
       <HeroSidebar.Content
         data-testid="workspace-sidebar-scroll"
-        className="!min-h-0 !flex-1 !gap-0 !px-3 !pb-3 !pt-0 text-sm"
+        className="!min-h-0 !flex-1 !gap-0 !px-4 !pb-3 !pt-0 text-sm"
       >
         <nav aria-label="Workspace navigation" className="text-sm">
           {isLoading ? (
-            <p className="rounded-xl border border-white/60 bg-white/50 px-3 py-2 text-xs text-muted-foreground shadow-sm dark:border-white/10 dark:bg-white/5">Loading…</p>
+            <p className="rounded-xl border border-border bg-default px-3 py-2 text-xs text-muted-foreground">Loading...</p>
           ) : (
             <>
               {/* Top-level destination — sibling of Channels / DMs / Agents,
                   rendered as a single row (no section header) since there's
                   only one item under "Tasks". */}
-              <ul className="space-y-0.5">
-                <li>
-                  <TopLevelLink
-                    href={`/s/${serverSlug}/inbox`}
-                    icon={<InboxIcon className="h-4 w-4" />}
-                    label="Inbox"
-                    active={pathname === `/s/${serverSlug}/inbox`}
-                  />
-                </li>
-                <li>
-                  <TopLevelLink
-                    href={`/s/${serverSlug}/tasks`}
-                    icon={<ListTodo className="h-4 w-4" />}
-                    label="Tasks"
-                    // Exact match — `endsWith("/tasks")` would light up
-                    // any future sub-route or a literally-named channel.
-                    active={pathname === `/s/${serverSlug}/tasks`}
-                  />
-                </li>
-                <li>
-                  {/* Agents promoted to top-level destination — used to be
-                      a separate sidebar SECTION listing every agent inline.
-                      Problem: each agent has an auto-created DM channel
-                      (channels.type='dm'), so the same agent showed up TWICE
-                      in the sidebar — once under Direct messages (chat),
-                      once under Agents (profile). Two parallel lists of the
-                      same entity is confusing. Now Direct messages stays
-                      (hot path = chat) and the dedicated browse + profile
-                      surface lives at /s/{slug}/agents. */}
-                  <TopLevelLink
-                    href={`/s/${serverSlug}/agents`}
-                    icon={<Cpu className="h-4 w-4" />}
-                    label="Agents"
-                    // Light up for both the index page and any agent
-                    // profile sub-page so the user knows which top-level
-                    // destination they're inside.
-                    active={pathname === `/s/${serverSlug}/agents` || pathname.startsWith(`/s/${serverSlug}/agents/`)}
-                  />
-                </li>
-                <li>
-                  {/* People = workspace HUMAN members directory. Without
-                      this, an invitee couldn't see who else is in the
-                      workspace or DM them. Pairs with the (new) human↔
-                      human DM find-or-create flow under "Direct messages
-                      [+]". */}
-                  <TopLevelLink
-                    href={`/s/${serverSlug}/people`}
-                    icon={<Users className="h-4 w-4" />}
-                    label="People"
-                    active={pathname === `/s/${serverSlug}/people` || pathname.startsWith(`/s/${serverSlug}/people/`)}
-                  />
-                </li>
-              </ul>
+              <HeroSidebar.Menu className="space-y-1" aria-label="Workspace destinations">
+                <TopLevelLink
+                  href={`/s/${serverSlug}/inbox`}
+                  icon={<InboxIcon className="h-4 w-4" />}
+                  label="Inbox"
+                  active={pathname === `/s/${serverSlug}/inbox`}
+                />
+                <TopLevelLink
+                  href={`/s/${serverSlug}/tasks`}
+                  icon={<ListTodo className="h-4 w-4" />}
+                  label="Tasks"
+                  active={pathname === `/s/${serverSlug}/tasks`}
+                />
+                <TopLevelLink
+                  href={`/s/${serverSlug}/agents`}
+                  icon={<Cpu className="h-4 w-4" />}
+                  label="Agents"
+                  active={pathname === `/s/${serverSlug}/agents` || pathname.startsWith(`/s/${serverSlug}/agents/`)}
+                />
+                <TopLevelLink
+                  href={`/s/${serverSlug}/people`}
+                  icon={<Users className="h-4 w-4" />}
+                  label="People"
+                  active={pathname === `/s/${serverSlug}/people` || pathname.startsWith(`/s/${serverSlug}/people/`)}
+                />
+              </HeroSidebar.Menu>
               <ChannelGroup
                 label="Channels"
                 icon={<Hash className="h-3.5 w-3.5" />}
@@ -206,7 +183,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 headerAction={
                   <Link
                     href={`/s/${serverSlug}/channels`}
-                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-white hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10"
+                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-default hover:text-foreground focus-visible:opacity-100"
                     title="Browse all channels"
                     aria-label="Browse all public channels"
                   >
@@ -227,20 +204,22 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 // point for starting a DM with someone NOT yet in the
                 // sidebar list (an invitee, a newly-created agent, etc.).
                 headerAction={
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setOpenNewDm(true)}
-                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-white hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="ml-1 h-5 w-5 text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 focus-visible:opacity-100"
                     title="Start a new direct message"
                     aria-label="Start a new direct message"
                   >
                     <Plus className="h-3 w-3" />
-                  </button>
+                  </Button>
                 }
                 // Render the empty-state row so the "+" stays discoverable
                 // for a brand-new workspace user who has zero DMs yet.
                 emptyHint={
-                  <p className="rounded-xl border border-dashed border-zinc-200/80 bg-white/50 px-3 py-2 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                  <p className="rounded-xl border border-dashed border-border bg-default px-3 py-2 text-[11px] text-muted-foreground">
                     No conversations yet. Tap <span className="font-mono">+</span> to start one.
                   </p>
                 }
@@ -266,7 +245,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
-      <HeroSidebar.Footer className="!gap-0 border-t border-white/60 bg-white/25 !px-3 !py-3 dark:border-white/10 dark:bg-white/5">
+      <HeroSidebar.Footer className="!gap-0 border-t border-border bg-background !px-4 !py-3">
         <UserPill serverSlug={serverSlug} />
       </HeroSidebar.Footer>
     </>
@@ -277,10 +256,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       {!isMobile && (
         <HeroSidebar.Root
           data-testid="workspace-sidebar"
-          className="!sticky !top-0 !min-h-0 !border-white/70 !bg-white/80 !shadow-[0_18px_55px_-34px_rgba(15,23,42,0.55),0_0_0_1px_rgba(255,255,255,0.66)] backdrop-blur-xl dark:!border-white/10 dark:!bg-zinc-950/80"
+          className="!sticky !top-0 !h-screen !min-h-0 !border-r !border-border !bg-background !shadow-none"
           style={{
-            "--sidebar-width": "17.25rem",
-            "--sidebar-width-collapsed": "17.25rem",
+            "--sidebar-width": "15rem",
+            "--sidebar-width-collapsed": "15rem",
           } as CSSProperties}
         >
           {sidebarContent()}
@@ -289,7 +268,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       <HeroSidebar.Mobile
         data-testid="workspace-sidebar-mobile"
         aria-label="Workspace navigation"
-        className="!bg-white/95 dark:!bg-zinc-950"
+        className="!bg-background"
       >
         {isMobile ? sidebarContent() : null}
       </HeroSidebar.Mobile>
@@ -323,15 +302,11 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
 // ── Building blocks (one source of truth for sidebar row rhythm) ──
 
-const ROW_BASE =
-  "group relative flex min-h-9 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-all";
-const ROW_HOVER =
-  "text-zinc-700 hover:bg-white/80 hover:text-zinc-950 hover:shadow-sm dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white";
-// Active state is now a full selected surface, not the old cyan left rule.
-// That makes the HeroUI Pro rail read as a real shell instead of a restyled
-// legacy sidebar.
-const ROW_ACTIVE =
-  "bg-zinc-950 text-white shadow-[0_12px_28px_-16px_rgba(15,23,42,0.85)] dark:bg-white dark:text-zinc-950";
+const SIDEBAR_ITEM_CLASS =
+  "!rounded-xl !outline-none";
+
+const SIDEBAR_LINK_CLASS =
+  "flex min-h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-default hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[current=true]:bg-foreground data-[current=true]:text-background";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
@@ -360,11 +335,7 @@ function SidebarGroup({
         <span className="flex-1">{label}</span>
         {headerAction}
       </HeroSidebar.GroupLabel>
-      <ul className="space-y-1">
-        {Array.isArray(children)
-          ? children.map((c, i) => <li key={i}>{c}</li>)
-          : <li>{children}</li>}
-      </ul>
+      {children}
     </HeroSidebar.Group>
   );
 }
@@ -376,21 +347,30 @@ function SidebarGroup({
 function TopLevelLink({ href, icon, label, active }: {
   href: string; icon: React.ReactNode; label: string; active: boolean;
 }) {
+  const { isMobile, setMobileOpen } = useSidebar();
+
   return (
-    <Link
-      href={href}
+    <HeroSidebar.MenuItem
+      id={href}
+      isCurrent={active}
+      textValue={label}
       className={cn(
-        ROW_BASE,
-        "font-medium",
-        !active && ROW_HOVER,
-        active && ROW_ACTIVE,
+        SIDEBAR_ITEM_CLASS,
       )}
     >
-      {/* Icon takes the row's active color when selected so the active
-          state reads as a single intent, not a half-tinted row. */}
-      <span className={active ? "text-current opacity-80" : "text-muted-foreground group-hover:text-current"}>{icon}</span>
-      <span className="flex-1 truncate leading-tight">{label}</span>
-    </Link>
+      <Link
+        href={href}
+        aria-current={active ? "page" : undefined}
+        data-current={active ? "true" : undefined}
+        className={cn(SIDEBAR_LINK_CLASS, "font-medium")}
+        onClick={() => {
+          if (isMobile) setMobileOpen(false);
+        }}
+      >
+        <HeroSidebar.MenuIcon className="shrink-0 text-current">{icon}</HeroSidebar.MenuIcon>
+        <HeroSidebar.MenuLabel className="min-w-0 flex-1 truncate !text-current [&_[data-slot=sidebar-menu-label-text]]:!text-current">{label}</HeroSidebar.MenuLabel>
+      </Link>
+    </HeroSidebar.MenuItem>
   );
 }
 
@@ -420,15 +400,16 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
     channel.type === "dm" && channel.peer?.name
       ? channel.peer.name
       : channel.name;
+  const href = `/s/${serverSlug}/${channel.type === "dm" ? "dm" : "channel"}/${channel.id}`;
+  const { isMobile, setMobileOpen } = useSidebar();
+
   return (
-    <Link
-      href={`/s/${serverSlug}/${channel.type === "dm" ? "dm" : "channel"}/${channel.id}`}
+    <HeroSidebar.MenuItem
+      id={channel.id}
+      isCurrent={isActive}
+      textValue={displayName}
       className={cn(
-        ROW_BASE,
-        !isActive && ROW_HOVER,
-        // Active channel uses brand cyan accent (left bar + tinted bg) so the
-        // sidebar carries brand color, not the old neutral sand-3.
-        isActive && ROW_ACTIVE,
+        SIDEBAR_ITEM_CLASS,
         unread > 0 && "font-semibold",
         // Phase A — muted: switch to muted-foreground tint instead of
         // opacity-60 (codex PA2 MED — opacity dropped contrast below
@@ -438,47 +419,61 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
         isMuted && !isActive && "text-muted-foreground",
       )}
     >
-      <span className={isActive ? "text-current opacity-80" : "text-muted-foreground group-hover:text-current"}>{icon}</span>
-      <span className="flex-1 truncate leading-tight">{displayName}</span>
-      {channel.type !== "dm" && channel.starredAt != null && (
-        <Star className="h-3 w-3 shrink-0 fill-current text-amber-500" aria-label="Starred" />
-      )}
-      {channel.type !== "dm" && isMuted && (
-        <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Muted" />
-      )}
-      {/* For human DMs: emerald dot if peer's online, zinc dot if seen
-          recently, none if never connected. Real workspace presence —
-          not the hardcoded green the user-pill used to show. */}
-      {humanPeerPresence !== undefined && (
-        <span
-          className={cn(
-            "h-1.5 w-1.5 shrink-0 rounded-full",
-            humanPeerPresence.online
-              ? "bg-success shadow-[0_0_5px_rgba(16,185,129,0.55)]"
-              : "bg-zinc-400/60",
-          )}
-          aria-label={humanPeerPresence.online ? "Online" : "Offline"}
-        />
-      )}
-      {/* For agent DMs, show the runtime indicator inline so users can
-          tell at a glance whether a DM peer is Claude or Codex without
-          opening the channel. Humans show no chip. */}
-      {channel.type === "dm" && channel.peer?.type === "agent" && channel.peer.runtime && (
-        <RuntimeDot runtime={channel.peer.runtime} />
-      )}
-      {unread > 0 && (
-        <span
-          className={cn(
-            "rounded-full px-1.5 text-[10px] font-medium leading-tight shadow-sm",
-            isActive
-              ? "bg-white text-zinc-950 ring-1 ring-white/30 dark:bg-zinc-950 dark:text-white dark:ring-zinc-950/20"
-              : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950",
-          )}
-        >
-          {unread > 99 ? "99+" : unread}
-        </span>
-      )}
-    </Link>
+      <Link
+        href={href}
+        aria-current={isActive ? "page" : undefined}
+        data-current={isActive ? "true" : undefined}
+        className={cn(
+          SIDEBAR_LINK_CLASS,
+          unread > 0 && "font-semibold",
+          isMuted && !isActive && "text-muted-foreground",
+        )}
+        onClick={() => {
+          if (isMobile) setMobileOpen(false);
+        }}
+      >
+        <HeroSidebar.MenuIcon className="shrink-0 text-current">{icon}</HeroSidebar.MenuIcon>
+        <HeroSidebar.MenuLabel className="min-w-0 flex-1 truncate !text-current [&_[data-slot=sidebar-menu-label-text]]:!text-current">{displayName}</HeroSidebar.MenuLabel>
+        {channel.type !== "dm" && channel.starredAt != null && (
+          <Star className="h-3 w-3 shrink-0 fill-current text-amber-500" aria-label="Starred" />
+        )}
+        {channel.type !== "dm" && isMuted && (
+          <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Muted" />
+        )}
+        {/* For human DMs: emerald dot if peer's online, zinc dot if seen
+            recently, none if never connected. Real workspace presence —
+            not the hardcoded green the user-pill used to show. */}
+        {humanPeerPresence !== undefined && (
+          <span
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              humanPeerPresence.online
+                ? "bg-success shadow-[0_0_5px_rgba(16,185,129,0.55)]"
+                : "bg-zinc-400/60",
+            )}
+            aria-label={humanPeerPresence.online ? "Online" : "Offline"}
+          />
+        )}
+        {/* For agent DMs, show the runtime indicator inline so users can
+            tell at a glance whether a DM peer is Claude or Codex without
+            opening the channel. Humans show no chip. */}
+        {channel.type === "dm" && channel.peer?.type === "agent" && channel.peer.runtime && (
+          <RuntimeDot runtime={channel.peer.runtime} />
+        )}
+        {unread > 0 && (
+          <HeroSidebar.MenuChip
+            className={cn(
+              "min-w-5 justify-center text-[10px]",
+              isActive
+                ? "!bg-background !text-foreground"
+                : "!bg-foreground !text-background",
+            )}
+          >
+            {unread > 99 ? "99+" : unread}
+          </HeroSidebar.MenuChip>
+        )}
+      </Link>
+    </HeroSidebar.MenuItem>
   );
 }
 
@@ -506,9 +501,11 @@ function ChannelGroup({
       {channels.length === 0 && emptyHint ? (
         emptyHint
       ) : (
-        channels.map((c) => (
-          <ChannelLink key={c.id} channel={c} activeId={activeId} serverSlug={serverSlug} serverId={serverId} icon={icon} />
-        ))
+        <HeroSidebar.Menu className="space-y-1" aria-label={label}>
+          {channels.map((c) => (
+            <ChannelLink key={c.id} channel={c} activeId={activeId} serverSlug={serverSlug} serverId={serverId} icon={icon} />
+          ))}
+        </HeroSidebar.Menu>
       )}
     </SidebarGroup>
   );

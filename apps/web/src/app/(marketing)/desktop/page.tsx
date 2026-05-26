@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { AlertTriangle, ArrowRight, Download, ExternalLink, Monitor, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowLeft, ArrowRight, Download, ExternalLink, Monitor, RefreshCw } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 
 const RELEASES_URL = "https://github.com/Digidai/raltic/releases";
 
@@ -17,10 +19,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DesktopBetaPage() {
+type DesktopBetaPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageProps) {
+  const params = await searchParams;
+  const fromDesktopWelcome = params?.from === "desktop-welcome";
+
   return (
     <>
       <main className="bg-black text-white">
+        {fromDesktopWelcome ? <DesktopReturnBar /> : null}
         <section className="border-b border-zinc-900 px-6 pt-28 pb-16 sm:pt-36">
           <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
@@ -37,20 +47,12 @@ export default function DesktopBetaPage() {
                 installation has extra macOS / Windows warnings.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href={RELEASES_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-black hover:bg-zinc-200"
-                >
+                <MarketingButton href={RELEASES_URL} target="_blank" rel="noreferrer" variant="nav-primary" className="!h-10 !gap-2 !px-4">
                   Open GitHub Releases <ExternalLink className="h-4 w-4" />
-                </a>
-                <a
-                  href="#install"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-100 hover:border-zinc-500"
-                >
+                </MarketingButton>
+                <MarketingButton href="#install" variant="secondary" className="!h-10 !gap-2 !border-zinc-700 !bg-transparent !px-4 hover:!border-zinc-500 hover:!bg-zinc-950">
                   Read install notes <ArrowRight className="h-4 w-4" />
-                </a>
+                </MarketingButton>
               </div>
             </div>
 
@@ -129,6 +131,23 @@ export default function DesktopBetaPage() {
       </main>
       <MarketingFooter />
     </>
+  );
+}
+
+function DesktopReturnBar() {
+  return (
+    <div className="sticky top-[65px] z-40 border-b border-cyan-400/20 bg-black/90 px-6 py-3 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Link
+          href="/desktop/welcome"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-100 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to desktop setup
+        </Link>
+        <p className="text-xs text-zinc-500">Install notes opened inside Raltic Desktop</p>
+      </div>
+    </div>
   );
 }
 

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { safeNext } from "@/lib/safe-redirect";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
 
 /**
  * Landing page for email verification.
@@ -105,6 +107,10 @@ function VerifyEmailInner() {
   // Not signed in here — link was clicked in a different browser than
   // the one that signed up. Tell them clearly and give them a one-tap
   // sign-in CTA. Pre-fill the email if better-auth handed it to us.
+  const signInHref = nextPath !== "/"
+    ? `/login?next=${encodeURIComponent(nextPath)}${emailFromUrl ? `&email=${encodeURIComponent(emailFromUrl)}` : ""}`
+    : `/login${emailFromUrl ? `?email=${encodeURIComponent(emailFromUrl)}` : ""}`;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
       <div className="max-w-sm w-full text-center">
@@ -114,15 +120,9 @@ function VerifyEmailInner() {
           tab confirmed your email and the other one will pick it up
           automatically. Otherwise, sign in below.
         </p>
-        <Link
-          href={
-            nextPath !== "/"
-              ? `/login?next=${encodeURIComponent(nextPath)}${emailFromUrl ? `&email=${encodeURIComponent(emailFromUrl)}` : ""}`
-              : `/login${emailFromUrl ? `?email=${encodeURIComponent(emailFromUrl)}` : ""}`
-          }
-          className="mt-6 inline-block rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90">
+        <Button render={<Link href={signInHref} />} className="mt-6">
           Sign in
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -189,23 +189,22 @@ function ErrorPanel({
         ) : (
           <form onSubmit={handleResend} className="mt-6 space-y-3 text-left">
             <label className="block text-xs font-medium" htmlFor="resend-email">Email</label>
-            <input
+            <Input
               id="resend-email"
               type="email"
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
               placeholder="you@example.com"
             />
-            <button
+            <Button
               type="submit"
               disabled={resending || !email.trim()}
-              className="w-full rounded bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+              className="w-full"
             >
               {resending ? "Sending…" : "Send a new verification link"}
-            </button>
+            </Button>
             {resendError && (
               <p className="text-xs text-destructive-foreground">{resendError}</p>
             )}

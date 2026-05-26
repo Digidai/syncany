@@ -8,6 +8,7 @@ import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { CreateAgentDialog } from "@/components/create-agent-dialog";
+import { Button } from "@/components/heroui-pro/button";
 import { useAgentActivities } from "@/hooks/use-agent-activity";
 import { cn } from "@/lib/utils";
 
@@ -91,12 +92,15 @@ export default function AgentsIndexPage() {
             </p>
           </div>
           {serverId && (
-            <button
+            <Button
+              type="button"
               onClick={() => setCreateOpen(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
             >
               <Plus className="h-3.5 w-3.5" /> New agent
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -114,12 +118,15 @@ export default function AgentsIndexPage() {
                 Create your first AI teammate to start collaborating in channels.
               </p>
               {serverId && (
-                <button
+                <Button
+                  type="button"
                   onClick={() => setCreateOpen(true)}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
                 >
                   <Plus className="h-3.5 w-3.5" /> Create agent
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -132,7 +139,7 @@ export default function AgentsIndexPage() {
                     <div className="flex items-start gap-3">
                       <GeneratedAvatar id={a.id} name={a.displayName} seed={a.avatarSeed} size="lg" />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/s/${slug}/agents/${a.id}`}
                             className="truncate font-medium hover:underline"
@@ -153,22 +160,27 @@ export default function AgentsIndexPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-end gap-1">
-                      <Link
-                        href={`/s/${slug}/agents/${a.id}`}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        render={<Link href={`/s/${slug}/agents/${a.id}`} />}
+                        className="text-xs text-muted-foreground"
                       >
                         <Pencil className="h-3 w-3" /> Profile
-                      </Link>
-                      <button
+                      </Button>
+                      <Button
+                        type="button"
                         onClick={() => handleMessage(a)}
                         disabled={opening === a.id}
-                        className="inline-flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                        variant="outline"
+                        size="xs"
+                        className="text-xs"
                       >
                         <MessageSquare className="h-3 w-3" />
                         {opening === a.id ? "Opening…" : "Message"}
                         <ArrowRight className="h-3 w-3" />
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 );

@@ -5,7 +5,8 @@ import { Bell, BellOff, Bot, LogOut, MoreHorizontal, Settings, Star, StarOff, Us
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
-} from "@raltic/ui/components/ui/menu";
+} from "@/components/heroui-pro/menu";
+import { Button } from "@/components/heroui-pro/button";
 import { useRouter } from "next/navigation";
 import { api, ApiError, type Channel, type ChannelMember } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
@@ -120,10 +121,12 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
           zero so single-human channels still look clean. Numbers are
           hidden below `sm` so the right cluster doesn't squeeze the
           channel title on mobile (codex C5 MED). */}
-      <button
+      <Button
         type="button"
         onClick={() => setMembersOpen(true)}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:text-foreground dark:border-white/10 dark:bg-white/5"
+        variant="outline"
+        size="sm"
+        className="hidden min-h-8 gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm sm:inline-flex"
         aria-label={`Members: ${membersLabel}`}
         title={`Members: ${membersLabel}`}
       >
@@ -135,7 +138,7 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
             <span className="hidden sm:inline">{agentCount}</span>
           </>
         )}
-      </button>
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger
           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200/80 bg-white/80 text-muted-foreground shadow-sm transition-colors hover:border-cyan-200 hover:text-foreground dark:border-white/10 dark:bg-white/5"

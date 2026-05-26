@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertCircle, RotateCw } from "lucide-react";
+import { Button } from "@/components/heroui-pro/button";
 
 /**
  * Settings-section error boundary — narrower than the workspace one.
@@ -26,10 +27,9 @@ export default function SettingsError({ error, reset }: {
           Other settings tabs still work. Pick another from the side nav, or retry below.
         </p>
         {error.digest && <p className="mt-1 text-[10px] text-muted-foreground">Reference: {error.digest}</p>}
-        <button onClick={() => reset()}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium hover:bg-accent">
+        <Button type="button" onClick={() => reset()} variant="outline" size="xs" className="mt-3 text-[11px]">
           <RotateCw className="h-3 w-3" aria-hidden="true" /> Try again
-        </button>
+        </Button>
       </div>
     </div>
   );

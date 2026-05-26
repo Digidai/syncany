@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { Button } from "@/components/heroui-pro/button";
 
 /**
  * Auth-routes error boundary. Catches render errors on /login,
@@ -23,9 +24,8 @@ export default function AuthError({ error, reset }: {
         </p>
         {error.digest && <p className="mt-1 text-[11px] text-muted-foreground">Reference: {error.digest}</p>}
         <div className="mt-4 flex justify-center gap-2">
-          <button onClick={() => reset()}
-            className="rounded-md bg-foreground px-3 py-1.5 text-sm text-background hover:opacity-90">Try again</button>
-          <Link href="/" className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">Home</Link>
+          <Button type="button" onClick={() => reset()} size="sm">Try again</Button>
+          <Button variant="outline" size="sm" render={<Link href="/" />}>Home</Button>
         </div>
       </div>
     </div>

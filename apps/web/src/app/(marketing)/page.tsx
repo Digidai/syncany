@@ -5,6 +5,7 @@ import {
   X, Minus,
 } from "lucide-react";
 import { HomeCta } from "@/components/home-cta";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 import { RalticLogo } from "@/components/raltic-logo";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
 
@@ -139,12 +140,9 @@ function Hero(): React.ReactElement {
                 to bring their own daemon. Per marketing v2 plan +
                 codex review HIGH-1. */}
             <HomeCta />
-            <Link
-              href="/signup?wizard=1"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-medium text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900"
-            >
+            <MarketingButton href="/signup?wizard=1" variant="secondary">
               Bring your own daemon <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            </MarketingButton>
           </div>
 
           {/* Trust line. The install command used to live here too, but

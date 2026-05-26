@@ -15,11 +15,12 @@ import { useEffect, useState } from "react";
 import { GitBranch, Briefcase, BookOpen, Plug, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { ConfirmDialog } from "@raltic/ui/components/ui/confirm-dialog";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Select } from "@/components/heroui-pro/select";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { SettingsSection } from "../layout";
 
 type ConnectorKind = "github" | "linear" | "notion";
@@ -125,16 +126,15 @@ export default function ConnectorsPage() {
           <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-[140px_1fr_1fr_auto]">
             <Field>
               <FieldLabel>Service</FieldLabel>
-              <select
+              <Select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as ConnectorKind)}
-                className="h-9 rounded border bg-background px-2 text-sm"
                 aria-label="Connector kind"
               >
                 {(Object.keys(KIND_META) as ConnectorKind[]).map(k => (
                   <option key={k} value={k}>{KIND_META[k].label}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field>
               <FieldLabel>Label</FieldLabel>

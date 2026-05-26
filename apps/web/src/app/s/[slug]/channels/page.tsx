@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Hash, ArrowRight, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifyThrown, notifySuccess } from "@/lib/notify";
+import { Button } from "@/components/heroui-pro/button";
 
 /**
  * Browse + join public channels in this workspace.
@@ -95,7 +96,7 @@ export default function ChannelsBrowsePage() {
           {rows !== null && rows.length > 0 && (
             <ul className="space-y-2">
               {rows.map((r) => (
-                <li key={r.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+                <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
                     <Hash className="h-4 w-4" aria-hidden="true" />
                   </div>
@@ -111,18 +112,21 @@ export default function ChannelsBrowsePage() {
                     )}
                   </div>
                   {r.isMember ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    <span className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 sm:ml-auto sm:w-auto">
                       <Check className="h-3 w-3" /> Joined
                     </span>
                   ) : (
-                    <button
+                    <Button
+                      type="button"
                       onClick={() => handleJoin(r)}
                       disabled={joining === r.id}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                      variant="outline"
+                      size="xs"
+                      className="w-full shrink-0 justify-center text-xs sm:ml-auto sm:w-auto"
                     >
                       {joining === r.id ? "Joining…" : "Join"}
                       <ArrowRight className="h-3 w-3" />
-                    </button>
+                    </Button>
                   )}
                 </li>
               ))}

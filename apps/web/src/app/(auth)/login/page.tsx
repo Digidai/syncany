@@ -5,11 +5,11 @@ import { signIn, authClient } from "@/lib/auth-client";
 import { safeNext } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { Alert, AlertDescription } from "@raltic/ui/components/ui/alert";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Alert, AlertDescription } from "@/components/heroui-pro/alert";
 
 const HAS_GOOGLE = !!process.env.NEXT_PUBLIC_GOOGLE_ENABLED;
 
@@ -197,10 +197,9 @@ function LoginInner() {
                   <Alert>
                     <AlertDescription className="flex items-center justify-between gap-2">
                       <span>Need a new verification email?</span>
-                      <button type="button" onClick={handleResend} disabled={resendingVerify}
-                        className="shrink-0 rounded border px-2 py-0.5 text-xs hover:bg-accent disabled:opacity-50">
+                      <Button type="button" onClick={handleResend} disabled={resendingVerify} variant="outline" size="xs" className="shrink-0 text-xs">
                         {resendingVerify ? "Sending…" : "Resend"}
-                      </button>
+                      </Button>
                     </AlertDescription>
                   </Alert>
                 )}

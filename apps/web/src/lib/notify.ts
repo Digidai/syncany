@@ -1,6 +1,6 @@
 "use client";
 
-import { toastManager } from "@raltic/ui/components/ui/toast";
+import { toastManager } from "@/components/heroui-pro/toast";
 import { ApiError, NetworkError } from "./api";
 
 /** Brief success toast (auto-dismiss). */

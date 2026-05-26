@@ -17,6 +17,10 @@ export interface TiptapMessageInputHandle {
 interface TiptapMessageInputProps {
   placeholder?: string;
   disabled?: boolean;
+  className?: string;
+  ariaLabel?: string;
+  ariaControls?: string;
+  ariaActiveDescendant?: string;
   /** Called when user presses Enter on non-empty content */
   onSend: (text: string) => void | boolean | Promise<void | boolean>;
   /** Called on every content change */
@@ -57,7 +61,7 @@ const TiptapMessageInput = forwardRef<
   TiptapMessageInputHandle,
   TiptapMessageInputProps
 >(function TiptapMessageInput(
-  { placeholder, disabled, onSend, onTextUpdate, onKeyDown },
+  { placeholder, disabled, className, ariaLabel, ariaControls, ariaActiveDescendant, onSend, onTextUpdate, onKeyDown },
   ref
 ) {
   const onSendRef = useRef(onSend);
@@ -84,6 +88,11 @@ const TiptapMessageInput = forwardRef<
     editorProps: {
       attributes: {
         class: "focus:outline-none",
+        role: "textbox",
+        "aria-label": ariaLabel || placeholder || "Message",
+        "aria-multiline": "true",
+        ...(ariaControls ? { "aria-controls": ariaControls } : {}),
+        ...(ariaActiveDescendant ? { "aria-activedescendant": ariaActiveDescendant } : {}),
       },
       handleKeyDown: (_view, event) => {
         if (onKeyDown) {
@@ -121,6 +130,18 @@ const TiptapMessageInput = forwardRef<
   useEffect(() => {
     if (editor) editor.setEditable(!disabled);
   }, [editor, disabled]);
+
+  useEffect(() => {
+    const dom = editor?.view.dom;
+    if (!dom) return;
+    dom.setAttribute("role", "textbox");
+    dom.setAttribute("aria-label", ariaLabel || placeholder || "Message");
+    dom.setAttribute("aria-multiline", "true");
+    if (ariaControls) dom.setAttribute("aria-controls", ariaControls);
+    else dom.removeAttribute("aria-controls");
+    if (ariaActiveDescendant) dom.setAttribute("aria-activedescendant", ariaActiveDescendant);
+    else dom.removeAttribute("aria-activedescendant");
+  }, [editor, ariaLabel, ariaControls, ariaActiveDescendant, placeholder]);
 
   useImperativeHandle(ref, () => ({
     focus: () => editor?.commands.focus(),
@@ -172,7 +193,7 @@ const TiptapMessageInput = forwardRef<
   }));
 
   return (
-    <div className="tiptap-input">
+    <div className={["tiptap-input", className].filter(Boolean).join(" ")}>
       <EditorContent editor={editor} />
     </div>
   );

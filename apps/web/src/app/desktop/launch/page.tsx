@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Monitor, PlugZap, ShieldCheck } from "lucide-react";
-import { Button } from "@raltic/ui/components/ui/button";
+import { Button } from "@/components/heroui-pro/button";
 import { api, ApiError } from "@/lib/api";
 import { apiOrigin } from "@/lib/auth-client";
 

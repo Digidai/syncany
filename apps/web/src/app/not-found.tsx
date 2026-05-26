@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { Button } from "@/components/heroui-pro/button";
 
 export default function NotFound(): React.ReactElement {
   return (
@@ -16,8 +17,8 @@ export default function NotFound(): React.ReactElement {
           The page you&apos;re looking for doesn&apos;t exist or was moved.
         </p>
         <div className="mt-8 flex justify-center gap-3 text-sm">
-          <Link href="/" className="rounded-lg bg-foreground px-4 py-2 text-background hover:opacity-90">Go home</Link>
-          <Link href="/login" className="rounded-lg border px-4 py-2 hover:bg-accent">Sign in</Link>
+          <Button render={<Link href="/" />}>Go home</Button>
+          <Button variant="outline" render={<Link href="/login" />}>Sign in</Button>
         </div>
       </div>
     </div>

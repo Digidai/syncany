@@ -7,7 +7,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
   DropdownMenuGroup,
-} from "@raltic/ui/components/ui/menu";
+} from "@/components/heroui-pro/menu";
 import { notifyThrown } from "@/lib/notify";
 
 /**

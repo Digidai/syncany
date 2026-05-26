@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, type Channel, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
+import { Card, CardHeader, CardTitle, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Select } from "@/components/heroui-pro/select";
 import { ListChecks } from "lucide-react";
 
 interface Task {
@@ -134,7 +135,7 @@ export default function TaskBoardPage() {
           inside padding). Inner row is max-w-5xl mx-auto so the title
           column lines up across pages too. */}
       <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center">
           {/* Page tint convention (D-style): Inbox=cyan (notice/attention),
               Tasks=amber (todo accent), Agents=emerald (automation),
               People=violet (humans). Distinct per top-level destination
@@ -148,15 +149,15 @@ export default function TaskBoardPage() {
               Kanban view of work across this workspace.
             </p>
           </div>
-          <select
+          <Select
             value={filterChannel}
             onChange={(e) => setFilterChannel(e.target.value)}
-            className="shrink-0 rounded border px-2 py-1 text-sm"
+            className="w-full sm:w-44 sm:shrink-0"
             aria-label="Filter by channel"
           >
             <option value="">All channels</option>
             {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-          </select>
+          </Select>
         </div>
       </header>
 
@@ -168,18 +169,19 @@ export default function TaskBoardPage() {
           </CardHeader>
           <form onSubmit={handleCreate}>
             <CardPanel>
-              <div className="flex gap-2">
-                <select
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Select
                   value={createChannel}
                   onChange={(e) => setCreateChannel(e.target.value)}
-                  className="rounded border px-2 py-1 text-sm"
+                  className="w-full sm:w-40 sm:shrink-0"
+                  aria-label="Task channel"
                 >
                   {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-                </select>
+                </Select>
                 <Input value={title}
                   onChange={(e) => setTitle((e.target as HTMLInputElement).value)}
-                  placeholder="Task title — what needs doing?" className="flex-1" />
-                <Button type="submit">Add</Button>
+                  placeholder="Task title — what needs doing?" className="min-w-0 flex-1" />
+                <Button type="submit" className="w-full sm:w-auto">Add</Button>
               </div>
             </CardPanel>
           </form>
@@ -214,14 +216,17 @@ export default function TaskBoardPage() {
                           → {labelFor(t.assigneeType, t.assigneeId)}
                         </div>
                       )}
-                      <div className="mt-2 flex gap-1">
+                      <div className="mt-2 flex flex-wrap gap-1">
                         {COLUMNS.filter(c => c.key !== col.key).map(other => (
-                          <button
+                          <Button
                             key={other.key}
+                            type="button"
                             onClick={() => move(t, other.key)}
-                            className="rounded border px-1.5 py-0.5 text-[10px] hover:bg-zinc-50"
+                            variant="outline"
+                            size="xs"
+                            className="h-6 px-1.5 text-[10px]"
                             title={`Move to ${other.label}`}
-                          >→{other.label.split(" ")[0]}</button>
+                          >→{other.label.split(" ")[0]}</Button>
                         ))}
                       </div>
                     </div>

@@ -6,6 +6,7 @@ import { api, ApiError, type Server } from "@/lib/api";
 import { AgentActivityProvider } from "@/hooks/use-agent-activity";
 import { WelcomeToast } from "@/components/welcome-toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { Button } from "@/components/heroui-pro/button";
 
 export default function ServerLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -59,12 +60,15 @@ export default function ServerLayout({ children }: { children: React.ReactNode }
           <p className="mt-2 text-sm text-muted-foreground">
             {loadErr ?? "Workspace not found."}
           </p>
-          <button
+          <Button
+            type="button"
             onClick={() => { setLoading(true); setLoadErr(null); router.refresh(); }}
-            className="mt-4 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+            variant="outline"
+            size="sm"
+            className="mt-4"
           >
             Try again
-          </button>
+          </Button>
         </div>
       </div>
     );

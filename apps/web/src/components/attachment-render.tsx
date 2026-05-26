@@ -1,7 +1,11 @@
 "use client";
 
 import { File as FileIcon, Download, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  Dialog, DialogPortal, DialogBackdrop, DialogPopup, DialogPanel,
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
 import { authedAttachmentObjectURL } from "@/lib/api";
 
 interface Attachment {
@@ -45,11 +49,12 @@ function ImageAttachment({ a }: { a: Attachment }) {
   const objectUrl = useAuthedAttachment(a.url);
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={() => objectUrl && setOpen(true)}
         disabled={!objectUrl}
-        className="group relative overflow-hidden rounded-md border bg-card transition-colors hover:border-foreground/30 disabled:cursor-default"
+        variant="outline"
+        className="group relative !h-auto !w-fit overflow-hidden rounded-md border bg-card !p-0 transition-colors hover:border-foreground/30 disabled:cursor-default"
         aria-label={`Open ${a.filename} in lightbox`}
       >
         {objectUrl ? (
@@ -65,7 +70,7 @@ function ImageAttachment({ a }: { a: Attachment }) {
             Loading {a.filename}…
           </div>
         )}
-      </button>
+      </Button>
       {open && objectUrl && (
         <Lightbox attachment={a} objectUrl={objectUrl} onClose={() => setOpen(false)} />
       )}
@@ -124,58 +129,54 @@ function FileAttachment({ a }: { a: Attachment }) {
 }
 
 function Lightbox({ attachment, objectUrl, onClose }: { attachment: Attachment; objectUrl: string; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement | null>(null);
-  // Codex C-ui HIGH 1+2 — focus management: capture the previously-focused
-  // element on mount so we can restore on unmount, focus the Close
-  // button immediately so screen readers + keyboard users land inside
-  // the dialog, and bind Escape at the window level (the role=dialog
-  // div is not focusable so a div-level handler wouldn't fire).
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      try { prev?.focus(); } catch { /* element may be gone */ }
-    };
-  }, [onClose]);
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Image: ${attachment.filename}`}
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/80 p-4"
-    >
-      <button
-        ref={closeRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="absolute right-4 top-4 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-white"
-        aria-label="Close lightbox"
-      >
-        <X className="h-5 w-5" />
-      </button>
-      <img
-        src={objectUrl}
-        alt={attachment.filename}
-        className="max-h-full max-w-full object-contain"
-        onClick={(e) => e.stopPropagation()}
-        referrerPolicy="no-referrer"
-      />
-      <a
-        href={objectUrl}
-        download={attachment.filename}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        aria-label={`Download ${attachment.filename} (opens in new tab)`}
-        className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white"
-      >
-        <Download className="h-4 w-4" aria-hidden="true" /> Download
-      </a>
-    </div>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPortal>
+        <DialogBackdrop />
+        <DialogPopup className="max-w-full !border-0 !bg-transparent !shadow-none" showCloseButton={false}>
+          <DialogPanel
+            aria-label={`Image: ${attachment.filename}`}
+            onClick={onClose}
+            className="relative flex h-[calc(100dvh-2rem)] cursor-zoom-out items-center justify-center overflow-hidden !bg-black/80 !p-4"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              autoFocus
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              className="absolute right-4 top-4 z-10 !h-10 !w-10 !rounded-full !bg-black/40 !p-0 !text-white hover:!bg-black/60 focus-visible:!ring-2 focus-visible:!ring-white"
+              aria-label="Close lightbox"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <img
+              src={objectUrl}
+              alt={attachment.filename}
+              className="max-h-full max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+              referrerPolicy="no-referrer"
+            />
+            <Button
+              variant="ghost"
+              render={(
+                <a
+                  href={objectUrl}
+                  download={attachment.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`Download ${attachment.filename} (opens in new tab)`}
+                />
+              )}
+              className="absolute bottom-4 right-4 !h-auto !rounded-lg !bg-white/10 px-3 py-1.5 text-xs font-medium !text-white hover:!bg-white/20 focus-visible:!ring-2 focus-visible:!ring-white"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" /> Download
+            </Button>
+          </DialogPanel>
+        </DialogPopup>
+      </DialogPortal>
+    </Dialog>
   );
 }
 

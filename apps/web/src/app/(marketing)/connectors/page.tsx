@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ArrowRight, GitBranch, Layers, FileText } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
 
 /**
@@ -103,12 +103,9 @@ export default function ConnectorsPage() {
             Wire your stack into the channel.
           </h2>
           <div className="mt-7 flex justify-center">
-            <Link
-              href="/signup"
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black"
-            >
+            <MarketingButton href="/signup">
               Start free <ArrowRight className="h-4 w-4" />
-            </Link>
+            </MarketingButton>
           </div>
         </div>
       </section>

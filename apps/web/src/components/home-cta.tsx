@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { api } from "@/lib/api";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 
 /**
  * Auth-aware CTA pair shown in the homepage hero.
@@ -42,13 +42,7 @@ export function HomeCta(): React.ReactElement {
     return () => { cancelled = true; };
   }, [session]);
 
-  // Hero CTAs deliberately bypass the design-system <Button> for two
-  // reasons: (1) the marketing landing wants a SOLID white-on-black
-  // anchor consistent with the nav, not the workspace's cyan-primary
-  // chip; (2) we want one tight, crisp glow rather than the design
-  // system's inset-shadow chrome which felt fuzzy on the dark hero.
   const baseCta = "inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-6 text-[15px] font-semibold tracking-[-0.005em] transition-[transform,box-shadow] duration-150 active:translate-y-px";
-  const primaryCta = `${baseCta} bg-white text-black shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_8px_24px_-8px_rgba(34,211,238,0.55),0_2px_8px_-2px_rgba(0,0,0,0.4)] hover:shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_10px_28px_-8px_rgba(34,211,238,0.75),0_2px_8px_-2px_rgba(0,0,0,0.4)]`;
   // One min-width across pending / signed-out / signed-in so the hero
   // row never jumps when useSession() resolves. 184px fits the widest
   // resolved label ("Open Raltic →"); signed-out "Get started →" sits
@@ -76,9 +70,9 @@ export function HomeCta(): React.ReactElement {
 
   if (session && openHref) {
     return (
-      <Link href={openHref} className={`${primaryCta} ${CTA_MIN}`}>
+      <MarketingButton href={openHref} className={CTA_MIN}>
         Open Raltic <span aria-hidden="true">→</span>
-      </Link>
+      </MarketingButton>
     );
   }
 
@@ -86,8 +80,8 @@ export function HomeCta(): React.ReactElement {
   // instead of a generic "Get started". Codex GTM H2: makes the dual-mode
   // story explicit at the click, not just in the page body.
   return (
-    <Link href="/signup" className={`${primaryCta} ${CTA_MIN}`}>
+    <MarketingButton href="/signup" className={CTA_MIN}>
       Start a cloud Agent <span aria-hidden="true">→</span>
-    </Link>
+    </MarketingButton>
   );
 }

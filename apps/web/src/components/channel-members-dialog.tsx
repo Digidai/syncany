@@ -8,9 +8,9 @@ import { useWorkspacePresence } from "@/hooks/use-agent-activity";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@raltic/ui/components/ui/dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
 import { api, ApiError, type Agent, type Channel, type ChannelMember } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -430,14 +430,16 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
         <div className="flex min-w-0 flex-1 items-center gap-2.5">{linkContent}</div>
       )}
       {canRemove && (
-        <button
+        <Button
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${primary}`}
-          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+          variant="ghost"
+          size="icon-xs"
+          className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
         >
           <UserMinus className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -448,10 +450,12 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
   primary: string; secondary?: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onToggle}
       aria-pressed={checked}
+      variant="ghost"
+      size="sm"
       className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
         checked ? "bg-accent" : "hover:bg-accent/40"
       }`}
@@ -471,6 +475,6 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
       >
         {checked && <Check className="h-3 w-3" />}
       </span>
-    </button>
+    </Button>
   );
 }

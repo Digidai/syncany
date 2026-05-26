@@ -6,11 +6,11 @@ import { useParams } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { api, type MachineRuntimeRow } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel, FieldError } from "@raltic/ui/components/ui/field";
-import { ConfirmDialog } from "@raltic/ui/components/ui/confirm-dialog";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel, FieldError } from "@/components/heroui-pro/field";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { KeyCommandBlock, MachineRow } from "@/components/settings-shared";
 import { useSettings, SettingsSection } from "../layout";
 
@@ -89,13 +89,14 @@ export default function MachineKeysPage() {
           <CardPanel>
             <Field>
               <FieldLabel>Key name</FieldLabel>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   value={keyName}
                   placeholder="e.g. macbook-pro"
+                  className="min-w-0 flex-1"
                   onChange={(e) => { setKeyName((e.target as HTMLInputElement).value); if (keyError) setKeyError(null); }}
                 />
-                <Button type="submit">Create</Button>
+                <Button type="submit" className="w-full sm:w-auto">Create</Button>
               </div>
               {keyError && <FieldError match>{keyError}</FieldError>}
             </Field>
@@ -114,7 +115,7 @@ export default function MachineKeysPage() {
             <ul className="w-full space-y-3">
               {keys.filter((k) => !k.revokedAt).map((k) => (
                 <li key={k.id} className="rounded-lg border bg-card/40 p-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-medium">{k.name}</span>
@@ -126,10 +127,13 @@ export default function MachineKeysPage() {
                         Last used {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "never"}
                       </p>
                     </div>
-                    <button
-                      className="shrink-0 text-xs text-destructive-foreground hover:underline"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="self-start text-destructive-foreground sm:self-auto"
                       onClick={() => setRevokeTarget(k)}
-                    >Revoke</button>
+                    >Revoke</Button>
                   </div>
                   {k.machines.length > 0 ? (
                     <div className="mt-3 space-y-2">

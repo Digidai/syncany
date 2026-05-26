@@ -5,10 +5,10 @@ import { Check, Hash, Lock, Search, X } from "lucide-react";
 import {
   Dialog, DialogPortal, DialogBackdrop, DialogPopup,
   DialogHeader, DialogTitle, DialogPanel, DialogFooter, DialogClose,
-} from "@raltic/ui/components/ui/dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { api, ApiError, type Agent } from "@/lib/api";
 
 interface Props {
@@ -174,12 +174,14 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                 </Field>
                 <Field>
                   <FieldLabel>Visibility</FieldLabel>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     {(["public", "private"] as const).map((t) => (
-                      <button key={t} type="button"
+                      <Button key={t} type="button"
                         onClick={() => setType(t)}
                         aria-pressed={type === t}
-                        className={`flex-1 rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                        variant="outline"
+                        size="sm"
+                        className={`!h-auto min-w-0 flex-1 flex-col !items-stretch !justify-start !whitespace-normal rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                           type === t ? "border-foreground bg-accent" : "border-border hover:bg-accent/40"
                         }`}>
                         <div className="flex items-center gap-2 font-medium">
@@ -191,7 +193,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                             ? "Anyone in the workspace can find and join."
                             : "Only invited members can see this channel."}
                         </div>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </Field>
@@ -315,10 +317,12 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
   primary: string; secondary?: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onToggle}
       aria-pressed={checked}
+      variant="ghost"
+      size="sm"
       className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
         checked ? "bg-accent" : "hover:bg-accent/40"
       }`}
@@ -338,7 +342,7 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
       >
         {checked && <Check className="h-3 w-3" />}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -348,14 +352,16 @@ function SelectedChip({ label, agent, onRemove }: { label: string; agent?: boole
       agent ? "bg-amber-500/10 text-amber-700" : "bg-cyan-500/10 text-cyan-700"
     }`}>
       {label}
-      <button
+      <Button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${label}`}
-        className="rounded-full p-0.5 hover:bg-black/10"
+        variant="ghost"
+        size="icon-xs"
+        className="h-5 w-5 hover:bg-black/10"
       >
         <X className="h-3 w-3" />
-      </button>
+      </Button>
     </span>
   );
 }

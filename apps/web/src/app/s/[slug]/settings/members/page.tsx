@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Users, UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { ConfirmDialog } from "@raltic/ui/components/ui/confirm-dialog";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { InvitePresetButton, InviteRow, KeyCommandBlock } from "@/components/settings-shared";
 import { useSettings, SettingsSection } from "../layout";
 
@@ -121,15 +121,19 @@ export default function MembersSettingsPage() {
         <CardPanel className="space-y-5">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Invite by email</p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 type="email"
                 placeholder="teammate@example.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail((e.target as HTMLInputElement).value)}
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
-              <Button onClick={handleSendEmailInvite} disabled={!inviteEmail.includes("@") || sendingInvite || !canManage}>
+              <Button
+                onClick={handleSendEmailInvite}
+                disabled={!inviteEmail.includes("@") || sendingInvite || !canManage}
+                className="w-full sm:w-auto"
+              >
                 {sendingInvite ? "Sending…" : "Send invite"}
               </Button>
             </div>
@@ -196,20 +200,23 @@ export default function MembersSettingsPage() {
           ) : (
             <ul className="space-y-2">
               {members.map((m) => (
-                <li key={m.userId} className="flex items-center gap-3 rounded-lg border p-2.5 text-sm">
+                <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-lg border p-2.5 text-sm">
                   {m.image
                     ? <img src={m.image} alt="" className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-medium text-cyan-700">{m.name.slice(0, 1).toUpperCase()}</div>}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{m.name}</div>
                     {m.email && <div className="truncate text-xs text-muted-foreground">{m.email}</div>}
                   </div>
-                  <RoleBadge role={m.role} />
+                  <RoleBadge role={m.role} className="shrink-0" />
                   {canManage && m.role !== "owner" && (
-                    <button
-                      className="text-xs text-destructive-foreground hover:underline"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="w-full shrink-0 justify-center text-destructive-foreground sm:ml-auto sm:w-auto"
                       onClick={() => setRemoveTarget({ userId: m.userId, name: m.name })}
-                    >Remove</button>
+                    >Remove</Button>
                   )}
                 </li>
               ))}
@@ -243,7 +250,7 @@ export default function MembersSettingsPage() {
 // Owner gets the accent treatment because there's exactly one per workspace
 // and removing the wrong person here is the most consequential mistake.
 // ---------------------------------------------------------------------------
-function RoleBadge({ role }: { role: string }) {
+function RoleBadge({ role, className }: { role: string; className?: string }) {
   const styles =
     role === "owner"
       ? "bg-amber-500/15 text-amber-800 ring-amber-500/30"
@@ -251,7 +258,7 @@ function RoleBadge({ role }: { role: string }) {
       ? "bg-cyan-500/10 text-cyan-700 ring-cyan-500/30"
       : "bg-zinc-100 text-zinc-700 ring-zinc-300";
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ${styles}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ${styles} ${className ?? ""}`}>
       {role}
     </span>
   );

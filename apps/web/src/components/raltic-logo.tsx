@@ -35,6 +35,7 @@ export function RalticLogo({ size = 32, className, onDark = false, idSuffix = "d
       viewBox="0 0 40 40"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={{ isolation: "isolate" }}
       aria-hidden
     >
       <defs>

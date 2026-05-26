@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { Building2, Upload, LogOut, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
-import { ConfirmDialog } from "@raltic/ui/components/ui/confirm-dialog";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { useSettings, SettingsSection } from "../layout";
 
 export default function WorkspaceSettingsPage() {
@@ -182,8 +182,8 @@ export default function WorkspaceSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardPanel>
-          <div className="flex items-start gap-4">
-            <div className="shrink-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <div className="shrink-0 self-start">
               {server.iconUrl ? (
                 <img
                   src={server.iconUrl}
@@ -199,12 +199,13 @@ export default function WorkspaceSettingsPage() {
               )}
               <div className="mt-2 flex flex-col items-center gap-1 text-[10.5px]">
                 <label className="cursor-pointer text-cyan-700 hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-60" aria-disabled={!canEdit || uploading}>
-                  <input
+                  <Input
                     ref={fileRef}
                     type="file"
                     accept="image/png,image/jpeg,image/gif,image/webp"
                     className="hidden"
                     disabled={!canEdit || uploading}
+                    unstyled
                     onChange={(e) => handleIconUpload(e.target.files?.[0] ?? null)}
                   />
                   <span className="inline-flex items-center gap-1">
@@ -212,13 +213,13 @@ export default function WorkspaceSettingsPage() {
                   </span>
                 </label>
                 {server.iconUrl && canEdit && (
-                  <button onClick={handleRemoveIcon} className="text-muted-foreground hover:text-destructive-foreground">
+                  <Button type="button" onClick={handleRemoveIcon} variant="ghost" size="xs" className="text-destructive-foreground">
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
-            <form onSubmit={handleSaveIdentity} className="flex-1 space-y-3 min-w-0">
+            <form onSubmit={handleSaveIdentity} className="min-w-0 w-full flex-1 space-y-3">
               <Field>
                 <FieldLabel>Workspace name</FieldLabel>
                 <Input
@@ -238,7 +239,7 @@ export default function WorkspaceSettingsPage() {
                   <span className="flex items-center bg-muted px-2.5 font-mono text-xs text-muted-foreground select-none">
                     /s/
                   </span>
-                  <input
+                  <Input
                     type="text"
                     value={slug}
                     onChange={(e) => {
@@ -252,6 +253,7 @@ export default function WorkspaceSettingsPage() {
                     spellCheck={false}
                     aria-invalid={!!(liveSlugError || slugError)}
                     aria-describedby="slug-hint"
+                    unstyled
                     className="flex-1 bg-transparent px-2 py-1 font-mono text-sm outline-none disabled:text-muted-foreground"
                   />
                 </div>
@@ -291,27 +293,27 @@ export default function WorkspaceSettingsPage() {
         </CardHeader>
         <CardPanel className="space-y-3">
           {!isOwner && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex flex-col items-start justify-between gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
               <div className="min-w-0">
                 <div className="text-sm font-medium">Leave this workspace</div>
                 <p className="text-[11px] text-muted-foreground">
                   Your messages and agents stay; you just lose access. You can rejoin only if someone invites you again.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)} className="shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)} className="w-full shrink-0 sm:w-auto">
                 <LogOut className="me-1 h-3.5 w-3.5" /> Leave
               </Button>
             </div>
           )}
           {isOwner && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:flex-row sm:items-center">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-destructive-foreground">Delete workspace</div>
                 <p className="text-[11px] text-muted-foreground">
                   Permanent. Removes every channel, message, agent, invite, and bridge key.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="shrink-0 border-destructive/40 text-destructive-foreground hover:bg-destructive/10">
+              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="w-full shrink-0 border-destructive/40 text-destructive-foreground hover:bg-destructive/10 sm:w-auto">
                 <Trash2 className="me-1 h-3.5 w-3.5" /> Delete
               </Button>
             </div>
@@ -339,4 +341,3 @@ export default function WorkspaceSettingsPage() {
     </SettingsSection>
   );
 }
-

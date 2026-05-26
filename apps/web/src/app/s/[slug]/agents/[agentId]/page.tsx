@@ -6,9 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import { api, ApiError, type Agent, type MessageRow } from "@/lib/api";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { EditAgentDialog } from "@/components/edit-agent-dialog";
-import { AlertDialog, AlertDialogPopup, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogClose } from "@raltic/ui/components/ui/alert-dialog";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
+import { AlertDialog, AlertDialogPopup, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogClose } from "@/components/heroui-pro/alert-dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
 import { useAgentActivity } from "@/hooks/use-agent-activity";
 import { MessageSquare, Pencil, Trash2, Hash, ListChecks, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -41,11 +41,13 @@ function SystemPromptCard({ prompt }: { prompt: string }) {
           (expanded ? "max-h-[60vh]" : "max-h-64")
         }>{prompt}</pre>
         {isLong && (
-          <button type="button"
+          <Button type="button"
+            variant="link"
+            size="xs"
             onClick={() => setExpanded(v => !v)}
-            className="mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline">
+            className="mt-2 h-auto px-0 py-0 text-xs text-muted-foreground">
             {expanded ? "Show less" : "Show full prompt"}
-          </button>
+          </Button>
         )}
       </CardPanel>
     </Card>
@@ -241,10 +243,10 @@ export default function AgentProfilePage() {
           wide viewports instead of floating to the far right. Matches
           the body column constraint below so header + cards align. */}
       <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-start gap-4">
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-start">
           <GeneratedAvatar id={agent.id} name={agent.displayName} seed={agent.avatarSeed} size="xl" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-semibold">{agent.displayName}</h1>
               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                 <span className={`h-1.5 w-1.5 rounded-full ${statusInfo.dot}`} />
@@ -254,27 +256,26 @@ export default function AgentProfilePage() {
             <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
             {agent.description && <p className="mt-1 text-sm">{agent.description}</p>}
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
             {agent.dmChannelId ? (
-              <Link href={`/s/${slug}/dm/${agent.dmChannelId}`}>
-                <Button>
-                  <MessageSquare className="mr-1 h-3.5 w-3.5" /> Open DM
-                </Button>
-              </Link>
+              <Button render={<Link href={`/s/${slug}/dm/${agent.dmChannelId}`} />} className="flex-1 sm:flex-none">
+                <MessageSquare className="mr-1 h-3.5 w-3.5" /> Open DM
+              </Button>
             ) : (
               // Legacy agent created before auto-DM landed. The server's
               // GET /agents lazy-backfills a DM channel on demand — so
               // simply re-fetching the agent list creates one. Surface
               // that as an explicit affordance so the user isn't stuck.
-              <Button onClick={() => void reload()}
+              <Button onClick={() => void reload()} className="flex-1 sm:flex-none"
                 title="Create a DM channel for this agent">
                 <MessageSquare className="mr-1 h-3.5 w-3.5" /> Set up DM
               </Button>
             )}
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Button variant="outline" onClick={() => setEditOpen(true)} className="flex-1 sm:flex-none">
               <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
             </Button>
             <Button variant="destructive-outline" onClick={() => setConfirmDelete(true)}
+              className="flex-1 sm:flex-none"
               aria-label={`Delete ${agent.displayName}`}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -308,18 +309,21 @@ export default function AgentProfilePage() {
             const active = tab === t.key;
             const Icon = t.icon;
             return (
-              <button
+              <Button
                 key={t.key}
+                type="button"
                 role="tab"
                 aria-selected={active}
                 onClick={() => setTab(t.key)}
+                variant="ghost"
+                size="sm"
                 className={cn(
                   // -mb-px pulls the tab's 2px bottom border down so it
                   // overlaps + visually "consumes" the bar's 1px border
                   // exactly under the active tab. Inactive tabs stay
                   // border-transparent so the bar line shows through —
                   // continuous gray rule across the whole bar width.
-                  "-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors",
+                  "-mb-px h-10 rounded-none border-b-2 px-3 text-sm transition-colors",
                   active
                     ? "border-cyan-500 text-cyan-700 dark:text-cyan-400"
                     : "border-transparent text-muted-foreground hover:text-foreground",
@@ -327,7 +331,7 @@ export default function AgentProfilePage() {
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {t.label}
-              </button>
+              </Button>
             );
           })}
         </nav>
@@ -391,7 +395,7 @@ export default function AgentProfilePage() {
                 {tasks && tasks.length > 0 && (
                   <ul className="space-y-2">
                     {tasks.map((t) => (
-                      <li key={t.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                      <li key={t.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
                         <span className={cn(
                           "h-2 w-2 shrink-0 rounded-full",
                           t.status === "done" ? "bg-emerald-500"

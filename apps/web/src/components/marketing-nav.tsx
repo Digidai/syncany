@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown } from "lucide-react";
+import { Button } from "@/components/heroui-pro/button";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 import { cn } from "@/lib/utils";
 import { RalticLogo } from "./raltic-logo";
 
@@ -74,20 +76,14 @@ export function MarketingNav() {
               it works without JS state + closes when pointer leaves. */}
           <ForDropdown />
           <Link href="/login" className="hover:text-white">Sign in</Link>
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 font-medium text-black hover:bg-zinc-200"
-          >
+          <MarketingButton href="/signup" variant="nav-primary">
             Get started <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          </MarketingButton>
         </nav>
 
-        <Link
-          href="/signup"
-          className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-black md:hidden"
-        >
+        <MarketingButton href="/signup" variant="nav-primary" className="md:!hidden">
           Start
-        </Link>
+        </MarketingButton>
       </div>
     </header>
   );
@@ -122,15 +118,17 @@ function ForDropdown() {
 
   return (
     <div ref={wrap} className="relative">
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1 hover:text-white"
+        variant="ghost"
+        size="sm"
+        className="!h-auto !rounded-none !bg-transparent !px-0 !py-0 text-zinc-400 hover:!bg-transparent hover:text-white"
         aria-haspopup="menu"
         aria-expanded={open}
       >
         For <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} />
-      </button>
+      </Button>
       {open && (
         <div
           role="menu"

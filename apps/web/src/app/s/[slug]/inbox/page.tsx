@@ -7,6 +7,7 @@ import { api, type Server } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { Inbox as InboxIcon, MessageSquare, ListChecks, Hash, Lock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/heroui-pro/button";
 
 /**
  * Unified inbox — answers "what's waiting for me right now".
@@ -82,12 +83,15 @@ export default function InboxPage() {
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
               <p className="text-sm font-medium text-destructive-foreground">Couldn't load inbox</p>
               <p className="mt-1 text-xs text-muted-foreground break-words">{loadError.message}</p>
-              <button
+              <Button
+                type="button"
                 onClick={() => setReloadCount((n) => n + 1)}
-                className="mt-4 rounded-md border px-3 py-1.5 text-xs hover:bg-accent"
+                variant="outline"
+                size="sm"
+                className="mt-4"
               >
                 Try again
-              </button>
+              </Button>
             </div>
           )}
 

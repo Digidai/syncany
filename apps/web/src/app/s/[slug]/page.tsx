@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { Button } from "@raltic/ui/components/ui/button";
+import { Button } from "@/components/heroui-pro/button";
 import { api } from "@/lib/api";
 import { SetupWizard } from "@/components/setup-wizard";
 import { BrandMonogram, GradientText } from "@/components/brand";
@@ -202,12 +202,15 @@ export default function ServerHomePage() {
               {/* Bridge is optional — surface it as a tertiary "later"
                   CTA rather than the headline. */}
               {!hasBridgeHere && (
-                <button
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
                   onClick={() => setWizardOpen(true)}
-                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  className="h-auto px-0 py-0 text-xs text-muted-foreground"
                 >
                   Want to run agents on your own laptop? Set up the bridge (2 min)
-                </button>
+                </Button>
               )}
             </div>
           ) : (

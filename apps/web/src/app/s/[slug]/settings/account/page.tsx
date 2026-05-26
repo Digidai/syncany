@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User as UserIcon, Mail, LogOut, ShieldCheck, Upload, Home } from "lucide-react";
+import { User as UserIcon, Mail, LogOut, ShieldCheck, Upload, Home, Copy } from "lucide-react";
 import { authClient, signOut, useSession } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@raltic/ui/components/ui/card";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Field, FieldLabel } from "@raltic/ui/components/ui/field";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Radio, RadioGroup } from "@/components/heroui-pro/radio";
 import { SettingsSection } from "../layout";
 
 // Personal account settings — scoped to the signed-in user, not the
@@ -128,8 +129,8 @@ export default function AccountSettingsPage() {
           <CardDescription>How teammates see you in messages and mentions.</CardDescription>
         </CardHeader>
         <CardPanel>
-          <div className="flex items-start gap-4">
-            <div className="shrink-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <div className="shrink-0 self-start">
               {user.image ? (
                 <img src={user.image} alt="Your avatar" className="h-16 w-16 rounded-full object-cover ring-1 ring-border" referrerPolicy="no-referrer" loading="lazy" />
               ) : (
@@ -144,29 +145,31 @@ export default function AccountSettingsPage() {
                 className="mt-2 flex cursor-pointer items-center justify-center gap-1 text-[10.5px] text-cyan-700 hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
                 aria-disabled={uploadingAvatar}
               >
-                <input
+                <Input
                   ref={fileRef}
                   type="file"
                   accept="image/png,image/jpeg,image/gif,image/webp"
                   className="hidden"
                   disabled={uploadingAvatar}
+                  unstyled
                   onChange={(e) => handleAvatarUpload(e.target.files?.[0] ?? null)}
                 />
                 <Upload className="h-3 w-3" aria-hidden="true" />
                 {uploadingAvatar ? "Uploading…" : "Change"}
               </label>
             </div>
-            <div className="flex-1 min-w-0 space-y-3">
+            <div className="min-w-0 flex-1 space-y-3">
               <Field>
                 <FieldLabel>Display name</FieldLabel>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     value={displayName}
                     onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
                     maxLength={120}
                     placeholder="Your name"
+                    className="min-w-0 flex-1"
                   />
-                  <Button onClick={handleSaveName} disabled={!dirty || saving} loading={saving} size="sm">
+                  <Button onClick={handleSaveName} disabled={!dirty || saving} loading={saving} size="sm" className="w-full sm:w-auto">
                     Save
                   </Button>
                 </div>
@@ -182,9 +185,9 @@ export default function AccountSettingsPage() {
           <CardDescription>The address you sign in with. Changing it requires re-verification (coming soon).</CardDescription>
         </CardHeader>
         <CardPanel>
-          <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3">
             <Mail className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-            <span className="flex-1 truncate font-mono text-sm" title={user.email ?? undefined}>
+            <span className="min-w-0 flex-1 truncate font-mono text-sm" title={user.email ?? undefined}>
               {user.email ?? "no email"}
             </span>
             {user.emailVerified ? (
@@ -195,9 +198,10 @@ export default function AccountSettingsPage() {
               <span className="text-[11px] text-amber-700">unverified</span>
             )}
             {user.email && (
-              <button onClick={copyEmail} className="text-xs text-muted-foreground hover:text-foreground">
+              <Button type="button" onClick={copyEmail} variant="ghost" size="xs" className="shrink-0">
+                <Copy className="h-3 w-3" />
                 Copy
-              </button>
+              </Button>
             )}
           </div>
         </CardPanel>
@@ -282,21 +286,17 @@ function DefaultWorkspaceCard() {
         ) : servers.length === 0 ? (
           <p className="text-sm text-muted-foreground">No workspaces yet.</p>
         ) : (
-          <ul className="space-y-1">
+          <RadioGroup value={defaultServerId ?? ""} onValueChange={handleChange} className="space-y-1">
             {servers.map((s) => {
               const checked = s.id === defaultServerId;
               const isPending = pending === s.id;
               return (
-                <li key={s.id}>
-                  <label className={"flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors " + (checked ? "border-cyan-500/40 bg-cyan-500/5" : "hover:bg-accent/50")}>
-                    <input
-                      type="radio"
-                      name="default-workspace"
-                      checked={checked}
-                      onChange={() => handleChange(s.id)}
-                      disabled={isPending}
-                      className="h-3.5 w-3.5"
-                    />
+                <Radio
+                  key={s.id}
+                  value={s.id}
+                  isDisabled={isPending}
+                  className={"text-sm " + (checked ? "border-cyan-500/40 bg-cyan-500/5" : "")}
+                >
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{s.name}</div>
                       <div className="truncate text-[11px] text-muted-foreground">
@@ -304,11 +304,10 @@ function DefaultWorkspaceCard() {
                       </div>
                     </div>
                     {isPending && <span className="text-[11px] text-muted-foreground">Saving…</span>}
-                  </label>
-                </li>
+                </Radio>
               );
             })}
-          </ul>
+          </RadioGroup>
         )}
       </CardPanel>
     </Card>

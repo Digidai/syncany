@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { trackCtaClick } from "@/components/marketing/tracking";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Select } from "@/components/heroui-pro/select";
+import { Textarea } from "@/components/heroui-pro/textarea";
 
 const TEAM_SIZES = ["1-4", "5-20", "21-100", "100+"] as const;
 type TeamSize = (typeof TEAM_SIZES)[number];
@@ -94,24 +98,24 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Your name" required>
-          <input
+          <Input
             type="text"
             required
             autoComplete="name"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={e => setName((e.target as HTMLInputElement).value)}
             placeholder="Jane Doe"
             disabled={state === "submitting"}
             className={INPUT_CLS}
           />
         </Field>
         <Field label="Work email" required>
-          <input
+          <Input
             type="email"
             required
             autoComplete="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={e => setEmail((e.target as HTMLInputElement).value)}
             placeholder="you@yourcompany.com"
             disabled={state === "submitting"}
             className={INPUT_CLS}
@@ -121,18 +125,18 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Company">
-          <input
+          <Input
             type="text"
             autoComplete="organization"
             value={company}
-            onChange={e => setCompany(e.target.value)}
+            onChange={e => setCompany((e.target as HTMLInputElement).value)}
             placeholder="Acme Inc."
             disabled={state === "submitting"}
             className={INPUT_CLS}
           />
         </Field>
         <Field label="Team size">
-          <select
+          <Select
             value={teamSize}
             onChange={e => setTeamSize(e.target.value as TeamSize | "")}
             disabled={state === "submitting"}
@@ -140,15 +144,15 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
           >
             <option value="">Pick one…</option>
             {TEAM_SIZES.map(s => <option key={s} value={s}>{s} people</option>)}
-          </select>
+          </Select>
         </Field>
       </div>
 
       <Field label="What would you use Raltic for?">
-        <textarea
+        <Textarea
           rows={4}
           value={useCase}
-          onChange={e => setUseCase(e.target.value)}
+          onChange={e => setUseCase((e.target as HTMLTextAreaElement).value)}
           placeholder="e.g. We run Claude Code daily and want a shared chat where the agent's work is visible to the whole eng team."
           disabled={state === "submitting"}
           className={INPUT_CLS + " resize-none"}
@@ -166,17 +170,18 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
         <p className="text-[11px] text-zinc-500">
           We'll only email you about your waitlist status. No marketing blasts. Privacy: <a href="/privacy" className="underline-offset-4 hover:underline">privacy policy</a>.
         </p>
-        <button
+        <Button
           type="submit"
           disabled={state === "submitting"}
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black disabled:opacity-60"
+          variant="secondary"
+          className="!h-11 w-full shrink-0 !bg-white !px-6 !text-[15px] !font-semibold !text-black hover:!bg-zinc-100 hover:!text-black sm:w-auto"
         >
           {state === "submitting" ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
           ) : (
             <>Request access <ArrowRight className="h-4 w-4" /></>
           )}
-        </button>
+        </Button>
       </div>
     </form>
   );

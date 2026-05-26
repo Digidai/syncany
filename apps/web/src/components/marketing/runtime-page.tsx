@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { ArrowRight, CheckCircle2, ExternalLink, Terminal } from "lucide-react";
 import { MarketingFooter } from "./footer";
+import { MarketingButton } from "./marketing-button";
 import { SectionHeader } from "./section-header";
 import type { RuntimeDoc } from "./runtime-data";
 
@@ -105,18 +105,12 @@ function Hero({ doc }: { doc: RuntimeDoc }) {
           </div>
         )}
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            href="/signup"
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black shadow-[0_8px_24px_-8px_rgba(34,211,238,0.45)] hover:shadow-[0_10px_28px_-8px_rgba(34,211,238,0.65)]"
-          >
+          <MarketingButton href="/signup">
             Start free <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/runtimes"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-medium text-zinc-100 hover:border-zinc-700"
-          >
+          </MarketingButton>
+          <MarketingButton href="/runtimes" variant="secondary">
             See all runtimes
-          </Link>
+          </MarketingButton>
         </div>
       </div>
     </section>
@@ -214,12 +208,9 @@ function Cta({ doc }: { doc: RuntimeDoc }) {
           Free during private beta. {doc.lifecycle === "external_daemon" ? "Your daemon stays yours." : "Your CLI auth stays yours."} We never see your keys.
         </p>
         <div className="mt-7 flex justify-center">
-          <Link
-            href="/signup"
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black"
-          >
+          <MarketingButton href="/signup">
             Start free <ArrowRight className="h-4 w-4" />
-          </Link>
+          </MarketingButton>
         </div>
       </div>
     </section>

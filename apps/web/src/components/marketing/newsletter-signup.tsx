@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
 
 /**
  * Compact email-only signup. Sits at the bottom of /indie and /teams
@@ -74,7 +76,7 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
       {/* sr-only label is required for a11y — placeholders are not
           accessible names per WCAG 2.5.3. Codex 5 HIGH. */}
       <label htmlFor="newsletter-email" className="sr-only">Your email address</label>
-      <input
+      <Input
         id="newsletter-email"
         type="email"
         required
@@ -82,25 +84,26 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
         inputMode="email"
         value={email}
         onChange={e => {
-          setEmail(e.target.value);
+          setEmail((e.target as HTMLInputElement).value);
           // Clear stale error the moment user edits — codex 8 LOW.
           if (state === "error") { setState("idle"); setMsg(null); }
         }}
         placeholder="you@example.com"
         disabled={state === "submitting"}
-        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-60"
+        className="flex-1 [&_input]:bg-zinc-950 [&_input]:text-white [&_input]:placeholder:text-zinc-600"
       />
-      <button
+      <Button
         type="submit"
         disabled={state === "submitting"}
-        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-60"
+        variant="secondary"
+        className="shrink-0 !bg-white !text-black hover:!bg-zinc-100 hover:!text-black"
       >
         {state === "submitting" ? (
           <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Sending…</>
         ) : (
           <>Keep me in the loop <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></>
         )}
-      </button>
+      </Button>
       {state === "error" && msg && (
         <p role="alert" className="text-[12px] text-rose-300 sm:absolute sm:mt-12">{msg}</p>
       )}

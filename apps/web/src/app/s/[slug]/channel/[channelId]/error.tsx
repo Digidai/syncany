@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertCircle, RotateCw } from "lucide-react";
+import { Button } from "@/components/heroui-pro/button";
 
 // Channel-page-scoped error boundary. Keeps a single bad render
 // (malformed message row, missing field, etc.) from blowing past the
@@ -30,13 +31,16 @@ export default function ChannelError({ error, reset }: {
         {error.digest && (
           <p className="mt-2 text-[11px] text-muted-foreground">Reference: {error.digest}</p>
         )}
-        <button
+        <Button
+          type="button"
           onClick={() => reset()}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          variant="outline"
+          size="sm"
+          className="mt-4"
         >
           <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
           Try again
-        </button>
+        </Button>
       </div>
     </div>
   );

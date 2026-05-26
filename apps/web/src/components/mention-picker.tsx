@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AtSign, Bot } from "lucide-react";
 import { GeneratedAvatar } from "@/components/generated-avatar";
+import { Button } from "@/components/heroui-pro/button";
 import { cn } from "@/lib/utils";
 
 export interface MentionMember {
@@ -194,15 +195,18 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
         onPointerMove={() => { if (mode !== "mouse") setMode("mouse"); }}
       >
         {filtered.map((m, idx) => (
-          <button
+          <Button
             key={`${m.kind}:${m.id}`}
             id={optionId(idx)}
             role="option"
             aria-selected={idx === activeIdx}
+            type="button"
+            variant="ghost"
+            size="sm"
             onMouseDown={(e) => { e.preventDefault(); pick(idx); }}
             onMouseEnter={() => { if (mode === "mouse") setActiveIdx(idx); }}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+              "!h-auto !w-full !justify-start !whitespace-normal rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
               idx === activeIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
             )}
           >
@@ -224,7 +228,7 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
               <div className="truncate text-[11px] text-muted-foreground">@{m.slug}</div>
             </div>
             <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-          </button>
+          </Button>
         ))}
         <div className="border-t px-2 pt-1.5 pb-1 text-[10px] text-muted-foreground">
           ↑↓ navigate · enter / tab pick · esc cancel

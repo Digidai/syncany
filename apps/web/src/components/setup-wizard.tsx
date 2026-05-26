@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, RUNTIME_LABEL, type RuntimeId } from "@/lib/api";
-import { Button } from "@raltic/ui/components/ui/button";
-import { Input } from "@raltic/ui/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@raltic/ui/components/ui/card";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Radio, RadioGroup } from "@/components/heroui-pro/radio";
 import { CheckCircle2, Circle, Copy, KeyRound, Terminal, MessageSquare, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   // CONTRACT: serverId/serverSlug identify the workspace the wizard
@@ -433,10 +435,15 @@ export function SetupWizard({
                   ? "Bring YOUR agents online"
                   : "Set up your laptop"}
               </CardTitle>
-              <button onClick={handleDismiss}
-                className="text-xs text-muted-foreground hover:text-foreground">
+              <Button
+                type="button"
+                onClick={handleDismiss}
+                variant="ghost"
+                size="xs"
+                className="text-xs text-muted-foreground"
+              >
                 I'll do this later →
-              </button>
+              </Button>
             </div>
             <CardDescription>
               {flavor === "invite" ? (
@@ -494,11 +501,14 @@ export function SetupWizard({
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         All run locally on YOUR laptop. You can change per-agent later.
                       </p>
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <RadioGroup
+                        value={runtime}
+                        onValueChange={(next) => setRuntime(next as typeof runtime)}
+                        className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2"
+                      >
                         <RuntimePick
                           id="claude"
                           checked={runtime === "claude"}
-                          onChange={() => setRuntime("claude")}
                           title="Claude Code"
                           chip="Recommended"
                           chipTone="cyan"
@@ -508,7 +518,6 @@ export function SetupWizard({
                         <RuntimePick
                           id="codex"
                           checked={runtime === "codex"}
-                          onChange={() => setRuntime("codex")}
                           title="OpenAI Codex"
                           chip="Preview"
                           chipTone="amber"
@@ -524,7 +533,6 @@ export function SetupWizard({
                         <RuntimePick
                           id="openclaw"
                           checked={runtime === "openclaw"}
-                          onChange={() => setRuntime("openclaw")}
                           title="OpenClaw"
                           chip="Advanced"
                           chipTone="violet"
@@ -534,14 +542,13 @@ export function SetupWizard({
                         <RuntimePick
                           id="hermes"
                           checked={runtime === "hermes"}
-                          onChange={() => setRuntime("hermes")}
                           title="Hermes Agent"
                           chip="Advanced"
                           chipTone="rose"
                           body="Nous Research's self-improving agent with persistent memory + auto skills. Install separately."
                           installHref="https://hermes-agent.nousresearch.com/"
                         />
-                      </div>
+                      </RadioGroup>
                     </div>
                   )}
 
@@ -596,9 +603,9 @@ export function SetupWizard({
               {step === 2 && (
                 <div className="space-y-3 text-sm">
                   <p>Pick a name for this laptop — you'll see it in your settings.</p>
-                  <div className="flex gap-2">
-                    <Input value={keyName} onChange={(e) => setKeyName((e.target as HTMLInputElement).value)} placeholder="My Mac" />
-                    <Button onClick={createKey} loading={creating}>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input value={keyName} onChange={(e) => setKeyName((e.target as HTMLInputElement).value)} placeholder="My Mac" className="min-w-0 flex-1" />
+                    <Button onClick={createKey} loading={creating} className="w-full sm:w-auto">
                       <KeyRound className="mr-1 h-3.5 w-3.5" /> Issue key
                     </Button>
                   </div>
@@ -621,9 +628,9 @@ export function SetupWizard({
                       </p>
                       <p className="mt-1 text-muted-foreground">
                         Lost the command?{" "}
-                        <button type="button" className="underline" onClick={() => { void startOverFromStep2(); }}>
+                        <Button type="button" variant="link" size="xs" className="h-auto px-0 py-0 text-xs" onClick={() => { void startOverFromStep2(); }}>
                           Start over to issue a fresh key
-                        </button>.
+                        </Button>.
                       </p>
                     </div>
                   ) : (
@@ -654,20 +661,23 @@ export function SetupWizard({
                         ].map((t) => {
                           const active = installTab === t.id;
                           return (
-                            <button
+                            <Button
                               key={t.id}
+                              type="button"
                               role="tab"
                               aria-selected={active}
                               onClick={() => setInstallTab(t.id)}
+                              variant="ghost"
+                              size="xs"
                               className={
-                                "-mb-px border-b-2 px-2.5 py-1.5 text-xs transition-colors " +
+                                "h-8 rounded-none border-b-2 px-2.5 text-xs transition-colors " +
                                 (active
                                   ? "border-cyan-500 text-cyan-700 dark:text-cyan-400"
                                   : "border-transparent text-muted-foreground hover:text-foreground")
                               }
                             >
                               {t.label}
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -738,12 +748,14 @@ export function SetupWizard({
                     </div>
                   )}
 
-                  <button type="button"
+                  <Button type="button"
                     onClick={() => setShowHelp(v => !v)}
-                    className="flex w-full items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start gap-1 text-left text-xs text-muted-foreground">
                     {showHelp ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                     Having trouble?
-                  </button>
+                  </Button>
                   {showHelp && (
                     <ul className="space-y-2 rounded border bg-card p-3 text-xs text-muted-foreground">
                       <li>
@@ -765,10 +777,10 @@ export function SetupWizard({
                       <li>
                         <strong className="text-foreground">Key got pasted with extra characters?</strong>{" "}
                         Re-issue the key{" "}
-                        <button type="button" className="underline"
+                        <Button type="button" variant="link" size="xs" className="h-auto px-0 py-0 text-xs"
                           onClick={() => { void startOverFromStep2(); }}>
                           (start over from step 2)
-                        </button>.
+                        </Button>.
                       </li>
                     </ul>
                   )}
@@ -868,14 +880,17 @@ function CopyableCommand({ cmd }: { cmd: string }) {
     <div className="rounded border bg-zinc-900 text-zinc-100">
       <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5">
         <span className="text-[10px] uppercase tracking-wider text-zinc-500">terminal</span>
-        <button
+        <Button
+          type="button"
           onClick={handleCopy}
-          className={"flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors " +
+          variant="ghost"
+          size="xs"
+          className={"h-6 text-[11px] transition-colors " +
             (copied ? "bg-emerald-600/20 text-emerald-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-white")}
         >
           <Copy className="h-3 w-3" />
           {copied ? "Copied!" : "Copy"}
-        </button>
+        </Button>
       </div>
       <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
         {cmd}
@@ -899,11 +914,10 @@ function Step({ n, active, done, title }: { n: number; active: boolean; done: bo
  *  Card-style instead of a tight radio so the body copy + chip explain
  *  the trade-off inline rather than burying it in a tooltip. */
 function RuntimePick({
-  id, checked, onChange, title, chip, chipTone, body, installHref,
+  id, checked, title, chip, chipTone, body, installHref,
 }: {
   id: string;
   checked: boolean;
-  onChange: () => void;
   title: string;
   chip: string;
   chipTone: "cyan" | "amber" | "violet" | "rose";
@@ -919,21 +933,21 @@ function RuntimePick({
     rose:   "bg-rose-500/10 text-rose-700 dark:text-rose-400",
   }[chipTone];
   return (
-    <label
+    <Radio
+      value={id}
+      controlClassName="sr-only"
       className={
-        "flex cursor-pointer flex-col gap-1 rounded-lg border bg-card p-3 transition-colors " +
+        "h-auto flex-col items-stretch gap-1 p-3 text-left " +
         (checked ? "border-cyan-500/60 bg-cyan-500/5" : "hover:border-foreground/20")
       }
     >
       <div className="flex items-center gap-2">
-        <input
-          type="radio"
-          name="runtime"
-          value={id}
-          checked={checked}
-          onChange={onChange}
-          className="h-3.5 w-3.5"
-        />
+        <span className={cn(
+          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border",
+          checked ? "border-cyan-500" : "border-border",
+        )}>
+          {checked && <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />}
+        </span>
         <span className="font-medium">{title}</span>
         <span className={`rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider ${chipColor}`}>
           {chip}
@@ -949,6 +963,6 @@ function RuntimePick({
       >
         Install instructions →
       </a>
-    </label>
+    </Radio>
   );
 }

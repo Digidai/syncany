@@ -23,7 +23,8 @@ import { notifySuccess, notifyThrown } from "@/lib/notify";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
-} from "@raltic/ui/components/ui/menu";
+} from "@/components/heroui-pro/menu";
+import { Button } from "@/components/heroui-pro/button";
 
 // Workspace row from /me — includes role + the user's chosen default.
 interface MeServer {
@@ -53,9 +54,12 @@ export function WorkspaceSwitcher({
   // requests. Plain `loading` state lags one render behind setState; a ref
   // updates synchronously so the guard is reliable.
   const inFlight = useRef(false);
-  const mounted = useRef(true);
+  const mounted = useRef(false);
 
-  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   async function ensureLoaded() {
     if (servers || inFlight.current) return;
@@ -135,7 +139,7 @@ export function WorkspaceSwitcher({
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
         onPointerDown={ensureLoaded}
-        className="group flex w-full items-center gap-2.5 rounded-xl border border-white/60 bg-white/60 px-2 py-2 text-left shadow-sm transition-colors hover:border-cyan-200 hover:bg-white focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+        className="group flex w-full items-center gap-2.5 rounded-xl border border-border bg-background px-2 py-2 text-left transition-colors hover:bg-default focus:bg-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Switch workspace"
       >
         <WorkspaceIcon iconUrl={currentIconUrl} name={currentServerName} size="md" />
@@ -143,7 +147,7 @@ export function WorkspaceSwitcher({
           <div className="truncate text-sm font-semibold tracking-tight">{currentServerName}</div>
           <div className="truncate text-[11px] text-muted-foreground">/{currentServerSlug}</div>
         </div>
-        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-100/75 text-muted-foreground transition-colors group-hover:bg-cyan-50 group-hover:text-cyan-700 dark:bg-white/10">
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-default text-muted-foreground transition-colors group-hover:text-foreground">
           <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </DropdownMenuTrigger>
@@ -250,11 +254,13 @@ function WorkspaceRow({
       {/* Star: filled + cyan if THIS row is the user's default. Otherwise
           an outline that lights up on hover; click sets it as default
           (stopPropagation so the outer row click doesn't also switch). */}
-      <button
+      <Button
         type="button"
         onClick={(e) => { e.stopPropagation(); if (!isDefault && !pendingDefault) onSetDefault(); }}
+        variant="ghost"
+        size="icon-xs"
         className={cn(
-          "ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors",
+          "ml-1 h-6 w-6 shrink-0 rounded transition-colors",
           isDefault
             ? "text-amber-500"
             : "text-muted-foreground/40 hover:bg-accent hover:text-amber-500",
@@ -264,7 +270,7 @@ function WorkspaceRow({
         title={isDefault ? "Default workspace — lands here after sign-in" : "Set as default"}
       >
         <Star className={cn("h-3.5 w-3.5", isDefault && "fill-current")} aria-hidden="true" />
-      </button>
+      </Button>
     </DropdownMenuItem>
   );
 }

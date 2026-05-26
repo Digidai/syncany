@@ -7,6 +7,12 @@ import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { authClient } from "@/lib/auth-client";
 import { GeneratedAvatar } from "@/components/generated-avatar";
+import {
+  Dialog, DialogPortal, DialogBackdrop, DialogPopup,
+  DialogHeader, DialogTitle, DialogPanel,
+} from "@/components/heroui-pro/dialog";
+import { Button } from "@/components/heroui-pro/button";
+import { Input } from "@/components/heroui-pro/input";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -159,47 +165,43 @@ export function NewDmDialog({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Start a new direct message"
-      className="fixed inset-0 z-50 flex items-start justify-center bg-background/70 p-4 backdrop-blur-sm sm:items-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onOpenChange(false); }}
-    >
-      <div ref={dialogRef} className="w-full max-w-md rounded-xl border bg-card shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPortal>
+        <DialogBackdrop />
+        <DialogPopup className="sm:max-w-md">
+          <DialogHeader className="flex-row items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Start a direct message</h2>
+            <DialogTitle>Start a direct message</DialogTitle>
             <p className="text-[11px] text-muted-foreground">
               Pick a teammate or agent from this workspace.
             </p>
           </div>
-          <button
+          <Button
+            type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+          </Button>
+        </DialogHeader>
 
-        <div className="px-4 py-3">
+        <DialogPanel>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
+            <Input
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
               placeholder="Search people or agents…"
-              className="w-full rounded-md border bg-background py-1.5 pl-8 pr-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground"
+              className="pl-8"
             />
           </div>
-        </div>
 
-        <ul className="max-h-72 overflow-y-auto px-2 pb-3">
+        <ul className="mt-3 max-h-72 overflow-y-auto rounded-lg border bg-card/40 p-2">
           {(loading || sessionPending) && (
             // sessionPending blocks list render too: meId is null until
             // /me resolves, and the `m.userId !== meId` filter on the
@@ -214,12 +216,15 @@ export function NewDmDialog({
             const alreadyDm = existingDmPeers.has(`${row.kind}:${row.id}`);
             return (
               <li key={`${row.kind}:${row.id}`}>
-                <button
+                <Button
+                  type="button"
                   onClick={() => pick(row)}
                   disabled={opening === row.id}
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors",
-                    opening === row.id ? "opacity-50" : "hover:bg-accent",
+                    "h-auto w-full justify-start gap-3 px-2 py-1.5 text-left",
+                    opening === row.id && "opacity-50",
                   )}
                 >
                   {row.image ? (
@@ -241,12 +246,14 @@ export function NewDmDialog({
                     </div>
                   </div>
                   <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                </button>
+                </Button>
               </li>
             );
           })}
         </ul>
-      </div>
-    </div>
+        </DialogPanel>
+        </DialogPopup>
+      </DialogPortal>
+    </Dialog>
   );
 }

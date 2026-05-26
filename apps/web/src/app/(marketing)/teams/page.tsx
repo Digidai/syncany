@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, KeyRound, Users } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
 
@@ -46,12 +47,9 @@ export default function TeamsPage() {
             Raltic is in private beta. The Team tier — with seat management, audit log, and shared agents — is on the roadmap. Tell us about your team and we'll loop you in as it lands.
           </p>
           <div className="mt-9 flex justify-center">
-            <a
-              href="#waitlist"
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-6 text-[15px] font-semibold text-black"
-            >
+            <MarketingButton href="#waitlist">
               Request access <ArrowRight className="h-4 w-4" />
-            </a>
+            </MarketingButton>
           </div>
           <p className="mt-5 text-[12px] text-zinc-500">
             Each teammate can already <Link href="/signup" className="underline-offset-4 hover:underline">sign up for the free indie tier</Link>; team-level features land with P4 billing.

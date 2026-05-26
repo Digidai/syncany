@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Copy, CheckCircle2, AlertTriangle, Download, WifiOff } from "lucide-react";
 import { type MachineRuntimeRow, type RuntimeId, RUNTIME_LABEL } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
+import { Button } from "@/components/heroui-pro/button";
 
 // ---------------------------------------------------------------------------
 // KeyCommandBlock — copyable shell command surface.
@@ -19,17 +20,20 @@ export function KeyCommandBlock({ cmd }: { cmd: string }) {
     <div className="rounded border bg-zinc-900 text-zinc-100">
       <div className="flex items-center justify-between border-b border-zinc-800 px-2 py-1">
         <span className="text-[10px] uppercase tracking-wider text-zinc-500">terminal</span>
-        <button
+        <Button
+          type="button"
           onClick={async () => {
             await navigator.clipboard.writeText(cmd);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className={"flex items-center gap-1 rounded px-2 py-0.5 text-[11px] " +
+          variant="ghost"
+          size="xs"
+          className={"h-6 text-[11px] " +
             (copied ? "bg-emerald-600/20 text-emerald-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-white")}
         >
           <Copy className="h-3 w-3" />{copied ? "Copied!" : "Copy"}
-        </button>
+        </Button>
       </div>
       <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-[11px] leading-relaxed">{cmd}</pre>
     </div>
@@ -155,14 +159,17 @@ export function humanizeAgeFuture(ts: number): string {
 
 export function InvitePresetButton({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
-      className="flex-1 rounded-lg border border-border bg-card/40 p-3 text-left transition-colors hover:border-cyan-500/40 hover:bg-cyan-500/5"
+      variant="outline"
+      className="h-auto flex-1 justify-start p-3 text-left hover:border-cyan-500/40 hover:bg-cyan-500/5"
     >
-      <div className="text-sm font-medium">{title}</div>
-      <div className="mt-0.5 text-[11px] text-muted-foreground">{detail}</div>
-    </button>
+      <span className="block">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="mt-0.5 block text-[11px] text-muted-foreground">{detail}</span>
+      </span>
+    </Button>
   );
 }
 
@@ -199,8 +206,8 @@ export function InviteRow({
         <p className="mt-0.5 text-[11px] text-muted-foreground">{usesLabel} · {expiryLabel}</p>
       </div>
       <div className="flex shrink-0 gap-1">
-        <button onClick={copy} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">Copy</button>
-        <button onClick={onRevoke} className="rounded-md border border-destructive/30 px-2 py-1 text-[11px] text-destructive-foreground hover:bg-destructive/10">Revoke</button>
+        <Button type="button" onClick={copy} variant="outline" size="xs" className="text-[11px]">Copy</Button>
+        <Button type="button" onClick={onRevoke} variant="danger-soft" size="xs" className="text-[11px]">Revoke</Button>
       </div>
     </li>
   );
