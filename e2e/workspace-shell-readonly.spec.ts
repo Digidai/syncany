@@ -4,6 +4,14 @@ import { login, missingAuthSkipReason } from "./helpers/auth";
 const RUN = process.env.E2E_RUN_WORKSPACE === "1";
 const AUTH_SKIP = missingAuthSkipReason();
 
+async function openFirstChannel(page: import("@playwright/test").Page) {
+  const nav = page.getByRole("navigation", { name: "Workspace navigation" });
+  const firstChannel = nav.getByRole("link", { name: /^onboarding\b/i }).first();
+  await expect(firstChannel).toBeVisible({ timeout: 15000 });
+  await firstChannel.click();
+  await expect(page).toHaveURL(/\/s\/[^/]+\/channel\/[0-9a-f-]+$/, { timeout: 10000 });
+}
+
 test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (skipped — set E2E_RUN_WORKSPACE=1)", () => {
   test.skip(!RUN, "read-only authenticated workspace gate is opt-in");
   test.skip(RUN && Boolean(AUTH_SKIP), AUTH_SKIP ?? "");
@@ -43,7 +51,9 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
     await expect(page.getByTestId("workspace-sidebar")).toHaveAttribute("data-state", "expanded");
 
     await page.getByTestId("user-pill-trigger").click();
-    await expect(page.getByRole("menuitem", { name: "Account" })).toBeVisible();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Account" })).toBeVisible();
     await page.keyboard.press("Escape");
 
     const cookies = await context.cookies();
@@ -67,6 +77,8 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
   });
 
   test("keeps the message composer aligned as one input surface", async ({ page }) => {
+    await openFirstChannel(page);
+
     const composer = page.getByTestId("message-composer");
     await expect(composer).toBeVisible();
 

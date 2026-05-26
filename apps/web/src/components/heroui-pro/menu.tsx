@@ -40,11 +40,13 @@ export function DropdownMenuItem({
   disabled,
   variant,
   render,
+  textValue,
   ...props
 }: React.ComponentProps<"div"> & {
   disabled?: boolean;
   variant?: "default" | "destructive";
   render?: React.ReactElement;
+  textValue?: string;
 }) {
   const content = render && React.isValidElement(render)
     ? React.cloneElement(render, {
@@ -59,7 +61,7 @@ export function DropdownMenuItem({
       className={cn(variant === "destructive" && "text-danger", className)}
       isDisabled={disabled}
       onAction={() => onClick?.({} as React.MouseEvent<HTMLDivElement>)}
-      textValue={typeof children === "string" ? children : undefined}
+      textValue={textValue ?? (typeof children === "string" ? children : undefined)}
     >
       {content}
     </Dropdown.Item>
@@ -67,12 +69,25 @@ export function DropdownMenuItem({
 }
 
 export const DropdownMenuSeparator = ({ className, ...props }: React.ComponentProps<"div">) => (
-  <div className={cn("mx-1 my-1 h-px bg-border", className)} role="separator" {...props} />
+  <Dropdown.Item
+    aria-hidden="true"
+    className={cn("pointer-events-none mx-1 my-1 h-px min-h-0 cursor-default overflow-hidden bg-border p-0", className)}
+    isDisabled
+    textValue="separator"
+    {...(props as Record<string, unknown>)}
+  />
 );
 
 export const DropdownMenuGroup = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-export const DropdownMenuLabel = ({ className, ...props }: React.ComponentProps<"div">) => (
-  <div className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)} {...props} />
+export const DropdownMenuLabel = ({ className, children, ...props }: React.ComponentProps<"div">) => (
+  <Dropdown.Item
+    className={cn("pointer-events-none cursor-default px-2 py-1.5 text-xs font-medium text-muted-foreground", className)}
+    isDisabled
+    textValue={typeof children === "string" ? children : "label"}
+    {...(props as Record<string, unknown>)}
+  >
+    {children}
+  </Dropdown.Item>
 );
 
 export const Menu = DropdownMenu;
