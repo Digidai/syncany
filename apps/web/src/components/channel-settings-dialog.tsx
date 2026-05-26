@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { api, ApiError, type Channel } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 
@@ -38,6 +39,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [convertingVisibility, setConvertingVisibility] = useState(false);
+  const [visibilityTarget, setVisibilityTarget] = useState<"public" | "private" | null>(null);
 
   // Reset edit + delete state every time the dialog opens, so a
   // half-typed delete confirmation from a previous session doesn't
@@ -47,6 +49,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
     setName(channel.name); setDescription(channel.description ?? "");
     setTopic(channel.topic ?? "");
     setError(null); setConfirmDelete(false); setDeleteText("");
+    setVisibilityTarget(null);
   }, [open, channel.name, channel.description, channel.topic]);
 
   const dirty = canManage && (
@@ -99,8 +102,34 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
     }
   }
 
+  function handleDialogOpenChange(next: boolean) {
+    if (!next) setVisibilityTarget(null);
+    onOpenChange(next);
+  }
+
+  async function confirmVisibilityChange() {
+    const target = visibilityTarget;
+    if (!target || target === channel.type) {
+      setVisibilityTarget(null);
+      return;
+    }
+    setConvertingVisibility(true);
+    try {
+      await api.setChannelVisibility(channel.id, target);
+      notifySuccess(`Channel is now ${target}`);
+      window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
+      onSaved?.();
+      setVisibilityTarget(null);
+      onOpenChange(false);
+    } catch (e) {
+      notifyThrown("Couldn't change visibility", e);
+    } finally {
+      setConvertingVisibility(false);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogPortal>
         <DialogBackdrop />
         <DialogPopup className="sm:max-w-md">
@@ -152,22 +181,9 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                       <Button
                         key={t}
                         type="button"
-                        disabled={convertingVisibility || channel.type === t}
-                        onClick={async () => {
-                          if (channel.type === t) return;
-                          if (!confirm(`Convert #${channel.name} to ${t}? Existing members keep access.`)) return;
-                          setConvertingVisibility(true);
-                          try {
-                            await api.setChannelVisibility(channel.id, t);
-                            notifySuccess(`Channel is now ${t}`);
-                            window.dispatchEvent(new CustomEvent("raltic:channels-changed"));
-                            onSaved?.();
-                            onOpenChange(false);
-                          } catch (e) {
-                            notifyThrown("Couldn't change visibility", e);
-                          } finally {
-                            setConvertingVisibility(false);
-                          }
+                        disabled={convertingVisibility || visibilityTarget !== null || channel.type === t}
+                        onClick={() => {
+                          if (channel.type !== t) setVisibilityTarget(t);
                         }}
                         aria-pressed={channel.type === t}
                         variant="outline"
@@ -320,6 +336,17 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
           </DialogFooter>
         </DialogPopup>
       </DialogPortal>
+      <ConfirmDialog
+        open={visibilityTarget !== null}
+        onOpenChange={(next) => {
+          if (!next && !convertingVisibility) setVisibilityTarget(null);
+        }}
+        title={visibilityTarget ? `Convert #${channel.name} to ${visibilityTarget}?` : "Convert channel visibility?"}
+        description="Existing members keep access. For a fresh private space, create a new private channel instead."
+        confirmLabel={visibilityTarget ? `Convert to ${visibilityTarget}` : "Convert"}
+        destructive={false}
+        onConfirm={confirmVisibilityChange}
+      />
     </Dialog>
   );
 }

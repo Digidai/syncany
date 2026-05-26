@@ -7,6 +7,7 @@ import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { TextArea } from "@heroui/react/textarea";
 import { Navbar } from "@heroui-pro/react/navbar";
 import { Button } from "@/components/heroui-pro/button";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { ChannelActions } from "./channel-actions";
 import { AttachmentList } from "./attachment-render";
 import { Paperclip } from "lucide-react";
@@ -102,6 +103,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
   const [pendingAttachments, setPendingAttachments] = useState<StagedAttachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [composerText, setComposerText] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<MessageRow | null>(null);
 
   // Only mark messages as read when this tab is actually visible.
   const isVisible = useCallback((): boolean => {
@@ -673,9 +675,12 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     cancelEdit();
   }
 
-  async function handleDelete(m: MessageRow) {
-    if (!confirm("Delete this message? This can't be undone.")) return;
-    try { await api.deleteMessage(m.id); }
+  async function confirmDeleteMessage() {
+    if (!deleteTarget) return;
+    try {
+      await api.deleteMessage(deleteTarget.id);
+      setDeleteTarget(null);
+    }
     catch (e) { notifyThrown("Couldn't delete message", e); }
   }
 
@@ -796,7 +801,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                   onCancelEdit={cancelEdit}
                   onSaveEdit={() => saveEdit(m)}
                   onDraftChange={setEditingDraft}
-                  onDelete={() => handleDelete(m)}
+                  onDelete={() => setDeleteTarget(m)}
                   onReact={(emoji) => handleReact(m, emoji)}
                   onReply={() => { setReplyTo(m); inputRef.current?.focus(); }}
                   onCopy={() => handleCopy(m)}
@@ -950,6 +955,16 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           </div>
         </div>
       </footer>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleteTarget(null);
+        }}
+        title="Delete this message?"
+        description="This can't be undone. Replies and reactions attached to this message may also lose context."
+        confirmLabel="Delete message"
+        onConfirm={confirmDeleteMessage}
+      />
     </div>
   );
 }

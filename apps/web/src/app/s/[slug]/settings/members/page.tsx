@@ -7,6 +7,7 @@ import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { InvitePresetButton, InviteRow, KeyCommandBlock } from "@/components/settings-shared";
 import { useSettings, SettingsSection } from "../layout";
@@ -88,10 +89,9 @@ export default function MembersSettingsPage() {
       await api.revokeInvite(revokeTarget);
       const i = await api.listInvites(server.id);
       setInvites(i.invites);
+      setRevokeTarget(null);
     } catch (e) {
       notifyThrown("Couldn't revoke invite", e);
-    } finally {
-      setRevokeTarget(null);
     }
   }
 
@@ -99,12 +99,11 @@ export default function MembersSettingsPage() {
     if (!removeTarget) return;
     try {
       await api.removeMember(server.id, removeTarget.userId);
-      reload();
+      await reload();
       notifySuccess(`Removed ${removeTarget.name}`);
+      setRemoveTarget(null);
     } catch (e) {
       notifyThrown("Couldn't remove member", e);
-    } finally {
-      setRemoveTarget(null);
     }
   }
 
@@ -119,10 +118,11 @@ export default function MembersSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardPanel className="space-y-5">
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Invite by email</p>
+          <Field>
+            <FieldLabel htmlFor="invite-email">Invite by email</FieldLabel>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
+                id="invite-email"
                 type="email"
                 placeholder="teammate@example.com"
                 value={inviteEmail}
@@ -140,7 +140,7 @@ export default function MembersSettingsPage() {
             <p className="mt-1 text-[11px] text-muted-foreground">
               Sends a private link to that address only. Single-use, 24-hour expiry.
             </p>
-          </div>
+          </Field>
 
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Create a share link</p>

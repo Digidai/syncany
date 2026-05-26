@@ -41,6 +41,10 @@ export function ConfirmDialog({
 
   const norm = (s: string) => s.trim().normalize("NFC");
   const canConfirm = !busy && (!requireText || norm(typed) === norm(requireText));
+  function handleOpenChange(next: boolean) {
+    if (busy && !next) return;
+    onOpenChange(next);
+  }
 
   async function handleConfirm() {
     if (!canConfirm) return;
@@ -53,7 +57,7 @@ export function ConfirmDialog({
   }
 
   return (
-    <AlertDialog.Root isOpen={open} onOpenChange={onOpenChange}>
+    <AlertDialog.Root isOpen={open} onOpenChange={handleOpenChange}>
       <AlertDialog.Backdrop variant="blur">
         <AlertDialog.Container placement="center" size="sm">
           <AlertDialog.Dialog className="rounded-xl border border-border bg-background p-5 shadow-overlay">

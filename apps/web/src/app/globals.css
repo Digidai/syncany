@@ -2,7 +2,6 @@
 @import '@heroui/styles';
 @import '@heroui-pro/react/css';
 @import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
 
 @import 'tailwindcss-radix-colors/dist/sand.css';
 @import 'tailwindcss-radix-colors/dist/sanda.css';

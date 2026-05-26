@@ -105,9 +105,12 @@ export default function ConnectorsPage() {
 
   async function confirmRevoke() {
     if (!revokeTarget) return;
-    try { await api.deleteConnector(revokeTarget.id); await reload(); }
+    try {
+      await api.deleteConnector(revokeTarget.id);
+      await reload();
+      setRevokeTarget(null);
+    }
     catch (e) { notifyThrown("Couldn't remove connector", e); }
-    finally { setRevokeTarget(null); }
   }
 
   return (

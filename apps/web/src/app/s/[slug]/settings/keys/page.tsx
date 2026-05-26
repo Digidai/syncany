@@ -32,9 +32,12 @@ export default function MachineKeysPage() {
 
   async function confirmRevokeKey() {
     if (!revokeTarget) return;
-    try { await api.revokeMachineKey(revokeTarget.id); reload(); }
+    try {
+      await api.revokeMachineKey(revokeTarget.id);
+      await reload();
+      setRevokeTarget(null);
+    }
     catch (e) { notifyThrown("Couldn't revoke key", e); }
-    finally { setRevokeTarget(null); }
   }
 
   const reload = useCallback(async () => {

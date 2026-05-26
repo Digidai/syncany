@@ -140,7 +140,8 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
             value={teamSize}
             onChange={e => setTeamSize(e.target.value as TeamSize | "")}
             disabled={state === "submitting"}
-            className={INPUT_CLS}
+            className="w-full"
+            selectClassName={INPUT_CLS}
           >
             <option value="">Pick one…</option>
             {TEAM_SIZES.map(s => <option key={s} value={s}>{s} people</option>)}

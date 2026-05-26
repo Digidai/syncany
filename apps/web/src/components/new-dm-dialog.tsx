@@ -18,10 +18,6 @@ import { cn } from "@/lib/utils";
 interface Props {
   serverId: string;
   serverSlug: string;
-  // existingDmChannelIds — channelIds the current user already has DMs
-  // for. Used to dim entries the user already chats with (still
-  // clickable — opens the existing channel via the idempotent endpoint).
-  existingDmChannelIds: Set<string>;
   // existingDmPeers — set of (memberType:memberId) strings for the
   // OTHER party in each existing DM. Used to render a "(in DMs)" hint
   // so users know they already have a thread with this person.

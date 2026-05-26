@@ -103,6 +103,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
   const publicChannels = channels.filter((c) => c.type === "public").sort(sortStarredFirst);
   const dmChannels = channels.filter((c) => c.type === "dm").sort(sortStarredFirst);
   const privateChannels = channels.filter((c) => c.type === "private").sort(sortStarredFirst);
+  const existingDmPeers = new Set<string>([
+    ...dmChannels.flatMap((c) => c.peer ? [`${c.peer.type}:${c.peer.id}`] : []),
+    ...agents.filter((a) => a.dmChannelId).map((a) => `agent:${a.id}`),
+  ]);
   const isLoading = loading || loadedServerSlug !== serverSlug;
   const { isMobile } = useSidebar();
 
@@ -279,19 +283,13 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         onOpenChange={setOpenCreate}
         onCreated={() => location.reload()}
       />
-      {/* DM picker. existingDmPeers seeded from agents that already have
-          a DM (`dmChannelId` set) — the agent set is reliable + fast.
-          Human-human existing DM detection would require a per-channel
-          members fetch, which we skip for v1; existing human DMs still
-          open (find-or-create is idempotent), just without the "in DMs"
-          hint chip. */}
+      {/* DM picker. Existing peers come from DM channel peer metadata so
+          the "in DMs" hint is consistent for humans and agents. Agent
+          dmChannelId stays as a fallback for older API payloads. */}
       <NewDmDialog
         serverId={serverId}
         serverSlug={serverSlug}
-        existingDmChannelIds={new Set(dmChannels.map((c) => c.id))}
-        existingDmPeers={new Set(
-          agents.filter((a) => a.dmChannelId).map((a) => `agent:${a.id}`),
-        )}
+        existingDmPeers={existingDmPeers}
         open={openNewDm}
         onOpenChange={setOpenNewDm}
         onOpened={reloadChannels}

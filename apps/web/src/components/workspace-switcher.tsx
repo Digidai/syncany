@@ -24,7 +24,6 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
 } from "@/components/heroui-pro/menu";
-import { Button } from "@/components/heroui-pro/button";
 
 // Workspace row from /me — includes role + the user's chosen default.
 interface MeServer {
@@ -50,10 +49,12 @@ export function WorkspaceSwitcher({
   // Pending state for the "Set as default" click — UI feedback while the
   // PATCH /me/default-server round-trip runs.
   const [pendingDefault, setPendingDefault] = useState<string | null>(null);
+  const pendingDefaultRef = useRef<string | null>(null);
   // In-flight ref so rapid hover/focus/click doesn't issue duplicate
   // requests. Plain `loading` state lags one render behind setState; a ref
   // updates synchronously so the guard is reliable.
   const inFlight = useRef(false);
+  const loadVersion = useRef(0);
   const mounted = useRef(false);
 
   useEffect(() => {
@@ -63,24 +64,27 @@ export function WorkspaceSwitcher({
 
   async function ensureLoaded() {
     if (servers || inFlight.current) return;
+    const version = ++loadVersion.current;
     inFlight.current = true;
     try {
       // Use /me instead of listServers so we get role + default in a
       // single round-trip. listServers will eventually be deprecated for
       // this surface; we keep it for other callers (home-cta, etc.).
       const me = await api.me();
-      if (mounted.current) {
+      if (mounted.current && version === loadVersion.current) {
         setServers(me.servers);
         setDefaultServerId(me.defaultServerId);
       }
     } catch (e) {
       notifyThrown("Couldn't load workspaces", e);
     } finally {
-      inFlight.current = false;
+      if (version === loadVersion.current) inFlight.current = false;
     }
   }
 
   async function handleSetDefault(serverId: string) {
+    if (pendingDefaultRef.current) return;
+    pendingDefaultRef.current = serverId;
     setPendingDefault(serverId);
     try {
       await api.setDefaultServer(serverId);
@@ -91,6 +95,7 @@ export function WorkspaceSwitcher({
     } catch (e) {
       notifyThrown("Couldn't update default workspace", e);
     } finally {
+      pendingDefaultRef.current = null;
       if (mounted.current) setPendingDefault(null);
     }
   }
@@ -124,6 +129,8 @@ export function WorkspaceSwitcher({
     if (next) {
       ensureLoaded();
     } else {
+      loadVersion.current += 1;
+      inFlight.current = false;
       setServers(null);
       setDefaultServerId(null);
     }
@@ -140,13 +147,13 @@ export function WorkspaceSwitcher({
       <DropdownMenuTrigger
         onPointerDown={ensureLoaded}
         className="group flex w-full items-center gap-2.5 rounded-xl border border-border bg-background px-2 py-2 text-left transition-colors hover:bg-default focus:bg-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label="Switch workspace"
       >
         <WorkspaceIcon iconUrl={currentIconUrl} name={currentServerName} size="md" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold tracking-tight">{currentServerName}</div>
           <div className="truncate text-[11px] text-muted-foreground">/{currentServerSlug}</div>
         </div>
+        <span className="sr-only">, switch workspace</span>
         <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-default text-muted-foreground transition-colors group-hover:text-foreground">
           <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
@@ -224,8 +231,8 @@ export function WorkspaceSwitcher({
   );
 }
 
-// Workspace dropdown row — switch on click, set-as-default via the
-// star button on the right. Pulling this out keeps the JSX above
+// Workspace dropdown row — switch on click, set-as-default via a
+// secondary menu action. Pulling this out keeps the JSX above
 // readable when we have two grouped sections rendering the same shape.
 function WorkspaceRow({
   s, active, isDefault, pendingDefault, onClick, onSetDefault,
@@ -238,40 +245,36 @@ function WorkspaceRow({
   onSetDefault: () => void;
 }) {
   return (
-    <DropdownMenuItem
-      onClick={onClick}
-      className={cn(
-        "gap-2.5",
-        active && "bg-cyan-500/8 text-cyan-700 dark:text-cyan-400",
-      )}
-    >
-      <WorkspaceIcon iconUrl={s.iconUrl} name={s.name} size="sm" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm">{s.name}</div>
-        <div className="truncate text-[10.5px] text-muted-foreground">/{s.slug}</div>
-      </div>
-      {active && <Check className="h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-400" aria-hidden="true" />}
-      {/* Star: filled + cyan if THIS row is the user's default. Otherwise
-          an outline that lights up on hover; click sets it as default
-          (stopPropagation so the outer row click doesn't also switch). */}
-      <Button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); if (!isDefault && !pendingDefault) onSetDefault(); }}
-        variant="ghost"
-        size="icon-xs"
+    <>
+      <DropdownMenuItem
+        onClick={onClick}
         className={cn(
-          "ml-1 h-6 w-6 shrink-0 rounded transition-colors",
-          isDefault
-            ? "text-amber-500"
-            : "text-muted-foreground/40 hover:bg-accent hover:text-amber-500",
-          pendingDefault && "opacity-50 pointer-events-none",
+          "gap-2.5",
+          active && "bg-cyan-500/8 text-cyan-700 dark:text-cyan-400",
         )}
-        aria-label={isDefault ? "This is your default workspace" : "Set as default"}
-        title={isDefault ? "Default workspace — lands here after sign-in" : "Set as default"}
       >
-        <Star className={cn("h-3.5 w-3.5", isDefault && "fill-current")} aria-hidden="true" />
-      </Button>
-    </DropdownMenuItem>
+        <WorkspaceIcon iconUrl={s.iconUrl} name={s.name} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm">{s.name}</div>
+          <div className="truncate text-[10.5px] text-muted-foreground">
+            /{s.slug}{isDefault ? " · default" : ""}
+          </div>
+        </div>
+        {active && <Check className="h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-400" aria-hidden="true" />}
+        {isDefault && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-amber-500" aria-hidden="true" />}
+      </DropdownMenuItem>
+      {!isDefault && (
+        <DropdownMenuItem
+          onClick={onSetDefault}
+          disabled={pendingDefault}
+          aria-label={`${pendingDefault ? "Setting" : "Set"} ${s.name} as default workspace`}
+          className="min-h-7 pl-10 text-xs text-muted-foreground"
+        >
+          <Star className="h-3.5 w-3.5" aria-hidden="true" />
+          {pendingDefault ? "Setting default..." : "Set as default"}
+        </DropdownMenuItem>
+      )}
+    </>
   );
 }
 

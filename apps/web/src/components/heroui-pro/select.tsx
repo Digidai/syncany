@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Select as HeroSelect } from "@heroui/react/select";
-import { ListBox, ListBoxItem } from "react-aria-components";
+import { NativeSelect } from "@heroui-pro/react/native-select";
 import { cn } from "@/lib/utils";
 
 interface SelectOption {
@@ -20,6 +19,8 @@ export interface SelectProps {
   children?: React.ReactNode;
   placeholder?: string;
   className?: string;
+  selectClassName?: string;
+  triggerClassName?: string;
   "aria-label"?: string;
   id?: string;
   name?: string;
@@ -52,56 +53,55 @@ export function Select({
   children,
   placeholder = "Select...",
   className,
+  selectClassName,
+  triggerClassName,
   disabled,
   required,
   ...props
 }: SelectProps) {
   const items = options ?? optionsFromChildren(children);
-  const selectedKey = value ?? defaultValue ?? null;
-  const selected = items.find((item) => item.value === selectedKey);
+  const hasEmptyOption = items.some((item) => item.value === "");
+  const controlProps = value !== undefined
+    ? { value }
+    : { defaultValue: defaultValue ?? (hasEmptyOption ? "" : undefined) };
 
   return (
-    <HeroSelect.Root
-      {...props}
-      selectedKey={selectedKey}
-      onSelectionChange={(key) => {
-        const next = key == null ? "" : String(key);
-        onValueChange?.(next);
-        onChange?.({ target: { value: next } });
-      }}
-      isDisabled={disabled}
-      isRequired={required}
+    <NativeSelect.Root
       fullWidth
       variant="primary"
       className={cn("min-w-36", className)}
     >
-      <HeroSelect.Trigger>
-        <HeroSelect.Value>{selected?.label ?? placeholder}</HeroSelect.Value>
-        <HeroSelect.Indicator />
-      </HeroSelect.Trigger>
-      <HeroSelect.Popover className="max-h-72 overflow-auto">
-        <ListBox
-          className="p-1 outline-none"
-          items={items}
-          selectionMode="single"
-        >
-          {(item) => (
-            <ListBoxItem
-              id={item.value}
-              textValue={typeof item.label === "string" ? item.label : item.value}
-              className={({ isFocusVisible, isSelected }) => cn(
-                "flex cursor-default items-center rounded-md px-2.5 py-1.5 text-sm outline-none",
-                "text-foreground hover:bg-accent",
-                isFocusVisible && "bg-accent",
-                isSelected && "bg-cyan-500/10 text-cyan-700",
-                item.disabled && "pointer-events-none opacity-50",
-              )}
-            >
-              {item.label}
-            </ListBoxItem>
-          )}
-        </ListBox>
-      </HeroSelect.Popover>
-    </HeroSelect.Root>
+      <NativeSelect.Trigger
+        {...props}
+        {...controlProps}
+        disabled={disabled}
+        required={required}
+        className={selectClassName}
+        wrapperClassName={triggerClassName}
+        onChange={(event) => {
+          const next = event.target.value;
+          onValueChange?.(next);
+          onChange?.({ target: { value: next } });
+        }}
+      >
+        {!hasEmptyOption && placeholder && (
+          <NativeSelect.Option value="" disabled hidden>
+            {placeholder}
+          </NativeSelect.Option>
+        )}
+        {items.map((item) => (
+          <NativeSelect.Option
+            key={item.value}
+            value={item.value}
+            disabled={item.disabled}
+          >
+            {typeof item.label === "string" || typeof item.label === "number"
+              ? item.label
+              : item.value}
+          </NativeSelect.Option>
+        ))}
+        <NativeSelect.Indicator />
+      </NativeSelect.Trigger>
+    </NativeSelect.Root>
   );
 }

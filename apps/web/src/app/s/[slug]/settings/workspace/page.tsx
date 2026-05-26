@@ -151,23 +151,27 @@ export default function WorkspaceSettingsPage() {
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  async function handleLeave() {
+  async function handleLeave(): Promise<boolean> {
     try {
       await api.leaveServer(server.id);
       notifySuccess("Left workspace");
       router.push("/");
+      return true;
     } catch (e) {
       notifyThrown("Couldn't leave workspace", e);
+      return false;
     }
   }
 
-  async function handleDelete() {
+  async function handleDelete(): Promise<boolean> {
     try {
       await api.deleteServer(server.id);
       notifySuccess("Workspace deleted");
       router.push("/");
+      return true;
     } catch (e) {
       notifyThrown("Couldn't delete workspace", e);
+      return false;
     }
   }
 
@@ -329,7 +333,9 @@ export default function WorkspaceSettingsPage() {
         title="Leave this workspace?"
         description={`You'll lose access to ${server.name} immediately. Channels you posted in will keep your messages, but you won't see them.`}
         confirmLabel="Leave workspace"
-        onConfirm={async () => { await handleLeave(); setLeaveOpen(false); }}
+        onConfirm={async () => {
+          if (await handleLeave()) setLeaveOpen(false);
+        }}
       />
       <ConfirmDialog
         open={deleteOpen}
@@ -338,7 +344,9 @@ export default function WorkspaceSettingsPage() {
         description={`This will permanently delete ${server.name} along with every channel, message, agent, and bridge key.`}
         confirmLabel="Delete forever"
         requireText={server.name}
-        onConfirm={async () => { await handleDelete(); setDeleteOpen(false); }}
+        onConfirm={async () => {
+          if (await handleDelete()) setDeleteOpen(false);
+        }}
       />
     </SettingsSection>
   );

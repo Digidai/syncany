@@ -12,7 +12,7 @@ import { api, ApiError, type Channel, type ChannelMember } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { ChannelSettingsDialog } from "./channel-settings-dialog";
 import { ChannelMembersDialog } from "./channel-members-dialog";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 
 interface Props {
   channel: Channel;
@@ -202,7 +202,6 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
         description="You'll lose access to its history until someone adds you back."
         confirmLabel="Leave channel"
         destructive
-        busy={leaving}
         onConfirm={handleLeave}
       />
     </div>
