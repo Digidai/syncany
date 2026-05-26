@@ -4,6 +4,17 @@ import * as React from "react";
 import { NativeSelect } from "@heroui-pro/react/native-select";
 import { cn } from "@/lib/utils";
 
+const SELECT_CONTRAST_CLASS = "text-foreground disabled:text-muted-foreground disabled:opacity-100";
+const SELECT_TRIGGER_CONTRAST_CLASS = [
+  "text-foreground",
+  "[&_select]:text-foreground",
+  "[&_select:disabled]:text-muted-foreground",
+  "[&_select:disabled]:opacity-100",
+  "[&_select:disabled]:[-webkit-text-fill-color:var(--muted-foreground)]",
+  "[&_select:has(option[value='']:checked)]:text-[var(--field-placeholder)]",
+  "[&_.native-select__indicator]:text-[var(--field-placeholder)]",
+].join(" ");
+
 interface SelectOption {
   value: string;
   label: React.ReactNode;
@@ -76,8 +87,8 @@ export function Select({
         {...controlProps}
         disabled={disabled}
         required={required}
-        className={selectClassName}
-        wrapperClassName={triggerClassName}
+        className={cn(SELECT_CONTRAST_CLASS, selectClassName)}
+        wrapperClassName={cn(SELECT_TRIGGER_CONTRAST_CLASS, triggerClassName)}
         onChange={(event) => {
           const next = event.target.value;
           onValueChange?.(next);

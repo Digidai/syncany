@@ -47,6 +47,16 @@
   --input: var(--color-sand-7);
   --ring: var(--brand-cyan);              /* focus ring picks up brand */
   --sidebar-border: var(--color-sand-6);
+  --field-background: var(--card);
+  --field-foreground: var(--foreground);
+  --field-placeholder: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+  --field-border: var(--input);
+  --color-field-border: var(--field-border);
+  --color-field-border-hover: color-mix(in srgb, var(--input) 74%, var(--foreground));
+  --color-field-border-focus: var(--ring);
+  --field-hover: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%);
+  --field-focus: var(--card);
+  --color-field-focus: var(--field-focus);
 
   /* Text */
   --foreground: var(--color-sand-12);
@@ -253,6 +263,16 @@
   --input: var(--color-sanddark-7);
   --muted: var(--color-sanddark-3);
   --muted-foreground: var(--color-sanddark-11);
+  --field-background: var(--card);
+  --field-foreground: var(--foreground);
+  --field-placeholder: color-mix(in srgb, var(--muted-foreground) 84%, var(--foreground));
+  --field-border: var(--input);
+  --color-field-border: var(--field-border);
+  --color-field-border-hover: color-mix(in srgb, var(--input) 74%, var(--foreground));
+  --color-field-border-focus: var(--ring);
+  --field-hover: color-mix(in srgb, var(--card) 90%, var(--foreground) 8%);
+  --field-focus: var(--card);
+  --color-field-focus: var(--field-focus);
   --popover: var(--color-sanddark-2);
   --popover-foreground: var(--color-sanddark-12);
   /* Brand carries through dark mode too. */
@@ -292,6 +312,23 @@
   [data-slot="alert-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]) {
     color: var(--foreground);
   }
+  input,
+  textarea,
+  select {
+    color: var(--foreground);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--field-placeholder);
+    opacity: 1;
+  }
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    color: var(--muted-foreground);
+    -webkit-text-fill-color: var(--muted-foreground);
+    opacity: 1;
+  }
   code,
   kbd,
   samp,
@@ -301,6 +338,28 @@
   html {
     @apply font-sans;
   }
+}
+
+[data-slot="modal-close-trigger"].close-button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  color: var(--foreground);
+  background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
+  box-shadow: 0 1px 3px rgba(20, 18, 15, 0.08);
+}
+
+[data-slot="modal-close-trigger"].close-button:hover,
+[data-slot="modal-close-trigger"].close-button[data-hovered="true"] {
+  color: var(--foreground);
+  background-color: color-mix(in srgb, var(--background) 84%, var(--foreground) 14%);
+}
+
+[data-slot="modal-close-trigger"].close-button:focus-visible,
+[data-slot="modal-close-trigger"].close-button[data-focus-visible="true"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ── Minttr-style shadow border ── */
@@ -598,7 +657,7 @@ textarea:-webkit-autofill {
 }
 .tiptap-input .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: var(--muted-foreground);
+  color: var(--field-placeholder);
   pointer-events: none;
   float: left;
   height: 0;

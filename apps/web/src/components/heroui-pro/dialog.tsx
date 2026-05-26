@@ -4,6 +4,14 @@ import * as React from "react";
 import { Modal } from "@heroui/react/modal";
 import { cn } from "@/lib/utils";
 
+const MODAL_CLOSE_CLASS = [
+  "absolute right-3 top-3",
+  "!size-8 !rounded-full !border !border-border",
+  "!bg-background/95 !text-foreground !shadow-sm",
+  "transition-colors hover:!bg-muted hover:!text-foreground",
+  "focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-ring focus-visible:!ring-offset-2",
+].join(" ");
+
 type OpenProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -50,7 +58,7 @@ export function DialogPopup({
           {...(props as Record<string, unknown>)}
         >
           {children}
-          {showCloseButton && <Modal.CloseTrigger className="absolute right-3 top-3" aria-label="Close" />}
+          {showCloseButton && <Modal.CloseTrigger className={MODAL_CLOSE_CLASS} aria-label="Close" />}
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>
