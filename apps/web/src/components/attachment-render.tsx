@@ -133,7 +133,11 @@ function Lightbox({ attachment, objectUrl, onClose }: { attachment: Attachment; 
     <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogPortal>
         <DialogBackdrop />
-        <DialogPopup className="max-w-full !border-0 !bg-transparent !shadow-none" showCloseButton={false}>
+        <DialogPopup
+          aria-label={`Image preview: ${attachment.filename}`}
+          className="max-w-full !border-0 !bg-transparent !shadow-none"
+          showCloseButton={false}
+        >
           <DialogPanel
             aria-label={`Image: ${attachment.filename}`}
             onClick={onClose}
