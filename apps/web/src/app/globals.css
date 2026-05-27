@@ -330,6 +330,15 @@
     -webkit-text-fill-color: var(--muted-foreground);
     opacity: 1;
   }
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select,
+    [contenteditable="true"],
+    [role="textbox"] {
+      font-size: 16px !important;
+    }
+  }
   code,
   kbd,
   samp,
@@ -361,6 +370,15 @@
 [data-slot="modal-close-trigger"].close-button[data-focus-visible="true"] {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+[data-slot="modal-close-trigger"] {
+  opacity: 1 !important;
+}
+
+[data-slot="modal-close-trigger"] svg {
+  opacity: 1 !important;
+  stroke-width: 2.5;
 }
 
 /* ── Minttr-style shadow border ── */
@@ -673,6 +691,12 @@ textarea:-webkit-autofill {
   min-height: 1.5rem;
   max-height: 150px;
   padding-block: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5;
+}
+
+@media (min-width: 640px) {
+  .tiptap-input--composer .ProseMirror {
+    font-size: 0.875rem;
+  }
 }

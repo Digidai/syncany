@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 
 const MODAL_CLOSE_CLASS = [
   "absolute right-3 top-3",
-  "!size-8 !rounded-full !border !border-border",
-  "!bg-background/95 !text-foreground !shadow-sm",
-  "transition-colors hover:!bg-muted hover:!text-foreground",
+  "!size-8 !rounded-full !border !border-foreground/25",
+  "!bg-white !text-zinc-950 !shadow-md dark:!border-white/25 dark:!bg-zinc-950 dark:!text-white",
+  "transition-colors hover:!bg-muted hover:!text-foreground dark:hover:!bg-zinc-900 dark:hover:!text-white",
   "focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-ring focus-visible:!ring-offset-2",
+  "[&_svg]:!opacity-100 [&_svg]:!text-current [&_svg]:!stroke-[2.5]",
 ].join(" ");
 
 type OpenProps = {

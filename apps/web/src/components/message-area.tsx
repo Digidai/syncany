@@ -4,10 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useParams } from "next/navigation";
 import { Chip } from "@heroui/react/chip";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
-import { TextArea } from "@heroui/react/textarea";
 import { Navbar } from "@heroui-pro/react/navbar";
 import { Button } from "@/components/heroui-pro/button";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
+import { Textarea } from "@/components/heroui-pro/textarea";
 import { ChannelActions } from "./channel-actions";
 import { AttachmentList } from "./attachment-render";
 import { Paperclip } from "lucide-react";
@@ -872,7 +872,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                       variant="ghost"
                       onClick={() => removeStagedAttachment(a.attachmentId)}
                       aria-label={`Remove ${a.filename}`}
-                      className="h-5 w-5 min-w-5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+                      className="h-5 w-5 min-w-5 rounded-full text-foreground/70 hover:bg-destructive/10 hover:text-destructive-foreground"
                     >
                       <XIcon className="h-3 w-3" />
                     </Button>
@@ -902,7 +902,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
             >
               <Paperclip className="h-4 w-4" />
             </Button>
-            <div data-testid="message-composer-input" className="flex min-h-9 min-w-0 flex-1 items-center text-sm">
+            <div data-testid="message-composer-input" className="flex min-h-9 min-w-0 flex-1 items-center text-base sm:text-sm">
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}
@@ -1097,7 +1097,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
 
   const messageBody = editing ? (
     <div className="flex w-full flex-col gap-2">
-      <TextArea
+      <Textarea
         value={draft}
         onChange={(e) => onDraftChange((e.target as HTMLTextAreaElement).value)}
         onKeyDown={(e) => {
@@ -1108,7 +1108,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
         rows={Math.max(2, Math.min(8, draft.split("\n").length))}
         fullWidth
         variant="secondary"
-        className="text-sm"
+        className="text-base sm:text-sm"
       />
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
         <Button type="button" size="sm" variant="primary" onPress={onSaveEdit}>

@@ -9,6 +9,8 @@ type LegacySize = "sm" | "default" | "lg" | "md" | number;
 const CONTROL_CONTRAST_CLASS = [
   "[&_input]:text-foreground",
   "[&_input]:caret-foreground",
+  "[&_input]:text-base",
+  "sm:[&_input]:text-sm",
   "[&_input::placeholder]:text-[var(--field-placeholder)]",
   "[&_input::placeholder]:opacity-100",
   "[&_input:disabled]:text-muted-foreground",
@@ -38,7 +40,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
       className={cn(
         "w-full",
         CONTROL_CONTRAST_CLASS,
-        size === "sm" && "[&_input]:h-8 [&_input]:text-sm",
+        size === "sm" && "[&_input]:h-8",
         size === "lg" && "[&_input]:h-11",
         className as string | undefined,
       )}

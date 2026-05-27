@@ -208,7 +208,7 @@ export function NewDmDialog({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-auto w-full justify-start gap-3 px-2 py-1.5 text-left",
+                    "h-auto w-full justify-start gap-3 px-2 py-1.5 text-left text-foreground",
                     opening === row.id && "opacity-50",
                   )}
                 >
@@ -219,18 +219,18 @@ export function NewDmDialog({
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 truncate text-sm">
-                      <span className="truncate">{row.name}</span>
+                      <span className="truncate text-foreground">{row.name}</span>
                       {row.kind === "agent" && (
                         <span className="rounded-full bg-cyan-500/10 px-1 py-px text-[8px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
                           AI
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
+                    <div className="truncate text-[11px] text-foreground/65">
                       {row.sub}{alreadyDm ? " · in DMs" : ""}
                     </div>
                   </div>
-                  <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                  <MessageSquare className="h-3 w-3 shrink-0 text-foreground/60" aria-hidden="true" />
                 </Button>
               </li>
             );

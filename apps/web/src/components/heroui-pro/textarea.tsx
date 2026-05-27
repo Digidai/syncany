@@ -9,6 +9,8 @@ export type TextareaProps = React.ComponentProps<typeof HeroTextArea>;
 const TEXTAREA_CONTRAST_CLASS = [
   "[&_textarea]:text-foreground",
   "[&_textarea]:caret-foreground",
+  "[&_textarea]:text-base",
+  "sm:[&_textarea]:text-sm",
   "[&_textarea::placeholder]:text-[var(--field-placeholder)]",
   "[&_textarea::placeholder]:opacity-100",
   "[&_textarea:disabled]:text-muted-foreground",

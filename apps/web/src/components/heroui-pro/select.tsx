@@ -4,10 +4,12 @@ import * as React from "react";
 import { NativeSelect } from "@heroui-pro/react/native-select";
 import { cn } from "@/lib/utils";
 
-const SELECT_CONTRAST_CLASS = "text-foreground disabled:text-muted-foreground disabled:opacity-100";
+const SELECT_CONTRAST_CLASS = "text-base text-foreground disabled:text-muted-foreground disabled:opacity-100 sm:text-sm";
 const SELECT_TRIGGER_CONTRAST_CLASS = [
   "text-foreground",
   "[&_select]:text-foreground",
+  "[&_select]:text-base",
+  "sm:[&_select]:text-sm",
   "[&_select:disabled]:text-muted-foreground",
   "[&_select:disabled]:opacity-100",
   "[&_select:disabled]:[-webkit-text-fill-color:var(--muted-foreground)]",

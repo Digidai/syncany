@@ -40,7 +40,7 @@ const RUNTIME_INSTALL_CMD: Record<RuntimeId, string> = {
 };
 
 const optionButtonClass =
-  "!h-auto !w-full min-w-0 !items-stretch !justify-start !whitespace-normal rounded-xl px-3 py-2 text-left text-sm transition-colors";
+  "!h-auto !w-full min-w-0 !items-stretch !justify-start !whitespace-normal rounded-xl px-3 py-2 text-left text-sm text-foreground transition-colors";
 
 export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: Props) {
   const [name, setName] = useState("");
