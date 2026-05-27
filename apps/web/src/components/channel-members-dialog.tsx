@@ -191,7 +191,7 @@ export function ChannelMembersDialog({
                 {error && !pickerOpen && (
                   <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
                 )}
-                <div className="max-h-80 overflow-y-auto rounded-md border bg-card/40">
+                <div className="max-h-80 overflow-y-auto rounded-xl border border-border bg-[var(--surface-secondary)]">
                   {humanMembers.length === 0 && agentMembers.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">No members yet.</p>
                   ) : (
@@ -213,7 +213,7 @@ export function ChannelMembersDialog({
                                 avatar={p?.image ? (
                                   <img src={p.image} alt="" className="h-6 w-6 rounded-full" referrerPolicy="no-referrer" />
                                 ) : (
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700">
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
                                     {label.slice(0, 1).toUpperCase()}
                                   </div>
                                 )}
@@ -240,7 +240,7 @@ export function ChannelMembersDialog({
                                 key={`am:${m.memberId}`}
                                 href={a ? `/s/${serverSlug}/agents/${a.id}` : undefined}
                                 avatar={
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700">
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
                                     {label.slice(0, 1).toUpperCase()}
                                   </div>
                                 }
@@ -271,7 +271,7 @@ export function ChannelMembersDialog({
                     onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
                   />
                 </div>
-                <div className="max-h-72 overflow-y-auto rounded-md border bg-card/40">
+                <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-[var(--surface-secondary)]">
                   {candidateHumans.length === 0 && candidateAgents.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                       {query ? "No matches." : "Everyone in the workspace is already in this channel."}
@@ -295,7 +295,7 @@ export function ChannelMembersDialog({
                               avatar={m.image ? (
                                 <img src={m.image} alt="" className="h-6 w-6 rounded-full" referrerPolicy="no-referrer" />
                               ) : (
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
                                   {m.name.slice(0, 1).toUpperCase()}
                                 </div>
                               )}
@@ -320,7 +320,7 @@ export function ChannelMembersDialog({
                                 });
                               }}
                               avatar={
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
                                   {a.displayName.slice(0, 1).toUpperCase()}
                                 </div>
                               }
@@ -415,7 +415,7 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-foreground">{primary}</div>
         {secondary && (
-          <div className="truncate text-[10.5px] text-foreground/65">{secondary}</div>
+          <div className="truncate text-[10.5px] text-muted-foreground">{secondary}</div>
         )}
       </div>
     </>
@@ -437,7 +437,7 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
           aria-label={`Remove ${primary}`}
           variant="ghost"
           size="icon-xs"
-          className="shrink-0 text-foreground/70 hover:bg-destructive/10 hover:text-destructive-foreground"
+          className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
         >
           <UserMinus className="h-3.5 w-3.5" />
         </Button>
@@ -465,7 +465,7 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-foreground">{primary}</div>
         {secondary && (
-          <div className="truncate text-[10.5px] text-foreground/65">{secondary}</div>
+          <div className="truncate text-[10.5px] text-muted-foreground">{secondary}</div>
         )}
       </div>
       <span

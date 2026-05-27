@@ -137,7 +137,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
           <DialogHeader>
             <DialogTitle>Create channel</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <DialogPanel>
               <div className="space-y-4">
                 <Field>
@@ -218,7 +218,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                       onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
                     />
                   </div>
-                  <div className="mt-2 max-h-56 overflow-y-auto rounded-md border bg-card/40">
+                  <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-border bg-[var(--surface-secondary)]">
                     {members === null || agents === null ? (
                       <p className="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</p>
                     ) : filteredMembers.length === 0 && filteredAgents.length === 0 ? (
@@ -240,7 +240,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                                 avatar={m.image ? (
                                   <img src={m.image} alt="" className="h-6 w-6 rounded-full" referrerPolicy="no-referrer" />
                                 ) : (
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700">
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
                                     {m.name.slice(0, 1).toUpperCase()}
                                   </div>
                                 )}
@@ -259,7 +259,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                                 checked={selectedAgents.has(a.id)}
                                 onToggle={() => toggleAgent(a.id)}
                                 avatar={
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700">
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
                                     {a.displayName.slice(0, 1).toUpperCase()}
                                   </div>
                                 }
@@ -332,7 +332,7 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-foreground">{primary}</div>
         {secondary && (
-          <div className="truncate text-[10.5px] text-foreground/65">{secondary}</div>
+          <div className="truncate text-[10.5px] text-muted-foreground">{secondary}</div>
         )}
       </div>
       <span
@@ -350,7 +350,7 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
 function SelectedChip({ label, agent, onRemove }: { label: string; agent?: boolean; onRemove: () => void }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-      agent ? "bg-amber-500/10 text-amber-700" : "bg-cyan-500/10 text-cyan-700"
+      agent ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
     }`}>
       {label}
       <Button

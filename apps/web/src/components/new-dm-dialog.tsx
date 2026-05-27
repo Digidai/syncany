@@ -186,7 +186,7 @@ export function NewDmDialog({
             />
           </div>
 
-        <ul className="mt-3 max-h-72 overflow-y-auto rounded-lg border bg-card/40 p-2">
+        <ul className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-border bg-[var(--surface-secondary)] p-2">
           {(loading || sessionPending) && (
             // sessionPending blocks list render too: meId is null until
             // /me resolves, and the `m.userId !== meId` filter on the
@@ -221,16 +221,16 @@ export function NewDmDialog({
                     <div className="flex items-center gap-1.5 truncate text-sm">
                       <span className="truncate text-foreground">{row.name}</span>
                       {row.kind === "agent" && (
-                        <span className="rounded-full bg-cyan-500/10 px-1 py-px text-[8px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
+                        <span className="rounded-full bg-cyan-500/10 px-1 py-px text-[8px] font-medium uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
                           AI
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-[11px] text-foreground/65">
+                    <div className="truncate text-[11px] text-muted-foreground">
                       {row.sub}{alreadyDm ? " · in DMs" : ""}
                     </div>
                   </div>
-                  <MessageSquare className="h-3 w-3 shrink-0 text-foreground/60" aria-hidden="true" />
+                  <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </Button>
               </li>
             );

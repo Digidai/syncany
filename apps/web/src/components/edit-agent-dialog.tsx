@@ -99,7 +99,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
           <DialogHeader>
             <DialogTitle>Edit {agent.name}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <DialogPanel>
               <div className="space-y-4">
                 <Field>
@@ -184,7 +184,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                         size="sm"
                         className={cn(
                           "!h-auto !whitespace-normal break-all text-sm transition-colors",
-                          model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",
+                          model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300" : "border-border",
                         )}>
                         {m}
                       </Button>

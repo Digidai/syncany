@@ -2,7 +2,8 @@
 
 import {
   AlertDialog, AlertDialogBackdrop, AlertDialogPopup, AlertDialogPortal,
-  AlertDialogTitle, AlertDialogDescription, AlertDialogClose,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogClose,
 } from "@/components/heroui-pro/alert-dialog";
 import { Button } from "@/components/heroui-pro/button";
 
@@ -38,11 +39,13 @@ export function ConfirmDialog({
       <AlertDialogPortal>
         <AlertDialogBackdrop />
         <AlertDialogPopup className="sm:max-w-sm">
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{title}</AlertDialogTitle>
+          </AlertDialogHeader>
           {description && (
             <AlertDialogDescription>{description}</AlertDialogDescription>
           )}
-          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <AlertDialogFooter>
             <AlertDialogClose render={<Button variant="outline" type="button" disabled={busy} className="w-full sm:w-auto">Cancel</Button>} />
             <Button
               type="button"
@@ -53,7 +56,7 @@ export function ConfirmDialog({
             >
               {confirmLabel}
             </Button>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogPopup>
       </AlertDialogPortal>
     </AlertDialog>

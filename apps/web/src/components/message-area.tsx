@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import type { MessageRow } from "@raltic/protocol";
 import { GeneratedAvatar } from "./generated-avatar";
 import TiptapMessageInput, { type TiptapMessageInputHandle } from "./tiptap-message-input";
-import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown, Hash, AtSign, LockKeyhole, SendHorizontal, ChevronDown } from "lucide-react";
+import { Smile, Pencil, Pin, PinOff, Trash2, MessageSquareReply, Copy, X as XIcon, ArrowDown, Hash, AtSign, LockKeyhole, SendHorizontal } from "lucide-react";
 import { useMentionPicker, type MentionMember } from "./mention-picker";
 import { notifySuccess } from "@/lib/notify";
 
@@ -700,7 +700,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
 
   return (
     <div
-      className="flex min-w-0 flex-1 flex-col bg-background"
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
       data-chat-surface="heroui-pro-template-chat"
       style={{ "--chat-navbar-height": "64px" } as CSSProperties}
     >
@@ -708,13 +708,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
         aria-label="Conversation header"
         height="var(--chat-navbar-height)"
         maxWidth="full"
-        className="shrink-0 border-b border-border/70 bg-background px-4"
+        className="h-[var(--chat-navbar-height)] min-h-[var(--chat-navbar-height)] shrink-0 border-b border-border/70 bg-background px-3 sm:px-4"
       >
-        <Navbar.Header className="flex w-full items-center justify-between gap-4">
-          <Navbar.Brand className="flex min-w-0 items-center gap-3">
+        <Navbar.Header className="flex w-full min-w-0 items-center justify-between gap-2 sm:gap-4">
+          <Navbar.Brand className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <span
               aria-hidden
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 text-cyan-700 shadow-[0_0_0_4px_rgba(6,182,212,0.08)]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 text-cyan-700 shadow-[0_0_0_4px_rgba(6,182,212,0.08)] sm:h-9 sm:w-9"
             >
               {channel?.type === "dm" ? (
                 <AtSign className="h-4 w-4" />
@@ -733,7 +733,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               </p>
             </div>
           </Navbar.Brand>
-          <Navbar.Content className="shrink-0 justify-end gap-2">
+          <Navbar.Content className="ml-auto min-w-fit shrink-0 justify-end gap-1.5 sm:gap-2">
             <PresencePill
               channel={channel}
               channelPeer={channelPeer}
@@ -772,7 +772,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           offset={24}
           size={42}
         >
-          <div ref={innerRef} className="mx-auto flex w-full max-w-[714px] flex-col gap-8 px-4 pb-10 pt-10">
+          <div ref={innerRef} className="mx-auto flex w-full max-w-[760px] flex-col gap-8 px-4 pb-10 pt-10">
             {loading && <p className="text-sm text-muted-foreground">Loading messages...</p>}
             {!loading && loadError && (
               <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-foreground">
@@ -830,14 +830,14 @@ export function MessageArea({ channelId }: MessageAreaProps) {
 
       <footer
         data-testid="message-composer-footer"
-        className="shrink-0 border-t border-border/70 bg-background px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-4 sm:pt-3"
+        className="shrink-0 border-t border-border/60 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-4 sm:pb-4"
       >
-        <div className="relative mx-auto flex w-full max-w-[714px] flex-col gap-2">
+        <div className="relative mx-auto flex w-full max-w-[760px] flex-col gap-2.5">
           <div className="pointer-events-none absolute bottom-full left-0 right-0 z-20 flex justify-start pb-2">
             {picker.render()}
           </div>
           {replyTo && (
-            <div className="flex items-start gap-2 rounded-xl border border-border bg-default px-3 py-2 text-xs">
+            <div className="flex items-start gap-2 rounded-2xl border border-border bg-default px-3 py-2 text-xs shadow-sm">
               <MessageSquareReply className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="font-medium">Replying to {replyToLabel}</div>
@@ -888,25 +888,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           )}
           <div
             data-testid="message-composer"
-            className="flex w-full items-center gap-2 rounded-full bg-background px-2.5 py-2 shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-border/70 transition-shadow focus-within:ring-cyan-300 sm:px-3"
+            className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-field-border bg-[var(--field-background)] px-3 py-3 shadow-surface ring-1 ring-transparent transition-[border-color,box-shadow] focus-within:border-[var(--field-border-focus)] focus-within:ring-[var(--field-ring-focus)] sm:px-4"
           >
-            <Button
-              type="button"
-              isIconOnly
-              size="sm"
-              variant="tertiary"
-              disabled={isReadOnly}
-              onPress={() => fileInputRef.current?.click()}
-              aria-label="Attach file or image"
-              className="shrink-0"
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
-            <div data-testid="message-composer-input" className="flex min-h-9 min-w-0 flex-1 items-center text-base sm:text-sm">
+            <div data-testid="message-composer-input" className="flex min-h-10 w-full min-w-0 items-start text-base sm:text-sm">
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}
-                className="tiptap-input--composer w-full px-1 py-1"
+                className="tiptap-input--composer w-full px-0 py-0"
                 onSend={handleSend}
                 disabled={isReadOnly}
                 ariaLabel={`Message ${channelTitle}`}
@@ -921,40 +909,52 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                 onKeyDown={picker.onKeyDown}
               />
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
-              className="sr-only"
-              disabled={isReadOnly}
-              onChange={(e) => {
-                if (e.target.files) handleAttachmentPick(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="tertiary"
-              className="hidden max-w-[200px] shrink-0 justify-between gap-2 px-3 text-muted-foreground sm:inline-flex"
-              disabled
-            >
-              <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              isIconOnly
-              size="sm"
-              variant="primary"
-              disabled={!canSubmit}
-              onPress={handleComposerSubmit}
-              aria-label="Send message"
-              className="shrink-0"
-            >
-              <SendHorizontal className="h-4 w-4" />
-            </Button>
+            <div className="flex min-h-9 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <Button
+                  type="button"
+                  isIconOnly
+                  size="sm"
+                  variant="tertiary"
+                  disabled={isReadOnly}
+                  onPress={() => fileInputRef.current?.click()}
+                  aria-label="Attach file or image"
+                  className="h-9 w-9 min-w-9 shrink-0 rounded-full bg-default text-foreground shadow-sm hover:bg-default-hover"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <span
+                  aria-label="Conversation agent"
+                  className="inline-flex max-w-[150px] items-center gap-1.5 rounded-full bg-default px-3 py-1.5 text-xs font-medium text-default-foreground sm:max-w-[220px]"
+                >
+                  <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
+                </span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
+                className="sr-only"
+                disabled={isReadOnly}
+                onChange={(e) => {
+                  if (e.target.files) handleAttachmentPick(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                isIconOnly
+                size="sm"
+                variant="primary"
+                disabled={!canSubmit}
+                onPress={handleComposerSubmit}
+                aria-label="Send message"
+                className="h-9 w-9 min-w-9 shrink-0 rounded-full shadow-sm data-[disabled=true]:opacity-55"
+              >
+                <SendHorizontal className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </footer>
@@ -1177,7 +1177,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             <span>{timeLabel}</span>
           </div>
           {parentPreview}
-          <div className="rounded-xl bg-default px-4 py-3 text-default-foreground">
+          <div className="rounded-[1.25rem] bg-default px-4 py-3 text-default-foreground shadow-sm ring-1 ring-border/30">
             {messageBody}
           </div>
           {showPicker && (
@@ -1191,14 +1191,15 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
   }
 
   return (
-    <div className={cn(
-      "group relative flex flex-col items-start gap-2 py-2 pl-2 pr-12",
-      isAgent && "border-l-2 border-cyan-300/70",
-    )}>
+    <div className="group relative flex flex-col items-start gap-2 py-2 pl-0 pr-10 sm:pl-1 sm:pr-12">
       <div className="flex items-center gap-2">
         <GeneratedAvatar id={m.senderId} name={label} size="sm" />
-        <span className={cn("text-sm font-semibold leading-tight", isAgent && "text-cyan-700")}>{label}</span>
-        {isAgent && <Chip size="sm" variant="soft" color="accent">AI</Chip>}
+        <span className={cn("text-sm font-semibold leading-tight", isAgent && "text-primary")}>{label}</span>
+        {isAgent && (
+          <Chip size="sm" variant="soft" color="accent" className="bg-primary/10 text-primary ring-1 ring-primary/15">
+            AI
+          </Chip>
+        )}
         {isSystem && <Chip size="sm" variant="tertiary" color="default">system</Chip>}
         <span className="text-[11px] leading-tight text-muted-foreground">{timeLabel}</span>
         {m.editedAt && !isDeleted && <span className="text-[10px] text-muted-foreground">edited</span>}

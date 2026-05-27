@@ -157,7 +157,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
           <DialogHeader>
             <DialogTitle>Create agent</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <DialogPanel>
               <div className="space-y-4">
                 {/* Top-level: where does the agent live? Defaults to
@@ -183,7 +183,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     >
                       <div className="flex min-w-0 items-center justify-between gap-2">
                         <span className="min-w-0 font-medium">Cloud (Raltic)</span>
-                        <span className="shrink-0 rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">recommended</span>
+                        <span className="shrink-0 rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700 dark:text-cyan-300">recommended</span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         Zero install. Runs in our cloud sandbox — files, bash, git all work. Mobile-friendly.
@@ -204,7 +204,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                     >
                       <div className="flex min-w-0 items-center justify-between gap-2">
                         <span className="min-w-0 font-medium">My machine (Bridge)</span>
-                        <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">advanced</span>
+                        <span className="shrink-0 rounded-full bg-[var(--default)] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">advanced</span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         Spawns on your local bridge. Use your own API key + repo on disk.
@@ -307,7 +307,7 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
                         size="sm"
                         className={cn(
                           "!h-auto !whitespace-normal break-all text-sm transition-colors",
-                          model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-border",
+                          model === m ? "border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300" : "border-border",
                         )}>
                         {m}
                       </Button>
@@ -330,13 +330,13 @@ export function CreateAgentDialog({ serverId, open, onOpenChange, onCreated }: P
 
 function RuntimeAvailabilityChip({ state }: { state: "ready" | "needs_login" | "not_installed" | "unknown" }) {
   if (state === "ready") {
-    return <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">ready</span>;
+    return <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">ready</span>;
   }
   if (state === "needs_login") {
-    return <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">sign-in</span>;
+    return <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">sign-in</span>;
   }
   if (state === "not_installed") {
-    return <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">not installed</span>;
+    return <span className="rounded-full bg-[var(--default)] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">not installed</span>;
   }
   return null;
 }

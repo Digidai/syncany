@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { Sidebar as HeroSidebar, useSidebar } from "@heroui-pro/react/sidebar";
+import { useRouter } from "next/navigation";
+import { AppLayout } from "@heroui-pro/react/app-layout";
+import { Navbar } from "@heroui-pro/react/navbar";
 import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
-import { Button } from "@/components/heroui-pro/button";
 import type { Server } from "@/lib/api";
 
 export function WorkspaceShell({
@@ -15,38 +16,62 @@ export function WorkspaceShell({
   server: Server;
 }) {
   useVisualViewportHeight();
+  const router = useRouter();
 
   return (
-    <HeroSidebar.Provider
+    <AppLayout
       data-testid="workspace-shell"
       data-visual-pass="heroui-pro-v2"
       data-template-pass="heroui-pro-template-chat"
-      collapsible="none"
-      open
+      data-shell-system="heroui-pro-app-layout"
+      navigate={router.push}
+      scrollMode="page"
+      sidebarCollapsible="none"
+      sidebarOpen
       toggleShortcut={false}
-      variant="sidebar"
-      className="relative flex !min-h-0 overflow-hidden bg-background text-foreground"
+      sidebarVariant="sidebar"
+      className="raltic-workspace-layout relative flex !min-h-0 overflow-hidden bg-background text-foreground"
       style={{ height: "var(--raltic-visual-viewport-height)" }}
+      navbar={
+        <Navbar.Root
+          aria-label="Workspace"
+          height="3rem"
+          maxWidth="full"
+          className="raltic-workspace-mobile-navbar shrink-0 border-b border-border bg-background px-3"
+        >
+          <Navbar.Header className="flex w-full items-center gap-2">
+            <AppLayout.MenuToggle
+              aria-label="Open workspace navigation"
+              className="h-8 w-8 shrink-0 text-foreground"
+              size="sm"
+              variant="outline"
+            >
+              <Menu className="h-4 w-4" />
+            </AppLayout.MenuToggle>
+            <Navbar.Brand className="min-w-0 flex-1 overflow-hidden text-sm font-medium">
+              <span className="block truncate">{server.name}</span>
+            </Navbar.Brand>
+          </Navbar.Header>
+        </Navbar.Root>
+      }
+      sidebar={
+        <Sidebar
+          serverSlug={server.slug}
+          serverId={server.id}
+          serverName={server.name}
+          serverIconUrl={server.iconUrl}
+        />
+      }
     >
-      <Sidebar
-        serverSlug={server.slug}
-        serverId={server.id}
-        serverName={server.name}
-        serverIconUrl={server.iconUrl}
-      />
-      <HeroSidebar.Main
+      <div
         data-testid="workspace-main"
-        className="flex !min-h-0 flex-1 flex-col overflow-hidden bg-background"
+        className="flex h-full !min-h-0 flex-1 flex-col overflow-hidden bg-background"
       >
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:hidden">
-          <WorkspaceMobileMenuButton />
-          <div className="min-w-0 text-sm font-medium">{server.name}</div>
-        </div>
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {children}
         </div>
-      </HeroSidebar.Main>
-    </HeroSidebar.Provider>
+      </div>
+    </AppLayout>
   );
 }
 
@@ -94,21 +119,4 @@ function useVisualViewportHeight() {
 function isKeyboardTarget(target: Element | null): target is HTMLElement {
   return target instanceof HTMLElement
     && target.matches("input, textarea, select, [contenteditable='true'], [role='textbox']");
-}
-
-function WorkspaceMobileMenuButton() {
-  const { setMobileOpen } = useSidebar();
-
-  return (
-    <Button
-      type="button"
-      aria-label="Open workspace navigation"
-      variant="outline"
-      size="icon-sm"
-      className="h-8 w-8 shrink-0 text-muted-foreground"
-      onClick={() => setMobileOpen(true)}
-    >
-      <Menu className="h-4 w-4" />
-    </Button>
-  );
 }

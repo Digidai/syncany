@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Sidebar as HeroSidebar, useSidebar } from "@heroui-pro/react/sidebar";
+import { Sheet } from "@heroui-pro/react/sheet";
 import { api, type Channel, type Agent } from "@/lib/api";
 import { BellOff, Hash, Lock, MessageSquare, Plus, ListTodo, Inbox as InboxIcon, Cpu, Star, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -108,7 +109,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
     ...agents.filter((a) => a.dmChannelId).map((a) => `agent:${a.id}`),
   ]);
   const isLoading = loading || loadedServerSlug !== serverSlug;
-  const { isMobile, setMobileOpen } = useSidebar();
+  const { isMobile, isMobileOpen, setMobileOpen } = useSidebar();
 
   function openCreateDialog() {
     if (isMobile) setMobileOpen(false);
@@ -259,7 +260,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
-      <HeroSidebar.Footer className="!gap-0 border-t border-border bg-background !px-4 !py-3">
+      <HeroSidebar.Footer className="!gap-0 border-t border-sidebar-border bg-sidebar !px-4 !py-3">
         <UserPill serverSlug={serverSlug} />
       </HeroSidebar.Footer>
     </>
@@ -270,7 +271,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
       {!isMobile && (
         <HeroSidebar.Root
           data-testid="workspace-sidebar"
-          className="!sticky !top-0 !min-h-0 !border-r !border-border !bg-background !shadow-none"
+          className="!sticky !top-0 !min-h-0 !border-r !border-sidebar-border !bg-sidebar"
           style={{
             "--sidebar-width": "15rem",
             "--sidebar-width-collapsed": "15rem",
@@ -280,13 +281,25 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           {sidebarContent()}
         </HeroSidebar.Root>
       )}
-      <HeroSidebar.Mobile
-        data-testid="workspace-sidebar-mobile"
-        aria-label="Workspace navigation"
-        className="!h-[var(--raltic-visual-viewport-height)] !max-h-[var(--raltic-visual-viewport-height)] !bg-background"
-      >
-        {isMobile ? sidebarContent() : null}
-      </HeroSidebar.Mobile>
+      {isMobile && (
+        <Sheet.Root isOpen={isMobileOpen} placement="left" onOpenChange={setMobileOpen}>
+          <Sheet.Backdrop variant="blur">
+            <Sheet.Content className="sidebar__mobile-sheet">
+              <Sheet.Dialog className="sidebar__mobile-dialog">
+                <Sheet.Heading className="sr-only">Workspace navigation</Sheet.Heading>
+                <div
+                  data-testid="workspace-sidebar-mobile"
+                  data-slot="sidebar-mobile"
+                  aria-label="Workspace navigation"
+                  className="sidebar__mobile raltic-workspace-mobile-sidebar !h-[var(--raltic-visual-viewport-height)] !max-h-[var(--raltic-visual-viewport-height)] !bg-sidebar"
+                >
+                  {sidebarContent()}
+                </div>
+              </Sheet.Dialog>
+            </Sheet.Content>
+          </Sheet.Backdrop>
+        </Sheet.Root>
+      )}
 
       <CreateChannelDialog
         serverId={serverId}
@@ -315,7 +328,7 @@ const SIDEBAR_ITEM_CLASS =
   "!rounded-xl !outline-none";
 
 const SIDEBAR_LINK_CLASS =
-  "flex min-h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-default hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[current=true]:bg-foreground data-[current=true]:text-background";
+  "flex min-h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:bg-sidebar-primary data-[current=true]:text-sidebar-primary-foreground data-[current=true]:shadow-sm";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
@@ -474,8 +487,8 @@ function ChannelLink({ channel, activeId, serverSlug, serverId, icon }: {
             className={cn(
               "min-w-5 justify-center text-[10px]",
               isActive
-                ? "!bg-background !text-foreground"
-                : "!bg-foreground !text-background",
+                ? "!bg-sidebar-primary-foreground !text-sidebar-primary"
+                : "!bg-sidebar-primary !text-sidebar-primary-foreground",
             )}
           >
             {unread > 99 ? "99+" : unread}

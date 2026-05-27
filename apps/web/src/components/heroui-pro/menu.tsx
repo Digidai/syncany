@@ -221,8 +221,9 @@ export function DropdownMenuContent({
       aria-label={props["aria-label"] ?? undefined}
       aria-labelledby={props["aria-label"] || props["aria-labelledby"] ? props["aria-labelledby"] : menu.getTrigger()?.id}
       data-slot="dropdown-menu"
+      data-raltic-overlay="menu"
       style={{ ...position, ...style, position: "fixed", zIndex: 60 }}
-      className={cn("min-w-40 rounded-lg border border-border bg-background p-1 shadow-overlay", className)}
+      className={cn("raltic-overlay-scope min-w-40 rounded-xl border border-border bg-[var(--popover)] p-1 text-[var(--overlay-foreground)] shadow-overlay", className)}
       onKeyDown={(event) => {
         props.onKeyDown?.(event);
         if (event.defaultPrevented) return;

@@ -381,6 +381,292 @@
   stroke-width: 2.5;
 }
 
+/* ── HeroUI Pro workspace shell foundation ────────────────────────────────
+   Scoped to the signed-in product shell so marketing/auth pages can keep
+   their own visual language. Dialog portals are normalized in the overlay
+   phase; this phase makes the persistent workspace chrome Pro-native first. */
+.raltic-workspace-layout,
+.raltic-workspace-mobile-sidebar,
+.sidebar__mobile-sheet:has(.raltic-workspace-mobile-sidebar),
+.sidebar__mobile-dialog:has(.raltic-workspace-mobile-sidebar) {
+  --background: #f8fafc;
+  --background-gradient: linear-gradient(180deg, #fbfdfe 0%, #f5f8fa 100%);
+  --card: #ffffff;
+  --popover: #ffffff;
+  --overlay: #ffffff;
+  --overlay-foreground: #161a1d;
+  --backdrop: rgba(15, 23, 42, 0.28);
+  --accent: #eef4f5;
+  --muted: #f1f5f7;
+  --secondary: #f3f6f8;
+  --border: #dce5ea;
+  --input: #ccd8df;
+  --foreground: #161a1d;
+  --card-foreground: #161a1d;
+  --popover-foreground: #161a1d;
+  --accent-foreground: #161a1d;
+  --secondary-foreground: #161a1d;
+  --muted-foreground: #66737c;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --ring: #14b8a6;
+  --sidebar: #f3f7f8;
+  --sidebar-foreground: #53616a;
+  --sidebar-accent: #e8eff1;
+  --sidebar-accent-foreground: #161a1d;
+  --sidebar-border: #dde8ed;
+  --sidebar-primary: #0f766e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #14b8a6;
+  --field-background: #ffffff;
+  --field-border: #7d929e;
+  --field-border-focus: #0f766e;
+  --field-ring-focus: transparent;
+  --field-hover: #f7fafb;
+  --field-focus: #ffffff;
+  --field-placeholder: #586873;
+  --surface: #ffffff;
+  --surface-secondary: #f3f7f8;
+  --separator: #dce5ea;
+  --focus: #14b8a6;
+  --default: #edf3f5;
+  --default-hover: #e4ecef;
+  --default-foreground: #25313a;
+  --color-default-hover: #e4ecef;
+  --surface-shadow: 0 16px 40px rgba(21, 35, 45, 0.08);
+  --overlay-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --field-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.dark .raltic-workspace-layout,
+.dark .raltic-workspace-mobile-sidebar,
+.dark .sidebar__mobile-sheet:has(.raltic-workspace-mobile-sidebar),
+.dark .sidebar__mobile-dialog:has(.raltic-workspace-mobile-sidebar),
+[data-theme="dark"] .raltic-workspace-layout,
+[data-theme="dark"] .raltic-workspace-mobile-sidebar,
+[data-theme="dark"] .sidebar__mobile-sheet:has(.raltic-workspace-mobile-sidebar),
+[data-theme="dark"] .sidebar__mobile-dialog:has(.raltic-workspace-mobile-sidebar) {
+  --background: #101416;
+  --background-gradient: linear-gradient(180deg, #111719 0%, #0f1416 100%);
+  --card: #151a1d;
+  --popover: #151a1d;
+  --overlay: #151a1d;
+  --overlay-foreground: #f3f7f8;
+  --backdrop: rgba(0, 0, 0, 0.54);
+  --accent: #1f292d;
+  --muted: #1a2226;
+  --secondary: #1c2529;
+  --border: #2d3a40;
+  --input: #3a4a51;
+  --foreground: #f3f7f8;
+  --card-foreground: #f3f7f8;
+  --popover-foreground: #f3f7f8;
+  --accent-foreground: #f3f7f8;
+  --secondary-foreground: #f3f7f8;
+  --muted-foreground: #a8b5bb;
+  --primary: #2dd4bf;
+  --primary-foreground: #06201d;
+  --ring: #2dd4bf;
+  --sidebar: #111719;
+  --sidebar-foreground: #c1cdd3;
+  --sidebar-accent: #1f2a2f;
+  --sidebar-accent-foreground: #f3f7f8;
+  --sidebar-border: #28363c;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #06201d;
+  --sidebar-ring: #2dd4bf;
+  --field-background: #151a1d;
+  --field-border: #5b6e76;
+  --field-border-focus: #3aa99d;
+  --field-ring-focus: transparent;
+  --field-hover: #1b2428;
+  --field-focus: #151a1d;
+  --field-placeholder: #b9c5cb;
+  --surface: #151a1d;
+  --surface-secondary: #1a2226;
+  --separator: #2d3a40;
+  --focus: #2dd4bf;
+  --default: #1c2529;
+  --default-hover: #26343a;
+  --default-foreground: #e5ecef;
+  --color-default-hover: #26343a;
+  --surface-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  --overlay-shadow: 0 22px 64px rgba(0, 0, 0, 0.42);
+  --field-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.raltic-overlay-scope {
+  --background: #f8fafc;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --overlay: #ffffff;
+  --overlay-foreground: #161a1d;
+  --accent: #eef4f5;
+  --muted: #f1f5f7;
+  --secondary: #f3f6f8;
+  --border: #dce5ea;
+  --input: #ccd8df;
+  --foreground: #161a1d;
+  --card-foreground: #161a1d;
+  --popover-foreground: #161a1d;
+  --accent-foreground: #161a1d;
+  --secondary-foreground: #161a1d;
+  --muted-foreground: #586873;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --ring: #14b8a6;
+  --field-background: #ffffff;
+  --field-border: #7d929e;
+  --field-border-focus: #0f766e;
+  --field-ring-focus: transparent;
+  --field-hover: #f7fafb;
+  --field-focus: #ffffff;
+  --field-placeholder: #586873;
+  --surface: #ffffff;
+  --surface-secondary: #f3f7f8;
+  --separator: #dce5ea;
+  --default: #edf3f5;
+  --default-hover: #e4ecef;
+  --default-foreground: #25313a;
+  --color-default-hover: #e4ecef;
+  --overlay-shadow: 0 22px 64px rgba(15, 23, 42, 0.22);
+  --autofill-bg: var(--overlay);
+}
+
+.dark .raltic-overlay-scope,
+[data-theme="dark"] .raltic-overlay-scope {
+  --background: #101416;
+  --card: #151a1d;
+  --popover: #151a1d;
+  --overlay: #151a1d;
+  --overlay-foreground: #f3f7f8;
+  --accent: #1f292d;
+  --muted: #1a2226;
+  --secondary: #1c2529;
+  --border: #2d3a40;
+  --input: #3a4a51;
+  --foreground: #f3f7f8;
+  --card-foreground: #f3f7f8;
+  --popover-foreground: #f3f7f8;
+  --accent-foreground: #f3f7f8;
+  --secondary-foreground: #f3f7f8;
+  --muted-foreground: #b9c5cb;
+  --primary: #2dd4bf;
+  --primary-foreground: #06201d;
+  --ring: #2dd4bf;
+  --field-background: #151a1d;
+  --field-border: #5b6e76;
+  --field-border-focus: #3aa99d;
+  --field-ring-focus: transparent;
+  --field-hover: #1b2428;
+  --field-focus: #151a1d;
+  --field-placeholder: #b9c5cb;
+  --surface: #151a1d;
+  --surface-secondary: #1a2226;
+  --separator: #2d3a40;
+  --default: #1c2529;
+  --default-hover: #26343a;
+  --default-foreground: #e5ecef;
+  --color-default-hover: #26343a;
+  --overlay-shadow: 0 24px 72px rgba(0, 0, 0, 0.5);
+  --autofill-bg: var(--overlay);
+}
+
+[data-slot="modal-backdrop"]:has(.raltic-overlay-scope),
+[data-slot="alert-dialog-backdrop"]:has(.raltic-overlay-scope) {
+  --backdrop: rgba(15, 23, 42, 0.28);
+  --color-backdrop: var(--backdrop);
+  --visual-viewport-height: var(--raltic-visual-viewport-height);
+  z-index: 80 !important;
+}
+
+.dark [data-slot="modal-backdrop"]:has(.raltic-overlay-scope),
+.dark [data-slot="alert-dialog-backdrop"]:has(.raltic-overlay-scope),
+[data-theme="dark"] [data-slot="modal-backdrop"]:has(.raltic-overlay-scope),
+[data-theme="dark"] [data-slot="alert-dialog-backdrop"]:has(.raltic-overlay-scope) {
+  --backdrop: rgba(0, 0, 0, 0.54);
+  --color-backdrop: var(--backdrop);
+}
+
+.raltic-overlay-scope .button--primary {
+  --button-bg: var(--primary);
+  --button-bg-hover: color-mix(in srgb, var(--primary) 88%, var(--foreground) 12%);
+  --button-bg-pressed: color-mix(in srgb, var(--primary) 82%, var(--foreground) 18%);
+  --button-fg: var(--primary-foreground);
+}
+
+@media (max-width: 639px) {
+  [data-slot="modal-backdrop"]:has(.raltic-overlay-scope),
+  [data-slot="alert-dialog-backdrop"]:has(.raltic-overlay-scope) {
+    align-items: flex-start !important;
+    height: var(--raltic-visual-viewport-height);
+    max-height: var(--raltic-visual-viewport-height);
+    overflow-y: auto;
+    padding-block: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  [data-slot="modal-container"]:has(.raltic-overlay-scope),
+  [data-slot="alert-dialog-container"]:has(.raltic-overlay-scope) {
+    align-items: flex-start !important;
+    height: auto !important;
+    max-height: calc(var(--raltic-visual-viewport-height) - 1.5rem);
+    min-height: 0 !important;
+  }
+
+  [data-raltic-overlay="dialog"],
+  [data-raltic-overlay="alert-dialog"],
+  [data-raltic-overlay="confirm-dialog"] {
+    max-height: calc(var(--raltic-visual-viewport-height) - 1.5rem) !important;
+  }
+}
+
+.raltic-workspace-layout[data-app-layout] {
+  height: var(--raltic-visual-viewport-height);
+  min-height: 0;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.08), transparent 32rem),
+    var(--background-gradient);
+}
+
+.raltic-workspace-layout .app-layout__body,
+.raltic-workspace-layout .app-layout__main {
+  min-height: 0;
+  min-width: 0;
+  max-height: 100%;
+}
+
+.raltic-workspace-layout .app-layout__body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.raltic-workspace-layout .app-layout__main {
+  display: flex;
+  flex: 1 1 0%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.raltic-workspace-layout .app-layout__header {
+  display: none;
+  border-color: var(--border);
+  background: var(--background);
+}
+
+.raltic-workspace-layout .raltic-workspace-mobile-navbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .raltic-workspace-layout .app-layout__header {
+    display: block;
+  }
+
+  .raltic-workspace-layout .raltic-workspace-mobile-navbar {
+    display: flex;
+  }
+}
+
 /* ── Minttr-style shadow border ── */
 .shadow-border {
   box-shadow: 0 0 1px rgba(85, 81, 74, 0.32), 0 1px 6px rgba(0, 0, 0, 0.035);
@@ -683,16 +969,23 @@ textarea:-webkit-autofill {
 }
 
 .tiptap-input--composer {
-  min-height: 2.25rem;
-  align-items: center;
+  min-height: 2.5rem;
+  align-items: flex-start;
 }
 
 .tiptap-input--composer .ProseMirror {
-  min-height: 1.5rem;
+  min-height: 2.5rem;
   max-height: 150px;
-  padding-block: 0;
+  padding-block: 0.25rem;
+  color: var(--field-foreground);
+  caret-color: var(--primary);
   font-size: 1rem;
   line-height: 1.5;
+}
+
+.tiptap-input--composer .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--field-placeholder);
+  font-weight: 400;
 }
 
 @media (min-width: 640px) {
