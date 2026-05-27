@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, MessageSquare, X } from "lucide-react";
+import { Search, MessageSquare } from "lucide-react";
 import { api, type Agent } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { authClient } from "@/lib/auth-client";
@@ -166,24 +166,12 @@ export function NewDmDialog({
       <DialogPortal>
         <DialogBackdrop />
         <DialogPopup className="sm:max-w-md">
-          <DialogHeader className="flex-row items-start justify-between gap-3">
-          <div>
+          <DialogHeader>
             <DialogTitle>Start a direct message</DialogTitle>
             <p className="text-[11px] text-muted-foreground">
               Pick a teammate or agent from this workspace.
             </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </DialogHeader>
+          </DialogHeader>
 
         <DialogPanel>
           <div className="relative">

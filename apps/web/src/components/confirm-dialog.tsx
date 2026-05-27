@@ -42,13 +42,14 @@ export function ConfirmDialog({
           {description && (
             <AlertDialogDescription>{description}</AlertDialogDescription>
           )}
-          <div className="mt-4 flex justify-end gap-2">
-            <AlertDialogClose render={<Button variant="outline" type="button" disabled={busy}>Cancel</Button>} />
+          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogClose render={<Button variant="outline" type="button" disabled={busy} className="w-full sm:w-auto">Cancel</Button>} />
             <Button
               type="button"
               variant={destructive ? "destructive" : "default"}
               loading={busy}
               onClick={async () => { await onConfirm(); }}
+              className="w-full sm:w-auto"
             >
               {confirmLabel}
             </Button>

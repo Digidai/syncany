@@ -137,7 +137,7 @@ function Lightbox({ attachment, objectUrl, onClose }: { attachment: Attachment; 
           <DialogPanel
             aria-label={`Image: ${attachment.filename}`}
             onClick={onClose}
-            className="relative flex h-[calc(100dvh-2rem)] cursor-zoom-out items-center justify-center overflow-hidden !bg-black/80 !p-4"
+            className="relative flex h-[calc(var(--raltic-visual-viewport-height)-2rem)] cursor-zoom-out items-center justify-center overflow-hidden !bg-black/80 !p-4"
           >
             <Button
               type="button"

@@ -108,7 +108,17 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
     ...agents.filter((a) => a.dmChannelId).map((a) => `agent:${a.id}`),
   ]);
   const isLoading = loading || loadedServerSlug !== serverSlug;
-  const { isMobile } = useSidebar();
+  const { isMobile, setMobileOpen } = useSidebar();
+
+  function openCreateDialog() {
+    if (isMobile) setMobileOpen(false);
+    setOpenCreate(true);
+  }
+
+  function openNewDmDialog() {
+    if (isMobile) setMobileOpen(false);
+    setOpenNewDm(true);
+  }
 
   const sidebarContent = () => (
     <>
@@ -123,7 +133,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         </div>
         <Button
           type="button"
-          onClick={() => setOpenCreate(true)}
+          onClick={openCreateDialog}
           variant="outline"
           size="icon-sm"
           className="h-9 w-9 shrink-0 rounded-full text-muted-foreground"
@@ -210,7 +220,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 headerAction={
                   <Button
                     type="button"
-                    onClick={() => setOpenNewDm(true)}
+                    onClick={openNewDmDialog}
                     variant="ghost"
                     size="icon-xs"
                     className="ml-1 h-5 w-5 text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 focus-visible:opacity-100"

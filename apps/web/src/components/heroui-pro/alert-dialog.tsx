@@ -28,7 +28,7 @@ export function AlertDialogPopup({ className, children, ...props }: { className?
   return (
     <HeroAlertDialog.Backdrop variant="blur">
       <HeroAlertDialog.Container placement="center" size={className?.includes("max-w-sm") ? "sm" : "md"}>
-        <HeroAlertDialog.Dialog className={cn("max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-border bg-background p-5 shadow-overlay", className)} {...(props as Record<string, unknown>)}>
+        <HeroAlertDialog.Dialog className={cn("max-h-[calc(var(--raltic-visual-viewport-height)-2rem)] overflow-y-auto rounded-xl border border-border bg-background p-5 shadow-overlay", className)} {...(props as Record<string, unknown>)}>
           {children}
         </HeroAlertDialog.Dialog>
       </HeroAlertDialog.Container>
@@ -41,7 +41,7 @@ export function AlertDialogHeader({ className, ...props }: React.ComponentProps<
 }
 
 export function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return <HeroAlertDialog.Footer className={cn("mt-4 flex justify-end gap-2", className)} {...props} />;
+  return <HeroAlertDialog.Footer className={cn("mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />;
 }
 
 export function AlertDialogTitle({ className, ...props }: React.ComponentProps<typeof HeroAlertDialog.Heading>) {

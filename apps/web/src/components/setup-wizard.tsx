@@ -423,9 +423,10 @@ export function SetupWizard({
       : `raltic-bridge setup ${issued} --server-url ${API_URL}`
     : "";
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-xl mx-4">
-        <Card>
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-background/80 px-4 py-4 backdrop-blur-sm">
+      <div className="mx-auto flex min-h-full w-full max-w-xl items-start justify-center">
+        <div className="w-full">
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>
@@ -857,11 +858,12 @@ export function SetupWizard({
               )}
             </div>
           </CardPanel>
-          <CardFooter className="flex justify-between text-xs text-muted-foreground">
+          <CardFooter className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:justify-between">
             <span>Stuck? See <a className="underline" href="https://github.com/Digidai/raltic#self-hosting" target="_blank" rel="noreferrer">docs</a>.</span>
             <span>Step {step} of 4</span>
           </CardFooter>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
