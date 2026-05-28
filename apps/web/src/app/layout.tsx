@@ -71,6 +71,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false as const,
   viewportFit: "cover",
   // Match the dominant page background (`--background` ≈ #f6f4f0), not
   // the hero accent (#fbf8f3) — otherwise the mobile address bar stays

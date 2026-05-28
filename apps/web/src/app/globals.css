@@ -309,6 +309,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  @media (max-width: 639px) {
+    html,
+    body {
+      text-size-adjust: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+  }
   [data-slot="modal-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]),
   [data-slot="alert-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]) {
     color: var(--foreground);
@@ -337,6 +344,7 @@
     [contenteditable="true"],
     [role="textbox"] {
       font-size: 16px !important;
+      touch-action: manipulation;
     }
   }
   code,

@@ -91,8 +91,8 @@ function useVisualViewportHeight() {
         if (focusTimer) window.clearTimeout(focusTimer);
         focusTimer = window.setTimeout(() => {
           const active = document.activeElement;
-          if (isKeyboardTarget(active) && !active.closest("[data-testid='message-composer']")) {
-            active.scrollIntoView({ block: "nearest", inline: "nearest" });
+          if (isKeyboardTarget(active)) {
+            active.scrollIntoView({ block: "end", inline: "nearest" });
           }
         }, 50);
       });
