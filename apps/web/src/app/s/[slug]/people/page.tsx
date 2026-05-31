@@ -10,6 +10,7 @@ import { GeneratedAvatar } from "@/components/generated-avatar";
 import { Button } from "@/components/heroui-pro/button";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { Chip } from "@/components/heroui-pro/chip";
+import { WorkspaceEmptyState, WorkspacePage } from "@/components/workspace-page";
 import { cn } from "@/lib/utils";
 
 /**
@@ -79,23 +80,12 @@ export default function PeoplePage() {
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-400">
-            <Users className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold">People</h1>
-            <p className="text-xs text-muted-foreground">
-              Humans in this workspace. Click <em>Message</em> to start a direct chat.
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className="min-w-0 flex-1 overflow-y-auto p-6">
-        <div className="mx-auto w-full max-w-5xl">
+    <WorkspacePage
+      title="People"
+      description={<>Humans in this workspace. Click <em>Message</em> to start a direct chat.</>}
+      icon={<Users className="h-5 w-5" aria-hidden="true" />}
+      tone="violet"
+    >
           {(members === null || sessionPending) && (
             // Keep the page in Loading state until BOTH the members
             // fetch resolves AND the session resolves; rendering the
@@ -104,15 +94,15 @@ export default function PeoplePage() {
             <p className="text-sm text-muted-foreground">Loading…</p>
           )}
           {members !== null && !sessionPending && members.length === 0 && (
-            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
-              <CardPanel className="p-8">
-              <Users className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium">You're the only person here.</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+            <WorkspaceEmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="You're the only person here."
+              description={
+                <>
                 Invite teammates from Settings → Members.
-              </p>
-              </CardPanel>
-            </Card>
+                </>
+              }
+            />
           )}
           {members !== null && !sessionPending && members.length > 0 && (
             <ul className="space-y-2">
@@ -159,9 +149,7 @@ export default function PeoplePage() {
               })}
             </ul>
           )}
-        </div>
-      </div>
-    </div>
+    </WorkspacePage>
   );
 }
 

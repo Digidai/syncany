@@ -305,7 +305,7 @@ export function WorkspacePane({ agent }: Props) {
                 <p className="px-2 py-1 text-xs text-muted-foreground">Loading…</p>
               ) : memoryError ? (
                 <div className="space-y-2 px-2 py-2 text-xs">
-                  <p className="text-destructive-foreground">Couldn&apos;t load memory.</p>
+                  <p className="text-danger-text">Couldn&apos;t load memory.</p>
                   <p className="break-words text-muted-foreground">{memoryError.message}</p>
                 </div>
               ) : memoryEntries && memoryEntries.length === 0 ? (
@@ -324,7 +324,7 @@ export function WorkspacePane({ agent }: Props) {
               <TreeRow node={tree} depth={0} expanded={expanded} onToggle={toggle} onOpenFile={openFile} />
             ) : treeError ? (
               <div className="space-y-2 px-2 py-2 text-xs">
-                <p className="text-destructive-foreground">Couldn&apos;t load workspace.</p>
+                <p className="text-danger-text">Couldn&apos;t load workspace.</p>
                 <p className="break-words text-muted-foreground">{treeError.message}</p>
                 <Button
                   type="button"

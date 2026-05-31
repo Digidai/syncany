@@ -9,6 +9,7 @@ import { notifyThrown, notifySuccess } from "@/lib/notify";
 import { Button } from "@/components/heroui-pro/button";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { Chip } from "@/components/heroui-pro/chip";
+import { WorkspaceEmptyState, WorkspacePage } from "@/components/workspace-page";
 
 /**
  * Browse + join public channels in this workspace.
@@ -66,36 +67,25 @@ export default function ChannelsBrowsePage() {
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
-            <Hash className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold">Channels</h1>
-            <p className="text-xs text-muted-foreground">
-              Public channels in this workspace. Click <em>Join</em> to add one to your sidebar.
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className="min-w-0 flex-1 overflow-y-auto p-6">
-        <div className="mx-auto w-full max-w-5xl">
+    <WorkspacePage
+      title="Channels"
+      description={<>Public channels in this workspace. Click <em>Join</em> to add one to your sidebar.</>}
+      icon={<Hash className="h-5 w-5" aria-hidden="true" />}
+      tone="cyan"
+    >
           {rows === null && (
             <p className="text-sm text-muted-foreground">Loading…</p>
           )}
           {rows !== null && rows.length === 0 && (
-            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
-              <CardPanel className="p-8">
-              <Hash className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium">No public channels yet.</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+            <WorkspaceEmptyState
+              icon={<Hash className="h-8 w-8" />}
+              title="No public channels yet."
+              description={
+                <>
                 Admins can create channels from Settings → Channels & agents.
-              </p>
-              </CardPanel>
-            </Card>
+                </>
+              }
+            />
           )}
           {rows !== null && rows.length > 0 && (
             <ul className="space-y-2">
@@ -138,8 +128,6 @@ export default function ChannelsBrowsePage() {
               ))}
             </ul>
           )}
-        </div>
-      </div>
-    </div>
+    </WorkspacePage>
   );
 }

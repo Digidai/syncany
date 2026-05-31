@@ -10,6 +10,7 @@ import { Input } from "@/components/heroui-pro/input";
 import { Select } from "@/components/heroui-pro/select";
 import { Chip } from "@/components/heroui-pro/chip";
 import { ListChecks } from "lucide-react";
+import { WorkspacePage } from "@/components/workspace-page";
 
 interface Task {
   id: string;
@@ -134,27 +135,13 @@ export default function TaskBoardPage() {
   };
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
-      {/* Full-width header bar — matches Inbox + Agent profile shells so
-          navigating between sidebar destinations doesn't make the top
-          chrome jump (used to: Tasks had no header, content floated
-          inside padding). Inner row is max-w-5xl mx-auto so the title
-          column lines up across pages too. */}
-      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row sm:items-center">
-          {/* Page tint convention (D-style): Inbox=cyan (notice/attention),
-              Tasks=amber (todo accent), Agents=emerald (automation),
-              People=violet (humans). Distinct per top-level destination
-              so the visual breadcrumb is clear at a glance. */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400">
-            <ListChecks className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold">Tasks</h1>
-            <p className="text-xs text-muted-foreground">
-              Kanban view of work across this workspace.
-            </p>
-          </div>
+    <WorkspacePage
+      title="Tasks"
+      description="Kanban view of work across this workspace."
+      icon={<ListChecks className="h-5 w-5" aria-hidden="true" />}
+      tone="amber"
+      contentClassName="space-y-5"
+      actions={
           <Select
             value={filterChannel}
             onChange={(e) => setFilterChannel(e.target.value)}
@@ -163,11 +150,8 @@ export default function TaskBoardPage() {
             options={[{ value: "", label: "All channels" }, ...channelSelectOptions]}
           >
           </Select>
-        </div>
-      </header>
-
-      <div className="min-w-0 flex-1 overflow-y-auto p-6">
-        <div className="mx-auto w-full max-w-5xl space-y-5">
+      }
+    >
         <Card className="border-border/70 bg-surface/80 !shadow-none">
           <CardHeader className="px-4 py-3">
             <CardTitle className="text-sm font-semibold">Quick add</CardTitle>
@@ -249,8 +233,6 @@ export default function TaskBoardPage() {
             );
           })}
         </div>
-        </div>
-      </div>
-    </div>
+    </WorkspacePage>
   );
 }

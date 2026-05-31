@@ -278,7 +278,7 @@ function AgentRow({
           size="sm"
           onClick={onDelete}
           aria-label={`Delete ${agent.displayName}`}
-          className="text-destructive-foreground hover:bg-destructive/10"
+          className="text-danger-text hover:bg-destructive/10"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

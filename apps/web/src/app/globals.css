@@ -47,6 +47,7 @@
   --accent-soft-hover: rgba(84, 167, 131, 0.2);
   --danger: #DE365C;
   --danger-foreground: #FCFCFC;
+  --danger-text: var(--danger-soft-foreground);
   --danger-hover: #E4516B;
   --danger-soft: rgba(222, 54, 92, 0.15);
   --danger-soft-foreground: #913144;
@@ -217,6 +218,7 @@
   --color-input: var(--input);
   --color-foreground: var(--foreground);
   --color-destructive: var(--destructive);
+  --color-danger-text: var(--danger-text);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-background: var(--background);
@@ -343,6 +345,7 @@
   --accent-soft-hover: rgba(84, 167, 131, 0.16);
   --danger: #DE365C;
   --danger-foreground: #FCFCFC;
+  --danger-text: var(--danger-soft-foreground);
   --danger-hover: #E4516B;
   --danger-soft: rgba(222, 54, 92, 0.15);
   --danger-soft-foreground: #ED7686;
@@ -465,8 +468,8 @@
       -webkit-text-size-adjust: 100%;
     }
   }
-  [data-slot="modal-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]),
-  [data-slot="alert-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]) {
+  [data-slot="modal-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-danger"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]),
+  [data-slot="alert-dialog"] button:not([data-slot]):not([class*="text-destructive"]):not([class*="text-danger"]):not([class*="text-muted"]):not([class*="text-primary"]):not([class*="text-background"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-cyan"]):not([class*="text-success"]):not([class*="text-warning"]):not([class*="text-info"]) {
     color: var(--foreground);
   }
   input,
@@ -597,7 +600,7 @@
   --button-bg: color-mix(in srgb, var(--primary) 75%, #000 25%);
   --button-bg-hover: color-mix(in srgb, var(--button-bg) 88%, #000 12%);
   --button-bg-pressed: color-mix(in srgb, var(--button-bg) 82%, #000 18%);
-  --button-fg: var(--primary-foreground);
+  --button-fg: #FCFCFC;
 }
 
 .raltic-overlay-scope .button--danger {

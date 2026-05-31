@@ -218,7 +218,7 @@ export default function MembersSettingsPage() {
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="w-full shrink-0 justify-center text-destructive-foreground sm:ml-auto sm:w-auto"
+                      className="w-full shrink-0 justify-center text-danger-text sm:ml-auto sm:w-auto"
                       onClick={() => setRemoveTarget({ userId: m.userId, name: m.name })}
                     >Remove</Button>
                   )}

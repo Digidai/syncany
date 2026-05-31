@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "@/lib/auth-client";
-import { ChevronUp, LogOut, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
+import { ChevronUp, LogOut, User as UserIcon } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
@@ -126,11 +126,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem href={`/s/${serverSlug}/settings/account`}>
           <UserIcon className="h-4 w-4" />
-          Account
-        </DropdownMenuItem>
-        <DropdownMenuItem href={`/s/${serverSlug}/settings/workspace`}>
-          <SettingsIcon className="h-4 w-4" />
-          Workspace settings
+          Account settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">

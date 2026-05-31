@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   agents,
+  contrast,
   dmChannel,
   json,
   onboardingChannel,
@@ -36,6 +37,118 @@ type ShellMetrics = {
   openNav: Rect | null;
   visibleConversationHeaders: number;
 };
+
+function parseRgb(value: string | null) {
+  if (!value) return null;
+
+  let match = value.match(/^rgba?\(([^)]+)\)$/);
+  if (match) {
+    const [r, g, b] = match[1]
+      .replace(/\//g, " ")
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((token) => Number(token.endsWith("%") ? Number(token.slice(0, -1)) * 2.55 : Number(token)));
+
+    if (r == null || g == null || b == null || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    return [Math.round(r), Math.round(g), Math.round(b)] as const;
+  }
+
+  match = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\)$/);
+  if (match) {
+    const [r, g, b] = match.slice(1, 4).map((token) => Math.round(Number(token) * 255));
+    if (r == null || g == null || b == null || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    return [Math.min(255, Math.max(0, r)), Math.min(255, Math.max(0, g)), Math.min(255, Math.max(0, b))] as const;
+  }
+
+  return null;
+}
+
+async function visibleDangerTextSamples(page: Page) {
+  return page.evaluate(() => {
+    type Rgba = [number, number, number, number];
+
+    function parseColor(value: string | null): Rgba | null {
+      if (!value || value === "transparent") return null;
+
+      let match = value.match(/^rgba?\(([^)]+)\)$/);
+      if (match) {
+        const parts = match[1].replace(/\//g, " ").split(/[\s,]+/).filter(Boolean);
+        const [r, g, b] = parts.slice(0, 3).map((token) => Number(token.endsWith("%") ? Number(token.slice(0, -1)) * 2.55 : Number(token)));
+        const alpha = parts[3] == null ? 1 : Number(parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : parts[3]);
+        if ([r, g, b, alpha].some((component) => Number.isNaN(component))) return null;
+        return [Math.round(r), Math.round(g), Math.round(b), Math.min(1, Math.max(0, alpha))];
+      }
+
+      match = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)$/);
+      if (match) {
+        const [r, g, b] = match.slice(1, 4).map((token) => Math.round(Number(token) * 255));
+        const alpha = match[4] == null ? 1 : Number(match[4]);
+        if ([r, g, b, alpha].some((component) => Number.isNaN(component))) return null;
+        return [Math.min(255, Math.max(0, r)), Math.min(255, Math.max(0, g)), Math.min(255, Math.max(0, b)), Math.min(1, Math.max(0, alpha))];
+      }
+
+      return null;
+    }
+
+    function blend(layer: Rgba, base: Rgba): Rgba {
+      const alpha = layer[3] + base[3] * (1 - layer[3]);
+      if (alpha === 0) return [0, 0, 0, 0];
+      return [
+        Math.round((layer[0] * layer[3] + base[0] * base[3] * (1 - layer[3])) / alpha),
+        Math.round((layer[1] * layer[3] + base[1] * base[3] * (1 - layer[3])) / alpha),
+        Math.round((layer[2] * layer[3] + base[2] * base[3] * (1 - layer[3])) / alpha),
+        alpha,
+      ];
+    }
+
+    function effectiveBackground(node: HTMLElement) {
+      const chain: HTMLElement[] = [];
+      let current: HTMLElement | null = node;
+      while (current) {
+        chain.push(current);
+        current = current.parentElement;
+      }
+
+      let background: Rgba = [255, 255, 255, 1];
+      for (const element of chain.reverse()) {
+        const layer = parseColor(getComputedStyle(element).backgroundColor);
+        if (layer && layer[3] > 0) background = blend(layer, background);
+      }
+      return background.slice(0, 3);
+    }
+
+    return Array.from(document.querySelectorAll<HTMLElement>(".text-danger-text"))
+      .filter((node) => {
+        const box = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return box.width > 0
+          && box.height > 0
+          && style.visibility !== "hidden"
+          && style.display !== "none"
+          && Boolean(node.textContent?.trim());
+      })
+      .map((node) => ({
+        text: node.textContent?.replace(/\s+/g, " ").trim() ?? "",
+        color: getComputedStyle(node).color,
+        background: `rgb(${effectiveBackground(node).join(", ")})`,
+      }));
+  });
+}
+
+async function assertVisibleDangerTextReadable(page: Page, label: string) {
+  const samples = await visibleDangerTextSamples(page);
+  expect(samples.length, `${label} should render danger text samples`).toBeGreaterThan(0);
+
+  for (const sample of samples) {
+    const foreground = parseRgb(sample.color);
+    const background = parseRgb(sample.background);
+    expect(
+      foreground && background ? contrast(foreground, background) : 0,
+      `${label}: ${sample.text}`,
+    ).toBeGreaterThanOrEqual(4.5);
+  }
+}
 
 async function setupWorkspaceWithUnread(page: Page, context: Parameters<typeof setupMockWorkspace>[1]) {
   await setupMockWorkspace(page, context);
@@ -197,13 +310,11 @@ test("sidebar destination pages fill the workspace main column and keep navigati
         .getByRole("navigation", { name: "Workspace navigation" })
         .getByRole("link", { name: "Inbox", exact: true }),
     ).toBeVisible();
-    if (destination.nav !== "Channels") {
-      await expect(
-        page
-          .getByRole("navigation", { name: "Workspace navigation" })
-          .getByRole("link", { name: destination.nav, exact: true }),
-      ).toHaveAttribute("aria-current", "page");
-    }
+    await expect(
+      page
+        .getByRole("navigation", { name: "Workspace navigation" })
+        .getByRole("link", { name: destination.nav, exact: true }),
+    ).toHaveAttribute("aria-current", "page");
 
     const metrics = await shellMetrics(page);
     assertNoDocumentOverflow(metrics);
@@ -220,7 +331,7 @@ test("sidebar destination pages fill the workspace main column and keep navigati
       const active = document.querySelector<HTMLElement>("[data-testid='workspace-sidebar'] [aria-current='page']");
       const activeContent = active?.closest<HTMLElement>(".sidebar__menu-item-content") ?? null;
       const topDestinationLinks = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='workspace-sidebar'] nav a"))
-        .filter((el) => ["Inbox", "Tasks", "Agents", "People"].includes(el.textContent?.trim() ?? ""))
+        .filter((el) => ["Inbox", "Tasks", "Agents", "People", "Channels"].includes(el.textContent?.trim() ?? ""))
         .map((el) => {
           const box = el.getBoundingClientRect();
           return { top: box.top, bottom: box.bottom, height: box.height };
@@ -260,16 +371,82 @@ test("sidebar destination pages fill the workspace main column and keep navigati
     expect(pageMetrics.root?.width, `${destination.path} root should fill main`).toBeCloseTo(pageMetrics.main!.width, 1);
     expect(pageMetrics.header?.left, `${destination.path} header starts at main edge`).toBeCloseTo(pageMetrics.main!.left, 1);
     expect(pageMetrics.header?.right, `${destination.path} header reaches main edge`).toBeCloseTo(pageMetrics.main!.right, 1);
-    expect(pageMetrics.topDestinationGaps, `${destination.path} top-level sidebar rows should stay compact`).toEqual([6, 6, 6]);
+    expect(pageMetrics.topDestinationGaps, `${destination.path} top-level sidebar rows should stay compact`).toEqual([6, 6, 6, 6]);
     expect(pageMetrics.mainListRowShadows, `${destination.path} repeated list rows should not add nested card shadows`).toEqual([]);
-    if (destination.nav !== "Channels") {
-      expect(pageMetrics.active?.height, `${destination.nav} active row height`).toBeCloseTo(32, 1);
-      expect(pageMetrics.active?.borderRadius, `${destination.nav} active row should not render as a square slab`).not.toBe("0px");
-      expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should not use the old solid green fill`).not.toBe("rgb(84, 167, 131)");
-      expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should render one visible layer`).not.toBe("rgba(0, 0, 0, 0)");
-      expect(pageMetrics.activeContent?.backgroundColor, `${destination.nav} HeroUI wrapper should not add a second active layer`).toBe("rgba(0, 0, 0, 0)");
-    }
+    expect(pageMetrics.active?.height, `${destination.nav} active row height`).toBeCloseTo(32, 1);
+    expect(pageMetrics.active?.borderRadius, `${destination.nav} active row should not render as a square slab`).not.toBe("0px");
+    expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should not use the old solid green fill`).not.toBe("rgb(84, 167, 131)");
+    expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should render one visible layer`).not.toBe("rgba(0, 0, 0, 0)");
+    expect(pageMetrics.activeContent?.backgroundColor, `${destination.nav} HeroUI wrapper should not add a second active layer`).toBe("rgba(0, 0, 0, 0)");
   }
+});
+
+test("settings sections expose every destination and keep the active state in one layer", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+
+  const sections = [
+    { path: "/s/demo/settings/workspace", nav: "Workspace", heading: "Workspace" },
+    { path: "/s/demo/settings/members", nav: "Members & invites", heading: "Members & invites" },
+    { path: "/s/demo/settings/agents", nav: "Channels & agents", heading: "Channels & agents" },
+    { path: "/s/demo/settings/keys", nav: "Runtimes", heading: "Runtimes" },
+    { path: "/s/demo/settings/connectors", nav: "Connectors", heading: "Connectors" },
+    { path: "/s/demo/settings/account", nav: "Account", heading: "Account" },
+  ];
+
+  for (const section of sections) {
+    await page.goto(section.path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: section.heading })).toBeVisible();
+
+    const settingsNav = page.getByRole("navigation", { name: "Settings sections" });
+    await expect(settingsNav.getByRole("link", { name: "Connectors" })).toBeVisible();
+    await expect(settingsNav.getByRole("link", { name: section.nav })).toHaveAttribute("aria-current", "page");
+
+    const metrics = await shellMetrics(page);
+    assertNoDocumentOverflow(metrics);
+
+    const navMetrics = await page.evaluate(() => {
+      const nav = document.querySelector<HTMLElement>("[aria-label='Settings sections']");
+      const active = nav?.querySelector<HTMLElement>("[aria-current='page']") ?? null;
+      const activeContent = active?.closest<HTMLElement>(".button") ?? active;
+      const rect = (el: HTMLElement | null) => {
+        if (!el) return null;
+        const box = el.getBoundingClientRect();
+        return {
+          height: box.height,
+          borderRadius: getComputedStyle(el).borderRadius,
+          backgroundColor: getComputedStyle(el).backgroundColor,
+        };
+      };
+      return {
+        active: rect(active),
+        activeContent: rect(activeContent),
+        allLinks: Array.from(nav?.querySelectorAll<HTMLElement>("a") ?? []).map((el) => el.textContent?.trim() ?? ""),
+      };
+    });
+
+    expect(navMetrics.allLinks).toEqual(["Workspace", "Members & invites", "Channels & agents", "Runtimes", "Connectors", "Account"]);
+    expect(navMetrics.active?.height, `${section.nav} active row height`).toBeCloseTo(32, 1);
+    expect(navMetrics.active?.borderRadius, `${section.nav} active row radius`).not.toBe("0px");
+    expect(navMetrics.active?.backgroundColor, `${section.nav} active row should render one visible layer`).not.toBe("rgba(0, 0, 0, 0)");
+    expect(navMetrics.activeContent?.backgroundColor, `${section.nav} wrapper should be the active layer`).toBe(navMetrics.active?.backgroundColor);
+  }
+});
+
+test("workspace settings danger copy remains readable on gray and soft-danger panels", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+
+  await page.goto("/s/demo/settings/workspace", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  await expect(page.getByText("Danger zone", { exact: true })).toBeVisible();
+  await expect(page.getByText("Delete workspace", { exact: true })).toBeVisible();
+  await assertVisibleDangerTextReadable(page, "light mode workspace settings");
+
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await assertVisibleDangerTextReadable(page, "dark mode workspace settings");
 });
 
 test("user account menu opens from the agents page without crashing the workspace", async ({ page, context }) => {
@@ -283,9 +460,9 @@ test("user account menu opens from the agents page without crashing the workspac
   await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
   await page.getByTestId("user-pill-trigger").click();
-  await expect(page.getByRole("menuitem", { name: "Account" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Account settings" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   expect(pageErrors, "opening the account menu should not raise client runtime errors").toEqual([]);
 });
@@ -303,7 +480,10 @@ test("workspace switcher menu opens from the agents page without invalid menu ch
   await page.getByTestId("workspace-switcher-trigger").click();
   await expect(page.getByText("Your workspaces", { exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: /Gene's Workspace/ })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Members & invites" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Browse channels" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   expect(pageErrors, "opening the workspace switcher should not raise client runtime errors").toEqual([]);
 });

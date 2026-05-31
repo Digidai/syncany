@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { Building2, Users, Hash, KeyRound, User as UserIcon } from "lucide-react";
+import { Building2, Users, Hash, KeyRound, Plug, User as UserIcon } from "lucide-react";
 import { api, type Server } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,7 @@ const TABS = [
   // route slug "keys" so deep-links from emails / past wizards still
   // resolve, but the label + page heading say Runtimes.
   { slug: "keys",      label: "Runtimes",          Icon: KeyRound },
+  { slug: "connectors", label: "Connectors",       Icon: Plug },
   { slug: "account",   label: "Account",           Icon: UserIcon },
 ] as const;
 
@@ -139,11 +140,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     render={<Link href={href} />}
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "h-8 w-full justify-start gap-2 rounded-[8px] px-2.5 text-sm",
+                      "h-8 w-full justify-start gap-2 rounded-[8px] border-l-2 px-2.5 text-sm",
                       active
-                        ? "bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] ring-1 ring-accent/25"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "border-accent bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)]"
+                        : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                     )}
                   >
                     <t.Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -169,11 +171,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     render={<Link href={href} />}
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "h-8 gap-1.5 rounded-[8px] px-2.5 text-xs",
+                      "h-8 gap-1.5 rounded-[8px] border-l-2 px-2.5 text-xs",
                       active
-                        ? "bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] ring-1 ring-accent/25"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "border-accent bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)]"
+                        : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                     )}
                   >
                     <t.Icon className="h-3.5 w-3.5" aria-hidden="true" />

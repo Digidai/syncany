@@ -345,7 +345,7 @@ export default function AgentProfilePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardPanel>
-                  {historyError && <p className="text-sm text-destructive-foreground">{historyError}</p>}
+                  {historyError && <p className="text-sm text-danger-text">{historyError}</p>}
                   {!historyError && history === null && agent.dmChannelId && (
                     <p className="text-sm text-muted-foreground">Loading…</p>
                   )}

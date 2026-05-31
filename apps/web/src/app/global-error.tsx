@@ -31,7 +31,7 @@ export default function GlobalError({ error, reset }: {
           <Card className="w-full max-w-md">
             <CardHeader className="gap-2">
               <CardTitle className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 text-destructive-foreground">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 text-danger-text">
                   <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 </span>
                 Raltic stopped responding
@@ -45,7 +45,7 @@ export default function GlobalError({ error, reset }: {
                 Try reloading first. If it keeps happening, our team has been notified.
               </p>
               {error.digest && (
-                <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive-foreground">
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-danger-text">
                   Reference: {error.digest}
                 </p>
               )}

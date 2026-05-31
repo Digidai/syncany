@@ -298,7 +298,7 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                 </Field>
 
                 {error && (
-                  <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
+                  <p role="alert" className="text-sm text-danger-text">{error}</p>
                 )}
               </div>
             </DialogPanel>

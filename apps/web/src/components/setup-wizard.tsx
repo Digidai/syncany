@@ -617,7 +617,7 @@ export function SetupWizard({
                       <KeyRound className="mr-1 h-3.5 w-3.5" /> Issue key
                     </Button>
                   </div>
-                  {error && <p className="text-destructive-foreground">{error}</p>}
+                  {error && <p className="text-danger-text">{error}</p>}
                   <p className="text-xs text-muted-foreground">
                     Keys are shown once. Treat them like passwords.
                   </p>

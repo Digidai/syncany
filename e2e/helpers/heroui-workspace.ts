@@ -216,6 +216,9 @@ export async function setupMockWorkspace(page: Page, context: BrowserContext) {
       ],
     }));
     if (path === "/api/v1/agents") return route.fulfill(json({ agents }));
+    if (path === "/api/v1/connectors") return route.fulfill(json({ connectors: [] }));
+    if (path === "/api/v1/invites") return route.fulfill(json({ invites: [] }));
+    if (path === "/api/v1/machine-keys") return route.fulfill(json({ keys: [] }));
     if (path === "/api/v1/servers/srv-demo/members") return route.fulfill(json({ members: workspaceMembers, viewerRole: "owner" }));
     if (path === "/api/v1/channels/ch-onboarding") return route.fulfill(json({
       channel: onboardingChannel,

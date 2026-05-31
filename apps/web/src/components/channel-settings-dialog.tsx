@@ -210,7 +210,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                 </p>
               )}
               {error && (
-                <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
+                <p role="alert" className="text-sm text-danger-text">{error}</p>
               )}
 
               {/* Archive — softer than delete; reversible */}
@@ -269,10 +269,10 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
               {canManage && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive-foreground" />
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-text" />
                     <div className="flex-1 text-xs">
-                      <p className="font-medium text-destructive-foreground">Delete channel</p>
-                      <p className="mt-0.5 text-destructive-foreground">
+                      <p className="font-medium text-danger-text">Delete channel</p>
+                      <p className="mt-0.5 text-danger-text">
                         All messages, tasks, and reactions in <strong>#{channel.name}</strong> will be permanently removed. Members will lose access immediately.
                       </p>
                       {!confirmDelete ? (

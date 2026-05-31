@@ -189,7 +189,7 @@ export function ChannelMembersDialog({
                     picker branch, so a roster-only viewer would never
                     see why their list is empty. */}
                 {error && !pickerOpen && (
-                  <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
+                  <p role="alert" className="text-sm text-danger-text">{error}</p>
                 )}
                 <div className="max-h-80 overflow-y-auto rounded-xl border border-border bg-[var(--surface-secondary)]">
                   {humanMembers.length === 0 && agentMembers.length === 0 ? (
@@ -334,7 +334,7 @@ export function ChannelMembersDialog({
                   )}
                 </div>
                 {error && (
-                  <p role="alert" className="text-sm text-destructive-foreground">{error}</p>
+                  <p role="alert" className="text-sm text-danger-text">{error}</p>
                 )}
                 <div className="flex justify-end gap-2">
                   <Button
@@ -437,7 +437,7 @@ function MemberRow({ avatar, primary, secondary, online, canRemove, onRemove, hr
           aria-label={`Remove ${primary}`}
           variant="ghost"
           size="icon-xs"
-          className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+          className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-danger-text"
         >
           <UserMinus className="h-3.5 w-3.5" />
         </Button>

@@ -140,7 +140,7 @@ export default function MachineKeysPage() {
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="self-start text-destructive-foreground sm:self-auto"
+                      className="self-start text-danger-text sm:self-auto"
                       onClick={() => setRevokeTarget(k)}
                     >Revoke</Button>
                     </div>

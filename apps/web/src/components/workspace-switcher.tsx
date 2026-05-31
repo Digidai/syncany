@@ -10,14 +10,12 @@
 //     are noise and the API hit ($) isn't free on Cloudflare Workers.
 //   • Active workspace shown with a check + cyan accent so the dropdown
 //     doubles as orientation, not just navigation.
-//   • Create CTA routes to "/" (home / wizard entry) which already handles
-//     the new-workspace flow; we don't dialog-up creation here because the
-//     sidebar is too narrow to host the form.
+//   • Workspace management actions stay here; account/session actions stay
+//     in the bottom UserPill so the two menus do not duplicate scope.
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronDown, Check, Building2, LogOut, Star } from "lucide-react";
+import { ChevronDown, Check, Building2, Hash, Settings as SettingsIcon, Star, Users } from "lucide-react";
 import { api } from "@/lib/api";
-import { signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import {
@@ -108,16 +106,6 @@ export function WorkspaceSwitcher({
   function switchTo(slug: string) {
     if (slug === currentServerSlug) return;
     window.location.assign(`/s/${slug}`);
-  }
-
-  async function handleSignOut() {
-    try {
-      await signOut();
-      // Full reload to /login so any in-memory user state is dropped.
-      window.location.assign("/login");
-    } catch (e) {
-      notifyThrown("Sign out failed", e);
-    }
   }
 
   // Invalidate the cached server list when the menu closes — otherwise a
@@ -212,20 +200,17 @@ export function WorkspaceSwitcher({
           </>
         )}
         <DropdownMenuSeparator />
-        {/* "Create workspace" intentionally NOT shown here yet — there
-            is no dedicated creation route. The old item linked to `/`,
-            but `/` now mounts <SignedInRedirect> which immediately
-            sends signed-in users back to their default workspace,
-            making the link a no-op loop. Re-introduce when a real
-            creation flow ships (settings tab? modal wizard?). */}
-        {/* Sign-out duplicated here so users have a discoverable exit
-            from the same menu they use to switch accounts/workspaces.
-            The Account tab keeps the canonical sign-out + profile
-            controls, but burying it 3 clicks deep was a UX regression
-            vs. industry norms (Slack/Discord both surface sign-out in
-            the workspace switcher). */}
-        <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-          <LogOut className="h-4 w-4" /> Sign out
+        <DropdownMenuLabel className="pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider">
+          Manage workspace
+        </DropdownMenuLabel>
+        <DropdownMenuItem href={`/s/${currentServerSlug}/settings/workspace`}>
+          <SettingsIcon className="h-4 w-4" /> Workspace settings
+        </DropdownMenuItem>
+        <DropdownMenuItem href={`/s/${currentServerSlug}/settings/members`}>
+          <Users className="h-4 w-4" /> Members & invites
+        </DropdownMenuItem>
+        <DropdownMenuItem href={`/s/${currentServerSlug}/channels`}>
+          <Hash className="h-4 w-4" /> Browse channels
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

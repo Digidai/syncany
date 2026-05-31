@@ -197,7 +197,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                   Changes to system prompt take effect on the next message —
                   the bridge restarts the agent process to apply them.
                 </p>
-                {error && <p className="text-sm text-destructive-foreground">{error}</p>}
+                {error && <p className="text-sm text-danger-text">{error}</p>}
               </div>
             </DialogPanel>
             <DialogFooter className="flex justify-end gap-2">

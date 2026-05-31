@@ -182,9 +182,15 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                   label="People"
                   active={pathname === `/s/${serverSlug}/people` || pathname.startsWith(`/s/${serverSlug}/people/`)}
                 />
+                <TopLevelLink
+                  href={`/s/${serverSlug}/channels`}
+                  icon={<Hash className="h-4 w-4" />}
+                  label="Channels"
+                  active={pathname === `/s/${serverSlug}/channels`}
+                />
               </HeroSidebar.Menu>
               <ChannelGroup
-                label="Channels"
+                label="Joined channels"
                 icon={<Hash className="h-3.5 w-3.5" />}
                 channels={publicChannels}
                 activeId={activeChannelId}
@@ -256,13 +262,9 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
       {/* Footer: identity-only.
           - bottom-left: UserPill (avatar + name + visible "Online"
-            status line + chevron). Click → account / workspace settings
-            / sign out dropdown.
-          - We used to ship a separate ⚙ shortcut here that duplicated
-            the dropdown's "Workspace settings" item — removed per
-            user feedback ("两个入口去同一个地方，多余"). Workspace
-            settings is still reachable via the dropdown menu (and
-            via URL: /s/{slug}/settings/workspace).
+            status line + chevron). Click → account settings / sign out.
+          - Workspace-scope settings live in the top WorkspaceSwitcher,
+            keeping account actions and workspace actions separate.
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
@@ -337,12 +339,12 @@ const SIDEBAR_ITEM_CLASS =
   "!my-0 !rounded-[8px] !outline-none !p-0";
 
 const SIDEBAR_LINK_CLASS =
-  "flex h-8 w-full min-w-0 items-center gap-2 rounded-[8px] border-l-2 border-transparent px-2.5 text-sm text-sidebar-foreground transition-[background-color,color,border-color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:border-sidebar-primary data-[current=true]:bg-sidebar-accent data-[current=true]:text-sidebar-accent-foreground data-[current=true]:font-semibold";
+  "flex h-8 w-full min-w-0 items-center gap-2 rounded-[8px] border-l-2 border-transparent px-2.5 text-sm text-sidebar-foreground transition-[background-color,color,border-color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:border-sidebar-primary data-[current=true]:bg-[var(--accent-soft)] data-[current=true]:text-sidebar-accent-foreground data-[current=true]:font-semibold";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
 const GROUP_DOT: Record<string, string> = {
-  Channels: "bg-cyan-500/70",
+  "Joined channels": "bg-cyan-500/70",
   "Direct messages": "bg-amber-500/70",
   Private: "bg-violet-500/70",
   Agents: "bg-gradient-to-br from-cyan-500 to-amber-500",

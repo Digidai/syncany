@@ -783,7 +783,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
           <div ref={innerRef} className="mx-auto flex w-full max-w-[760px] flex-col gap-8 px-4 pb-10 pt-10">
             {loading && <p className="text-sm text-muted-foreground">Loading messages...</p>}
             {!loading && loadError && (
-              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-foreground">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-danger-text">
                 Couldn&apos;t load this conversation: {loadError}
               </div>
             )}
@@ -880,7 +880,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                       variant="ghost"
                       onClick={() => removeStagedAttachment(a.attachmentId)}
                       aria-label={`Remove ${a.filename}`}
-                      className="h-5 w-5 min-w-5 rounded-full text-foreground/70 hover:bg-destructive/10 hover:text-destructive-foreground"
+                      className="h-5 w-5 min-w-5 rounded-full text-foreground/70 hover:bg-destructive/10 hover:text-danger-text"
                     >
                       <XIcon className="h-3 w-3" />
                     </Button>
@@ -1083,7 +1083,7 @@ function MessageRowView({ m, label, currentUserId, editing, draft, onStartEdit, 
             variant="ghost"
             onPress={onDelete}
             aria-label="Delete"
-            className="h-8 w-8 min-w-8 text-muted-foreground hover:text-destructive-foreground"
+            className="h-8 w-8 min-w-8 text-muted-foreground hover:text-danger-text"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>

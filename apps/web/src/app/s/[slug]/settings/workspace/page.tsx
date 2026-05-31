@@ -224,7 +224,7 @@ export default function WorkspaceSettingsPage() {
                   onChange={(e) => handleIconUpload(e.target.files?.[0] ?? null)}
                 />
                 {server.iconUrl && canEdit && (
-                  <Button type="button" onClick={handleRemoveIcon} variant="ghost" size="xs" className="text-destructive-foreground">
+                  <Button type="button" onClick={handleRemoveIcon} variant="ghost" size="xs" className="text-danger-text">
                     Remove
                   </Button>
                 )}
@@ -270,7 +270,7 @@ export default function WorkspaceSettingsPage() {
                     className="flex-1 bg-transparent px-2 py-1 font-mono text-sm outline-none disabled:text-muted-foreground"
                   />
                 </div>
-                <p id="slug-hint" className={`mt-1 text-[11px] ${liveSlugError || slugError ? "text-destructive-foreground" : "text-muted-foreground"}`}>
+                <p id="slug-hint" className={`mt-1 text-[11px] ${liveSlugError || slugError ? "text-danger-text" : "text-muted-foreground"}`}>
                   {liveSlugError ?? slugError ?? "6–48 chars · lowercase letters, digits, hyphens. Changing this breaks old invite links."}
                 </p>
               </Field>
@@ -299,7 +299,7 @@ export default function WorkspaceSettingsPage() {
       {/* ── Danger zone ── */}
       <Card className="border-destructive/30">
         <CardHeader>
-          <CardTitle className="text-destructive-foreground">Danger zone</CardTitle>
+          <CardTitle className="text-danger-text">Danger zone</CardTitle>
           <CardDescription>
             Irreversible actions. {isOwner ? "Delete cascades to every channel, message, and bridge key." : "Leaving removes you from every channel here."}
           </CardDescription>
@@ -324,12 +324,12 @@ export default function WorkspaceSettingsPage() {
             <Card className="border-destructive/30 bg-destructive/5 !shadow-none">
               <CardPanel className="flex flex-col items-start justify-between gap-3 p-3 sm:flex-row sm:items-center">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-destructive-foreground">Delete workspace</div>
+                  <div className="text-sm font-medium text-danger-text">Delete workspace</div>
                   <p className="text-[11px] text-muted-foreground">
                     Permanent. Removes every channel, message, agent, invite, and bridge key.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="w-full shrink-0 border-destructive/40 text-destructive-foreground hover:bg-destructive/10 sm:w-auto">
+                <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="w-full shrink-0 border-destructive/40 text-danger-text hover:bg-destructive/10 sm:w-auto">
                   <Trash2 className="me-1 h-3.5 w-3.5" /> Delete
                 </Button>
               </CardPanel>

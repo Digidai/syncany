@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/heroui-pro/button";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { Chip } from "@/components/heroui-pro/chip";
+import { WorkspaceEmptyState, WorkspacePage } from "@/components/workspace-page";
 
 /**
  * Unified inbox — answers "what's waiting for me right now".
@@ -64,27 +65,17 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
-            <InboxIcon className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold">Inbox</h1>
-            <p className="text-xs text-muted-foreground">
-              Direct messages and tasks waiting on you in {server.name}.
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className="min-w-0 flex-1 overflow-y-auto p-6">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+    <WorkspacePage
+      title="Inbox"
+      description={<>Direct messages and tasks waiting on you in {server.name}.</>}
+      icon={<InboxIcon className="h-5 w-5" aria-hidden="true" />}
+      tone="cyan"
+      contentClassName="flex flex-col gap-3"
+    >
           {loadError && (
             <Card className="border-destructive/30 bg-destructive/5 text-center">
               <CardPanel className="p-6">
-              <p className="text-sm font-medium text-destructive-foreground">Couldn't load inbox</p>
+              <p className="text-sm font-medium text-danger-text">Couldn't load inbox</p>
               <p className="mt-1 text-xs text-muted-foreground break-words">{loadError.message}</p>
               <Button
                 type="button"
@@ -104,15 +95,15 @@ export default function InboxPage() {
           )}
 
           {!loadError && items && items.length === 0 && (
-            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
-              <CardPanel className="p-8">
-              <InboxIcon className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium">You're caught up.</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+            <WorkspaceEmptyState
+              icon={<InboxIcon className="h-8 w-8" />}
+              title="You're caught up."
+              description={
+                <>
                 No unread DMs and no open tasks assigned to you. Nice.
-              </p>
-              </CardPanel>
-            </Card>
+                </>
+              }
+            />
           )}
 
           {!loadError && items && items.length > 0 && (
@@ -122,9 +113,7 @@ export default function InboxPage() {
               ))}
             </ul>
           )}
-        </div>
-      </div>
-    </div>
+    </WorkspacePage>
   );
 }
 
