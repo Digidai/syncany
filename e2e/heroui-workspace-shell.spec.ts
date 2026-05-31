@@ -272,6 +272,42 @@ test("sidebar destination pages fill the workspace main column and keep navigati
   }
 });
 
+test("user account menu opens from the agents page without crashing the workspace", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/s/demo/agents", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
+
+  await page.getByTestId("user-pill-trigger").click();
+  await expect(page.getByRole("menuitem", { name: "Account" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
+  expect(pageErrors, "opening the account menu should not raise client runtime errors").toEqual([]);
+});
+
+test("workspace switcher menu opens from the agents page without invalid menu children", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/s/demo/agents", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
+
+  await page.getByTestId("workspace-switcher-trigger").click();
+  await expect(page.getByText("Your workspaces", { exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /Gene's Workspace/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
+  expect(pageErrors, "opening the workspace switcher should not raise client runtime errors").toEqual([]);
+});
+
 test("mobile drawer closes after channel and DM navigation without covering the next page", async ({ page, context }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setupWorkspaceWithUnread(page, context);

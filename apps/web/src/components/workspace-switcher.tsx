@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/heroui-pro/menu";
 
 // Workspace row from /me — includes role + the user's chosen default.
@@ -145,6 +145,7 @@ export function WorkspaceSwitcher({
   return (
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
+        data-testid="workspace-switcher-trigger"
         onPointerDown={ensureLoaded}
         className="group flex w-full items-center gap-2.5 rounded-[9px] border border-border bg-surface/85 px-2 py-1.5 text-left !shadow-none transition-colors hover:border-accent/25 hover:bg-surface focus:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -160,11 +161,11 @@ export function WorkspaceSwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-(--anchor-width) min-w-72">
         {servers === null ? (
-          <div className="px-2 py-2 text-xs text-muted-foreground">Loading…</div>
+          <DropdownMenuLabel className="py-2 font-normal">Loading…</DropdownMenuLabel>
         ) : servers.length === 0 ? (
-          <div className="px-2 py-2 text-xs text-muted-foreground">
+          <DropdownMenuLabel className="py-2 font-normal">
             You&apos;re not a member of any workspace yet.
-          </div>
+          </DropdownMenuLabel>
         ) : (
           <>
             {/* Owner / admin group — labelled "Your workspaces" so an
@@ -173,9 +174,9 @@ export function WorkspaceSwitcher({
                 clicking a non-default row's star sets it as default. */}
             {ownedRows && ownedRows.length > 0 && (
               <>
-                <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <DropdownMenuLabel className="pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider">
                   Your workspaces
-                </div>
+                </DropdownMenuLabel>
                 {ownedRows.map((s) => (
                   <WorkspaceRow
                     key={s.id}
@@ -192,9 +193,9 @@ export function WorkspaceSwitcher({
             {joinedRows && joinedRows.length > 0 && (
               <>
                 <DropdownMenuSeparator />
-                <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <DropdownMenuLabel className="pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider">
                   Joined
-                </div>
+                </DropdownMenuLabel>
                 {joinedRows.map((s) => (
                   <WorkspaceRow
                     key={s.id}

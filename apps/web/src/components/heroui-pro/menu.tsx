@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Dropdown } from "@heroui/react/dropdown";
-import { Menu as HeroMenu } from "@heroui/react/menu";
 import { cn } from "@/lib/utils";
 
 type MenuSide = "top" | "right" | "bottom" | "left";
@@ -10,7 +9,6 @@ type MenuAlign = "start" | "end";
 
 type HeroDropdownMenuProps = React.ComponentProps<typeof Dropdown>;
 type HeroDropdownItemProps = React.ComponentProps<typeof Dropdown.Item>;
-type HeroMenuSectionProps = React.ComponentProps<typeof HeroMenu.Section>;
 
 type LegacyItemVariant = "default" | "destructive";
 
@@ -108,6 +106,7 @@ export function DropdownMenuItem({
   children,
   onClick,
   disabled,
+  isDisabled,
   variant,
   textValue,
   ...props
@@ -129,7 +128,7 @@ export function DropdownMenuItem({
 
   const itemProps = {
     ...props,
-    disabled,
+    isDisabled: disabled ?? isDisabled,
     textValue,
   };
 
@@ -147,32 +146,32 @@ export function DropdownMenuItem({
   );
 }
 
-export const DropdownMenuSeparator = ({ className, ...props }: React.ComponentProps<"div">) => (
-  <div
-    role="separator"
-    className={cn("mx-1 my-1 h-px overflow-hidden bg-border", className)}
-    {...props}
-  />
+export const DropdownMenuSeparator = ({ className }: { className?: string }) => (
+  <Dropdown.Item
+    isDisabled
+    aria-hidden="true"
+    textValue="separator"
+    className={cn("my-1 h-px min-h-0 cursor-default bg-border p-0", className)}
+  >
+    <span />
+  </Dropdown.Item>
 );
 
 export const DropdownMenuGroup = ({
   children,
-  className,
-  ...props
-}: { children: React.ReactNode } & Omit<HeroMenuSectionProps, "children">) => (
-  <HeroMenu.Section className={cn("px-0 py-0", className)} {...props}>
-    {children}
-  </HeroMenu.Section>
-);
+}: { children: React.ReactNode }) => <>{children}</>;
 
-export const DropdownMenuLabel = ({ className, children, ...props }: React.ComponentProps<"div">) => (
-  <div
-    role="presentation"
-    className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)}
-    {...props}
+export const DropdownMenuLabel = ({ className, children }: { className?: string; children: React.ReactNode }) => (
+  <Dropdown.Item
+    isDisabled
+    textValue={deriveTextValue(children) ?? "menu label"}
+    className={cn(
+      "min-h-0 cursor-default rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground opacity-100",
+      className,
+    )}
   >
     {children}
-  </div>
+  </Dropdown.Item>
 );
 
 export const Menu = DropdownMenu;
