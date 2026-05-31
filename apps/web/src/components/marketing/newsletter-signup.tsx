@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 
 /**
  * Compact email-only signup. Sits at the bottom of /indie and /teams
@@ -73,25 +74,25 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
       aria-busy={state === "submitting"}
       className="relative flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
     >
-      {/* sr-only label is required for a11y — placeholders are not
-          accessible names per WCAG 2.5.3. Codex 5 HIGH. */}
-      <label htmlFor="newsletter-email" className="sr-only">Your email address</label>
-      <Input
-        id="newsletter-email"
-        type="email"
-        required
-        autoComplete="email"
-        inputMode="email"
-        value={email}
-        onChange={e => {
-          setEmail((e.target as HTMLInputElement).value);
-          // Clear stale error the moment user edits — codex 8 LOW.
-          if (state === "error") { setState("idle"); setMsg(null); }
-        }}
-        placeholder="you@example.com"
-        disabled={state === "submitting"}
-        className="flex-1 [&_input]:bg-zinc-950 [&_input]:text-white [&_input]:placeholder:text-zinc-600"
-      />
+      <Field>
+        <FieldLabel className="sr-only">Your email address</FieldLabel>
+        <Input
+          id="newsletter-email"
+          type="email"
+          required
+          autoComplete="email"
+          inputMode="email"
+          value={email}
+          onChange={e => {
+            setEmail((e.target as HTMLInputElement).value);
+            // Clear stale error the moment user edits — codex 8 LOW.
+            if (state === "error") { setState("idle"); setMsg(null); }
+          }}
+          placeholder="you@example.com"
+          disabled={state === "submitting"}
+          className="flex-1 [&_input]:bg-zinc-950 [&_input]:text-white [&_input]:placeholder:text-zinc-600"
+        />
+      </Field>
       <Button
         type="submit"
         disabled={state === "submitting"}

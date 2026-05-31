@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Bell, BellOff, Bot, LogOut, MoreHorizontal, Settings, Star, StarOff, Users } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuItem,
 } from "@/components/heroui-pro/menu";
 import { Button } from "@/components/heroui-pro/button";
 import { useRouter } from "next/navigation";
@@ -169,7 +169,6 @@ export function ChannelActions({ channel, members, selfUserId, serverSlug, canMa
               <><BellOff className="h-4 w-4" />Mute channel</>
             )}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setLeaveConfirmOpen(true)} variant="destructive">
             <LogOut className="h-4 w-4" />
             Leave channel

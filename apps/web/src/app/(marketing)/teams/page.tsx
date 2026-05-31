@@ -5,8 +5,9 @@ import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
+import { getApiOrigin } from "@/lib/auth-client";
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
+const API_ORIGIN = getApiOrigin();
 
 /**
  * /teams — mid-market landing. Per codex review MED-6 + MED-7:

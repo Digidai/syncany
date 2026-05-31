@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, RUNTIME_LABEL, type RuntimeId } from "@/lib/api";
+import { getApiOrigin } from "@/lib/auth-client";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
@@ -83,7 +84,7 @@ function clearResume(serverId: string): void {
   catch { /* ignore */ }
 }
 
-const API_URL = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
+const API_URL = getApiOrigin();
 
 /**
  * 4-step wizard shown to users who haven't connected a bridge yet:

@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { Button } from "@/components/heroui-pro/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/heroui-pro/menu";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { cn } from "@/lib/utils";
 import { RalticLogo } from "./raltic-logo";
@@ -72,8 +77,7 @@ export function MarketingNav() {
           <Link href="/desktop" className="hover:text-white">Desktop beta</Link>
           <Link href="/security" className="hover:text-white">Security</Link>
           {/* Audience dropdown — surfaces /indie + /teams without
-              crowding the top nav. CSS-only popover via group-hover so
-              it works without JS state + closes when pointer leaves. */}
+              crowding the top nav. */}
           <ForDropdown />
           <Link href="/login" className="hover:text-white">Sign in</Link>
           <MarketingButton href="/signup" variant="nav-primary">
@@ -98,64 +102,35 @@ export function MarketingNav() {
  */
 function ForDropdown() {
   const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   return (
-    <div ref={wrap} className="relative">
-      <Button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        variant="ghost"
-        size="sm"
+    <DropdownMenu onOpenChange={setOpen}>
+      <DropdownMenuTrigger
         className="!h-auto !rounded-none !bg-transparent !px-0 !py-0 text-zinc-400 hover:!bg-transparent hover:text-white"
         aria-haspopup="menu"
         aria-expanded={open}
       >
         For <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} />
-      </Button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)]"
-        >
-          <Link
-            role="menuitem"
-            href="/indie"
-            className="block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
-            onClick={() => setOpen(false)}
-          >
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={6} className="w-56 rounded-xl border border-zinc-800 bg-zinc-950">
+        <DropdownMenuItem href="/indie" className="!px-3 !py-2">
+          <div>
             <div className="font-medium">Indie devs</div>
             <div className="mt-0.5 text-[11.5px] text-zinc-500">Solo dev / AI tinkerer</div>
-          </Link>
-          <Link
-            role="menuitem"
-            href="/teams"
-            className="block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
-            onClick={() => setOpen(false)}
-          >
-            <div className="font-medium">
-              Teams <span className="ml-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-300">Waitlist</span>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem href="/teams" className="!px-3 !py-2">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span>Teams</span>
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+                Waitlist
+              </span>
             </div>
             <div className="mt-0.5 text-[11.5px] text-zinc-500">Mid-market eng orgs</div>
-          </Link>
-        </div>
-      )}
-    </div>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

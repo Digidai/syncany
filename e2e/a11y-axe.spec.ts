@@ -197,3 +197,13 @@ test("/login", async ({ page }) => {
   await expectSingleH1(page, "/login");
   await expectLoginFormControlsHaveLabels(page);
 });
+
+test("/desktop/welcome", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/desktop/welcome");
+
+  await runAxe(page, "/desktop/welcome");
+  await expectSingleH1(page, "/desktop/welcome");
+  await expect(page.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/desktop/launch");
+  await expectVisibleInteractiveElementsKeyboardFocusable(page);
+});

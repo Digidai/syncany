@@ -6,6 +6,7 @@ import { User as UserIcon, Mail, LogOut, ShieldCheck, Upload, Home, Copy } from 
 import { authClient, signOut, useSession } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
+import { getApiOrigin } from "@/lib/auth-client";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
@@ -83,10 +84,7 @@ export default function AccountSettingsPage() {
       // server-side. No follow-up updateUser() needed; better-auth's
       // useSession will pick up the new image on next refetch.
       const meta = await api.startAvatarUpload(file.type);
-      const apiOrigin = (() => {
-        try { return new URL(process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com").origin; }
-        catch { return "https://api.raltic.com"; }
-      })();
+      const apiOrigin = getApiOrigin();
       const uploadOrigin = (() => { try { return new URL(meta.uploadUrl).origin; } catch { return ""; } })();
       const sameOrigin = uploadOrigin === apiOrigin;
       const headers: Record<string, string> = { "Content-Type": file.type };
@@ -141,22 +139,26 @@ export default function AccountSettingsPage() {
               {/* Upload affordance under the avatar — same vertical rhythm
                   as the Workspace tab's icon uploader so the two screens
                   feel like one design language. */}
-              <label
-                className="mt-2 flex cursor-pointer items-center justify-center gap-1 text-[10.5px] text-cyan-700 hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
-                aria-disabled={uploadingAvatar}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-auto px-2 py-1 text-[10.5px]"
+                disabled={uploadingAvatar}
+                onPress={() => fileRef.current?.click()}
               >
-                <Input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  className="hidden"
-                  disabled={uploadingAvatar}
-                  unstyled
-                  onChange={(e) => handleAvatarUpload(e.target.files?.[0] ?? null)}
-                />
                 <Upload className="h-3 w-3" aria-hidden="true" />
                 {uploadingAvatar ? "Uploading…" : "Change"}
-              </label>
+              </Button>
+              <Input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                disabled={uploadingAvatar}
+                unstyled
+                onChange={(e) => handleAvatarUpload(e.target.files?.[0] ?? null)}
+              />
             </div>
             <div className="min-w-0 flex-1 space-y-3">
               <Field>

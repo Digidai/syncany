@@ -132,6 +132,32 @@ async function mockMachineKeys(page: Page, baseURL: string | undefined, opts?: {
 }
 
 test.describe("desktop launch surface", () => {
+  test("/desktop/welcome introduces the desktop flow before auth", async ({ page, request }) => {
+    const res = await request.get("/desktop/welcome", { maxRedirects: 0 });
+
+    expect(res.status()).toBe(200);
+    for (const header of SECURITY_HEADERS) {
+      expect(res.headers()[header], `/desktop/welcome should include ${header}`).toBeTruthy();
+    }
+
+    await page.goto("/desktop/welcome");
+    await expect(page.getByText("Raltic Desktop", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Connect this computer to your workspace." })).toBeVisible();
+    await expect(page.getByText("Use this computer as the local bridge")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/desktop/launch");
+    await expect(page.getByRole("link", { name: "Beta install notes" })).toHaveAttribute("href", "/desktop?from=desktop-welcome#install");
+  });
+
+  test("desktop beta notes can return to setup", async ({ page }) => {
+    await page.goto("/desktop/welcome");
+    await page.getByRole("link", { name: "Beta install notes" }).click();
+
+    await expect(page).toHaveURL(/\/desktop\?from=desktop-welcome#install$/);
+    await expect(page.getByRole("link", { name: "Back to desktop setup" })).toHaveAttribute("href", "/desktop/welcome");
+    await page.getByRole("link", { name: "Back to desktop setup" }).click();
+    await expect(page).toHaveURL(/\/desktop\/welcome$/);
+  });
+
   test("/desktop/launch preserves desktop intent when unauthenticated", async ({ request }) => {
     const res = await request.get("/desktop/launch", { maxRedirects: 0 });
 

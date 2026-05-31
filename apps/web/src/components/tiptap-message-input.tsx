@@ -21,6 +21,7 @@ interface TiptapMessageInputProps {
   ariaLabel?: string;
   ariaControls?: string;
   ariaActiveDescendant?: string;
+  onFocus?: () => void;
   /** Called when user presses Enter on non-empty content */
   onSend: (text: string) => void | boolean | Promise<void | boolean>;
   /** Called on every content change */
@@ -61,7 +62,18 @@ const TiptapMessageInput = forwardRef<
   TiptapMessageInputHandle,
   TiptapMessageInputProps
 >(function TiptapMessageInput(
-  { placeholder, disabled, className, ariaLabel, ariaControls, ariaActiveDescendant, onSend, onTextUpdate, onKeyDown },
+  {
+    placeholder,
+    disabled,
+    className,
+    ariaLabel,
+    ariaControls,
+    ariaActiveDescendant,
+    onSend,
+    onTextUpdate,
+    onFocus,
+    onKeyDown,
+  },
   ref
 ) {
   const onSendRef = useRef(onSend);
@@ -100,6 +112,12 @@ const TiptapMessageInput = forwardRef<
           if (handled) return true;
         }
         return false;
+      },
+      handleDOMEvents: {
+        focus: () => {
+          onFocus?.();
+          return false;
+        },
       },
     },
     onUpdate: ({ editor: ed }) => {

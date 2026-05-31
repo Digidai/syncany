@@ -112,14 +112,24 @@ test.describe("homepage full section render", () => {
     await expect(page.getByText(/Private beta.*Free/i).first()).toBeVisible();
   });
 
-  test("FAQ renders details and expands on summary click", async ({ page }) => {
+  test("FAQ renders accordion and expands a question", async ({ page }) => {
     await gotoHome(page);
 
-    const firstDetails = page.locator("section#faq details").first();
-    await expect(firstDetails).toBeVisible();
-    await firstDetails.locator("summary").click();
-    await expect(firstDetails).toHaveAttribute("open", "");
-    await expect(firstDetails.locator("p")).toBeVisible();
+    const faqSection = page.locator("section#faq");
+    const firstQuestion = faqSection.getByRole("button").first();
+    await expect(firstQuestion).toBeVisible();
+    const bodyId = await firstQuestion.getAttribute("aria-controls");
+    expect(bodyId).toBeTruthy();
+    if (!bodyId) return;
+    const initiallyOpen = await firstQuestion.getAttribute("aria-expanded");
+    if (initiallyOpen === "true") {
+      await firstQuestion.click();
+      await expect(firstQuestion).toHaveAttribute("aria-expanded", "false");
+    }
+
+    await firstQuestion.click();
+    await expect(firstQuestion).toHaveAttribute("aria-expanded", "true");
+    await expect(faqSection.locator(`#${bodyId}`).locator("p")).toBeVisible();
   });
 
   test("FinalCta shows the stop tab-switching headline and HomeCta", async ({ page }) => {

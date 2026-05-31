@@ -287,15 +287,17 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                         </Button>
                       ) : (
                         <div className="mt-2 space-y-2">
-                          <label htmlFor="cs-del" className="text-[11px] text-muted-foreground">
-                            Type <strong>{channel.name}</strong> to confirm.
-                          </label>
-                          <Input
-                            id="cs-del"
-                            value={deleteText}
-                            onChange={(e) => setDeleteText((e.target as HTMLInputElement).value)}
-                            placeholder={channel.name}
-                          />
+                          <Field>
+                            <FieldLabel className="text-[11px] text-muted-foreground" htmlFor="cs-del">
+                              Type <strong>{channel.name}</strong> to confirm.
+                            </FieldLabel>
+                            <Input
+                              id="cs-del"
+                              value={deleteText}
+                              onChange={(e) => setDeleteText((e.target as HTMLInputElement).value)}
+                              placeholder={channel.name}
+                            />
+                          </Field>
                           <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
                               type="button"

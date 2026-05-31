@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useParams } from "next/navigation";
-import { Chip } from "@heroui/react/chip";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { Chip } from "@/components/heroui-pro/chip";
+import { ScrollShadow } from "@/components/heroui-pro/scroll-shadow";
 import { Navbar } from "@heroui-pro/react/navbar";
 import { Button } from "@/components/heroui-pro/button";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { Textarea } from "@/components/heroui-pro/textarea";
+import { Input } from "@/components/heroui-pro/input";
 import { ChannelActions } from "./channel-actions";
 import { AttachmentList } from "./attachment-render";
 import { Paperclip } from "lucide-react";
@@ -472,6 +473,13 @@ export function MessageArea({ channelId }: MessageAreaProps) {
     },
   });
 
+  const bringComposerIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      const footer = document.querySelector<HTMLElement>("[data-testid='message-composer-footer']");
+      footer?.scrollIntoView({ block: "end", inline: "nearest", behavior: "auto" });
+    });
+  }, []);
+
   if (!channelId) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -830,7 +838,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
 
       <footer
         data-testid="message-composer-footer"
-        className="shrink-0 border-t border-border/60 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-4 sm:pb-4"
+        className="message-composer-footer sticky bottom-0 z-20 shrink-0 border-t border-border/60 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-4 sm:pb-4"
       >
         <div className="relative mx-auto flex w-full max-w-[760px] flex-col gap-2.5">
           <div className="pointer-events-none absolute bottom-full left-0 right-0 z-20 flex justify-start pb-2">
@@ -894,6 +902,7 @@ export function MessageArea({ channelId }: MessageAreaProps) {
               <TiptapMessageInput
                 key={channelId ?? "no-channel"}
                 ref={inputRef}
+                onFocus={bringComposerIntoView}
                 className="tiptap-input--composer w-full px-0 py-0"
                 onSend={handleSend}
                 disabled={isReadOnly}
@@ -930,13 +939,14 @@ export function MessageArea({ channelId }: MessageAreaProps) {
                   <span className="truncate">{dmAgent ? dmAgent.displayName : "Raltic Agent"}</span>
                 </span>
               </div>
-              <input
+              <Input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*,application/pdf,application/zip,text/plain,text/markdown"
                 className="sr-only"
                 disabled={isReadOnly}
+                unstyled
                 onChange={(e) => {
                   if (e.target.files) handleAttachmentPick(e.target.files);
                   e.target.value = "";

@@ -11,6 +11,7 @@ import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { useSettings, SettingsSection } from "../layout";
+import { getApiOrigin } from "@/lib/auth-client";
 
 export default function WorkspaceSettingsPage() {
   const { server, refreshServer } = useSettings();
@@ -103,10 +104,7 @@ export default function WorkspaceSettingsPage() {
       const meta = await api.startAvatarUpload(file.type, "server_icon");
       // Same-origin guard from the prior implementation — never leak our
       // bearer token to a third-party (R2) presigned URL host.
-      const apiOrigin = (() => {
-        try { return new URL(process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com").origin; }
-        catch { return "https://api.raltic.com"; }
-      })();
+      const apiOrigin = getApiOrigin();
       const uploadOrigin = (() => { try { return new URL(meta.uploadUrl).origin; } catch { return ""; } })();
       const sameOrigin = uploadOrigin === apiOrigin;
 
@@ -202,20 +200,29 @@ export default function WorkspaceSettingsPage() {
                 </div>
               )}
               <div className="mt-2 flex flex-col items-center gap-1 text-[10.5px]">
-                <label className="cursor-pointer text-cyan-700 hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-60" aria-disabled={!canEdit || uploading}>
-                  <Input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    className="hidden"
-                    disabled={!canEdit || uploading}
-                    unstyled
-                    onChange={(e) => handleIconUpload(e.target.files?.[0] ?? null)}
-                  />
-                  <span className="inline-flex items-center gap-1">
-                    <Upload className="h-3 w-3" /> {uploading ? "Uploading…" : "Upload"}
-                  </span>
-                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1"
+                  disabled={!canEdit || uploading}
+                  onPress={() => {
+                    if (!canEdit || uploading) return;
+                    fileRef.current?.click();
+                  }}
+                >
+                  <Upload className="h-3 w-3" aria-hidden="true" />
+                  <span>{uploading ? "Uploading…" : "Upload"}</span>
+                </Button>
+                <Input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  className="hidden"
+                  disabled={!canEdit || uploading}
+                  unstyled
+                  onChange={(e) => handleIconUpload(e.target.files?.[0] ?? null)}
+                />
                 {server.iconUrl && canEdit && (
                   <Button type="button" onClick={handleRemoveIcon} variant="ghost" size="xs" className="text-destructive-foreground">
                     Remove

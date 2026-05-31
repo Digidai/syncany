@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 const MODAL_CLOSE_CLASS = [
   "close-button",
   "absolute right-3 top-3",
-  "!size-9 !rounded-full !border !border-border",
-  "!bg-[var(--overlay)] !text-[var(--overlay-foreground)] !shadow-md",
-  "transition-colors hover:!bg-[var(--default-hover)] hover:!text-[var(--overlay-foreground)]",
+  "!size-9 !rounded-full",
+  "!border-2 !border-[var(--overlay-close-border)]",
+  "!bg-[var(--overlay-close-bg)] !text-[var(--overlay-close-fg)] !shadow-md",
+  "transition-colors hover:!bg-[var(--overlay-close-bg-hover)] hover:!text-[var(--overlay-close-fg-hover)]",
   "focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-ring focus-visible:!ring-offset-2",
   "[&_svg]:!opacity-100 [&_svg]:!text-current [&_svg]:!stroke-[2.5]",
 ].join(" ");

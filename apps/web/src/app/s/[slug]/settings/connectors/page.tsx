@@ -134,10 +134,8 @@ export default function ConnectorsPage() {
                 value={kind}
                 onChange={(e) => setKind(e.target.value as ConnectorKind)}
                 aria-label="Connector kind"
+                options={(Object.keys(KIND_META) as ConnectorKind[]).map((k) => ({ value: k, label: KIND_META[k].label }))}
               >
-                {(Object.keys(KIND_META) as ConnectorKind[]).map(k => (
-                  <option key={k} value={k}>{KIND_META[k].label}</option>
-                ))}
               </Select>
             </Field>
             <Field>

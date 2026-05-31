@@ -4,8 +4,10 @@ import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { NewsletterSignup } from "@/components/marketing/newsletter-signup";
+import { MarketingFaqList } from "@/components/marketing/faq-list";
+import { getApiOrigin } from "@/lib/auth-client";
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
+const API_ORIGIN = getApiOrigin();
 
 /**
  * Indie-dev landing — warmer tone, "your AI playground" framing,
@@ -78,17 +80,7 @@ export default function IndiePage() {
             eyebrow="FAQ"
             title={<>Indie-specific questions.</>}
           />
-          <div className="mt-10 divide-y divide-zinc-200 rounded-2xl border border-zinc-200">
-            {INDIE_FAQ.map((f) => (
-              <details key={f.q} className="group p-6 open:bg-zinc-50">
-                <summary className="flex cursor-pointer items-start justify-between gap-3 list-none">
-                  <h3 className="text-base font-medium text-zinc-900">{f.q}</h3>
-                  <span className="mt-1 inline-block h-5 w-5 shrink-0 rounded-full border border-zinc-300 text-center text-xs text-zinc-500 transition-transform group-open:rotate-45">+</span>
-                </summary>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-600">{f.a}</p>
-              </details>
-            ))}
-          </div>
+          <MarketingFaqList idPrefix="indie" items={INDIE_FAQ} theme="light" />
         </div>
       </section>
 

@@ -132,9 +132,42 @@ export function noContent(status = 204) {
 }
 
 function parseRgb(value: string | null) {
-  const match = value?.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-  if (!match) return null;
-  return [Number(match[1]), Number(match[2]), Number(match[3])] as const;
+  if (!value) return null;
+
+  let match = value.match(/^rgba?\(([^)]+)\)$/);
+  if (match) {
+    const [r, g, b] = match[1]
+      .replace(/\//g, " ")
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((token) => Number(token.endsWith("%") ? Number(token.slice(0, -1)) * 2.55 : Number(token)));
+
+    if (r == null || g == null || b == null || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    return [Math.round(r), Math.round(g), Math.round(b)] as const;
+  }
+
+  match = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\)$/);
+  if (match) {
+    const [r, g, b] = match
+      .slice(1, 4)
+      .map((token) => Math.round(Number(token) * 255));
+
+    if (r == null || g == null || b == null || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    return [Math.min(255, Math.max(0, r)), Math.min(255, Math.max(0, g)), Math.min(255, Math.max(0, b))] as const;
+  }
+
+  match = value.match(/^#([0-9a-fA-F]{6})$/);
+  if (match) {
+    const hex = match[1];
+    return [
+      Number.parseInt(hex.slice(0, 2), 16),
+      Number.parseInt(hex.slice(2, 4), 16),
+      Number.parseInt(hex.slice(4, 6), 16),
+    ] as const;
+  }
+
+  return null;
 }
 
 function luminanceChannel(value: number) {

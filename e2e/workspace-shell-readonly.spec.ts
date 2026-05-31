@@ -76,20 +76,52 @@ test.describe(RUN ? "workspace shell read-only" : "workspace shell read-only (sk
     });
   });
 
-  test("keeps the message composer aligned as one input surface", async ({ page }) => {
+  test("keeps the message composer as a card composer surface", async ({ page }) => {
     await openFirstChannel(page);
 
     const composer = page.getByTestId("message-composer");
     await expect(composer).toBeVisible();
 
-    const delta = await page.evaluate(() => {
+    const composerMetrics = await page.evaluate(() => {
+      const composer = document.querySelector("[data-testid='message-composer']")?.getBoundingClientRect();
       const attach = document.querySelector("[aria-label='Attach file or image']")?.getBoundingClientRect();
       const input = document.querySelector("[data-testid='message-composer-input']")?.getBoundingClientRect();
-      if (!attach || !input) return Number.POSITIVE_INFINITY;
-      return Math.abs((attach.top + attach.height / 2) - (input.top + input.height / 2));
+      const send = document.querySelector("[aria-label='Send message']")?.getBoundingClientRect();
+      const editor = document.querySelector("[data-testid='message-composer-input'] [role='textbox']");
+      const editorStyle = editor ? getComputedStyle(editor) : null;
+      if (!composer || !attach || !input || !send) return null;
+      return {
+        attachInsideComposer:
+          attach.top >= composer.top &&
+          attach.left >= composer.left &&
+          attach.bottom <= composer.bottom &&
+          attach.right <= composer.right,
+        inputInsideComposer:
+          input.top >= composer.top &&
+          input.left >= composer.left &&
+          input.bottom <= composer.bottom &&
+          input.right <= composer.right,
+        sendInsideComposer:
+          send.top >= composer.top &&
+          send.left >= composer.left &&
+          send.bottom <= composer.bottom &&
+          send.right <= composer.right,
+        toolbarBelowInput: attach.top >= input.bottom - 1 && send.top >= input.bottom - 1,
+        composerVisibleInViewport: composer.top >= 0 && composer.bottom <= window.innerHeight,
+        composerHeight: composer.height,
+        editorFontSize: editorStyle?.fontSize ?? "",
+      };
     });
 
-    expect(delta).toBeLessThanOrEqual(4);
+    expect(composerMetrics).toMatchObject({
+      attachInsideComposer: true,
+      inputInsideComposer: true,
+      sendInsideComposer: true,
+      toolbarBelowInput: true,
+      composerVisibleInViewport: true,
+    });
+    expect(composerMetrics?.composerHeight).toBeGreaterThanOrEqual(96);
+    expect(parseInt(composerMetrics?.editorFontSize ?? "", 10)).toBeGreaterThanOrEqual(14);
   });
 
   test("opens workspace navigation from the mobile shell", async ({ page, context }) => {

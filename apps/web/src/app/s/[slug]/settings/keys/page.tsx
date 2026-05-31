@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { api, type MachineRuntimeRow } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
+import { getApiOrigin } from "@/lib/auth-client";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
@@ -58,7 +59,7 @@ export default function MachineKeysPage() {
     setKeyError(null);
     try {
       const res = await api.createMachineKey({ serverId: server.id, name: keyName.trim() });
-      const apiUrl = process.env.NEXT_PUBLIC_RALTIC_API_URL ?? "https://api.raltic.com";
+      const apiUrl = getApiOrigin();
       const defaultApiUrl = "https://api.raltic.com";
       setIssued({
         apiKey: res.apiKey,

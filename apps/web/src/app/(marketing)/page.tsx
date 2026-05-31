@@ -8,6 +8,7 @@ import { HomeCta } from "@/components/home-cta";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { RalticLogo } from "@/components/raltic-logo";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
+import { MarketingFaqList } from "@/components/marketing/faq-list";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Marketing landing page.
@@ -1063,19 +1064,11 @@ function FAQ(): React.ReactElement {
           eyebrow="FAQ"
           title={<>The questions teams actually ask.</>}
         />
-        <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-900 md:grid-cols-2">
-          {FAQS.map((item) => (
-            <details key={item.q} className="group bg-black p-6 open:bg-zinc-950">
-              <summary className="flex cursor-pointer items-start justify-between gap-3 list-none">
-                <h3 className="text-base font-medium text-white">{item.q}</h3>
-                <span className="mt-1 inline-block h-5 w-5 shrink-0 rounded-full border border-zinc-700 text-center text-xs text-zinc-400 transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-400">{item.a}</p>
-            </details>
-          ))}
-        </div>
+        <MarketingFaqList
+          idPrefix="home"
+          items={FAQS}
+          theme="dark"
+        />
       </div>
     </section>
   );

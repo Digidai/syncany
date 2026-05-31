@@ -3,6 +3,7 @@ import { MarketingFooter } from "./footer";
 import { MarketingButton } from "./marketing-button";
 import { SectionHeader } from "./section-header";
 import type { RuntimeDoc } from "./runtime-data";
+import { MarketingFaqList } from "./faq-list";
 
 /** Per-accent class lookups — kept inline (vs. dynamic class names) so
  *  Tailwind's purger sees the strings at build time. */
@@ -181,17 +182,7 @@ function Faq({ doc }: { doc: RuntimeDoc }) {
           eyebrow="FAQ"
           title={<>Questions specific to {doc.shortName}.</>}
         />
-        <div className="mt-10 divide-y divide-zinc-200 rounded-2xl border border-zinc-200">
-          {doc.faq.map((f) => (
-            <details key={f.q} className="group p-6 open:bg-zinc-50">
-              <summary className="flex cursor-pointer items-start justify-between gap-3 list-none">
-                <h3 className="text-base font-medium text-zinc-900">{f.q}</h3>
-                <span className="mt-1 inline-block h-5 w-5 shrink-0 rounded-full border border-zinc-300 text-center text-xs text-zinc-500 transition-transform group-open:rotate-45">+</span>
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-600">{f.a}</p>
-            </details>
-          ))}
-        </div>
+        <MarketingFaqList idPrefix={doc.key} items={doc.faq} theme="light" />
       </div>
     </section>
   );

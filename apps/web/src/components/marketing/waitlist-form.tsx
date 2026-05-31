@@ -7,6 +7,7 @@ import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Select } from "@/components/heroui-pro/select";
 import { Textarea } from "@/components/heroui-pro/textarea";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 
 const TEAM_SIZES = ["1-4", "5-20", "21-100", "100+"] as const;
 type TeamSize = (typeof TEAM_SIZES)[number];
@@ -28,6 +29,7 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
   apiOrigin: string;
   refererPath?: string;
 }) {
+  const TEAM_SIZE_OPTIONS = TEAM_SIZES.map((size) => ({ value: size, label: `${size} people` }));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
@@ -97,7 +99,10 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
       className="space-y-5"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Your name" required>
+        <Field>
+          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+            Your name <span className="ml-1 text-rose-400">*</span>
+          </FieldLabel>
           <Input
             type="text"
             required
@@ -109,7 +114,10 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
             className={INPUT_CLS}
           />
         </Field>
-        <Field label="Work email" required>
+        <Field>
+          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+            Work email <span className="ml-1 text-rose-400">*</span>
+          </FieldLabel>
           <Input
             type="email"
             required
@@ -124,7 +132,10 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Company">
+        <Field>
+          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+            Company
+          </FieldLabel>
           <Input
             type="text"
             autoComplete="organization"
@@ -135,21 +146,26 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
             className={INPUT_CLS}
           />
         </Field>
-        <Field label="Team size">
+        <Field>
+          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+            Team size
+          </FieldLabel>
           <Select
             value={teamSize}
             onChange={e => setTeamSize(e.target.value as TeamSize | "")}
             disabled={state === "submitting"}
             className="w-full"
             selectClassName={INPUT_CLS}
+            options={[{ value: "", label: "Pick one…" }, ...TEAM_SIZE_OPTIONS]}
           >
-            <option value="">Pick one…</option>
-            {TEAM_SIZES.map(s => <option key={s} value={s}>{s} people</option>)}
           </Select>
         </Field>
       </div>
 
-      <Field label="What would you use Raltic for?">
+      <Field>
+        <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+          What would you use Raltic for?
+        </FieldLabel>
         <Textarea
           rows={4}
           value={useCase}
@@ -185,17 +201,6 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 inline-block text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
-        {label}{required && <span className="ml-1 text-rose-400">*</span>}
-      </span>
-      {children}
-    </label>
   );
 }
 

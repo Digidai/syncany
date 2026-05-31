@@ -47,6 +47,7 @@ export default function TaskBoardPage() {
   // Create form
   const [title, setTitle] = useState("");
   const [createChannel, setCreateChannel] = useState<string>("");
+  const channelSelectOptions = channels.map((channel) => ({ value: channel.id, label: `#${channel.name}` }));
 
   useEffect(() => {
     let cancelled = false;
@@ -154,9 +155,8 @@ export default function TaskBoardPage() {
             onChange={(e) => setFilterChannel(e.target.value)}
             className="w-full sm:w-44 sm:shrink-0"
             aria-label="Filter by channel"
+            options={[{ value: "", label: "All channels" }, ...channelSelectOptions]}
           >
-            <option value="">All channels</option>
-            {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
           </Select>
         </div>
       </header>
@@ -170,14 +170,14 @@ export default function TaskBoardPage() {
           <form onSubmit={handleCreate}>
             <CardPanel>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Select
-                  value={createChannel}
-                  onChange={(e) => setCreateChannel(e.target.value)}
-                  className="w-full sm:w-40 sm:shrink-0"
-                  aria-label="Task channel"
-                >
-                  {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-                </Select>
+          <Select
+            value={createChannel}
+            onChange={(e) => setCreateChannel(e.target.value)}
+            className="w-full sm:w-40 sm:shrink-0"
+            aria-label="Task channel"
+            options={channelSelectOptions}
+          >
+          </Select>
                 <Input value={title}
                   onChange={(e) => setTitle((e.target as HTMLInputElement).value)}
                   placeholder="Task title — what needs doing?" className="min-w-0 flex-1" />

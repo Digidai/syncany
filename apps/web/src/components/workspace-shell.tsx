@@ -80,6 +80,7 @@ function useVisualViewportHeight() {
     const root = document.documentElement;
     let frame = 0;
     let focusTimer: number | null = null;
+    let focusInFlight = false;
 
     const update = () => {
       window.cancelAnimationFrame(frame);
@@ -93,8 +94,28 @@ function useVisualViewportHeight() {
           const active = document.activeElement;
           if (isKeyboardTarget(active)) {
             active.scrollIntoView({ block: "end", inline: "nearest" });
+            const composerFooter = document.querySelector<HTMLElement>("[data-testid=\"message-composer-footer\"]");
+            composerFooter?.scrollIntoView({ block: "end", inline: "nearest" });
           }
         }, 50);
+      });
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!target || !isKeyboardTarget(target as Element)) return;
+      if (focusInFlight) return;
+      focusInFlight = true;
+      window.requestAnimationFrame(() => {
+        const active = event.target as Element | null;
+        if (active && isKeyboardTarget(active)) {
+          update();
+        }
+        window.setTimeout(() => {
+          const footer = document.querySelector<HTMLElement>("[data-testid=\"message-composer-footer\"]");
+          footer?.scrollIntoView({ block: "end", inline: "nearest" });
+          focusInFlight = false;
+        }, 40);
       });
     };
 
@@ -103,6 +124,7 @@ function useVisualViewportHeight() {
     window.visualViewport?.addEventListener("scroll", update);
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
+    document.addEventListener("focusin", handleFocusIn);
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -111,6 +133,7 @@ function useVisualViewportHeight() {
       window.visualViewport?.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
+      document.removeEventListener("focusin", handleFocusIn);
       root.style.removeProperty("--raltic-visual-viewport-height");
     };
   }, []);

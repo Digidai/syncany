@@ -361,17 +361,17 @@
 [data-slot="modal-close-trigger"].close-button {
   width: 2rem;
   height: 2rem;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--overlay-close-border, var(--border));
   border-radius: 9999px;
-  color: var(--foreground);
-  background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
+  color: var(--overlay-close-fg, var(--foreground));
+  background-color: var(--overlay-close-bg, color-mix(in srgb, var(--background) 92%, var(--foreground) 8%));
   box-shadow: 0 1px 3px rgba(20, 18, 15, 0.08);
 }
 
 [data-slot="modal-close-trigger"].close-button:hover,
 [data-slot="modal-close-trigger"].close-button[data-hovered="true"] {
-  color: var(--foreground);
-  background-color: color-mix(in srgb, var(--background) 84%, var(--foreground) 14%);
+  color: var(--overlay-close-fg-hover, var(--overlay-close-fg, var(--foreground)));
+  background-color: var(--overlay-close-bg-hover, color-mix(in srgb, var(--background) 84%, var(--foreground) 14%));
 }
 
 [data-slot="modal-close-trigger"].close-button:focus-visible,
@@ -441,6 +441,11 @@
   --default-hover: #e4ecef;
   --default-foreground: #25313a;
   --color-default-hover: #e4ecef;
+  --overlay-close-bg: color-mix(in srgb, #ffffff 94%, #161a1d 6%);
+  --overlay-close-bg-hover: color-mix(in srgb, #ffffff 86%, #161a1d 14%);
+  --overlay-close-fg: #161a1d;
+  --overlay-close-fg-hover: #161a1d;
+  --overlay-close-border: color-mix(in srgb, #161a1d 22%, #ffffff 78%);
   --surface-shadow: 0 16px 40px rgba(21, 35, 45, 0.08);
   --overlay-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
   --field-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -498,6 +503,11 @@
   --default-hover: #26343a;
   --default-foreground: #e5ecef;
   --color-default-hover: #26343a;
+  --overlay-close-bg: color-mix(in srgb, #151a1d 78%, #f3f7f8 22%);
+  --overlay-close-bg-hover: color-mix(in srgb, #151a1d 70%, #f3f7f8 30%);
+  --overlay-close-fg: #f3f7f8;
+  --overlay-close-fg-hover: #f3f7f8;
+  --overlay-close-border: color-mix(in srgb, #f3f7f8 32%, #151a1d 68%);
   --surface-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
   --overlay-shadow: 0 22px 64px rgba(0, 0, 0, 0.42);
   --field-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
@@ -537,6 +547,11 @@
   --default-hover: #e4ecef;
   --default-foreground: #25313a;
   --color-default-hover: #e4ecef;
+  --overlay-close-bg: color-mix(in srgb, var(--overlay) 94%, var(--overlay-foreground) 6%);
+  --overlay-close-bg-hover: color-mix(in srgb, var(--overlay) 86%, var(--overlay-foreground) 14%);
+  --overlay-close-fg: var(--overlay-foreground);
+  --overlay-close-fg-hover: var(--overlay-foreground);
+  --overlay-close-border: color-mix(in srgb, var(--overlay-foreground) 22%, var(--overlay) 78%);
   --overlay-shadow: 0 22px 64px rgba(15, 23, 42, 0.22);
   --autofill-bg: var(--overlay);
 }
@@ -576,6 +591,11 @@
   --default-hover: #26343a;
   --default-foreground: #e5ecef;
   --color-default-hover: #26343a;
+  --overlay-close-bg: color-mix(in srgb, var(--overlay) 84%, var(--overlay-foreground) 16%);
+  --overlay-close-bg-hover: color-mix(in srgb, var(--overlay) 74%, var(--overlay-foreground) 26%);
+  --overlay-close-fg: var(--overlay-foreground);
+  --overlay-close-fg-hover: var(--overlay-foreground);
+  --overlay-close-border: color-mix(in srgb, var(--overlay-foreground) 36%, var(--overlay) 64%);
   --overlay-shadow: 0 24px 72px rgba(0, 0, 0, 0.5);
   --autofill-bg: var(--overlay);
 }
@@ -989,6 +1009,7 @@ textarea:-webkit-autofill {
   caret-color: var(--primary);
   font-size: 1rem;
   line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
 .tiptap-input--composer .ProseMirror p.is-editor-empty:first-child::before {
@@ -999,5 +1020,28 @@ textarea:-webkit-autofill {
 @media (min-width: 640px) {
   .tiptap-input--composer .ProseMirror {
     font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 767px) {
+  [data-chat-surface="heroui-pro-template-chat"] .tiptap-input--composer .ProseMirror,
+  [data-chat-surface="heroui-pro-template-chat"] input,
+  [data-chat-surface="heroui-pro-template-chat"] textarea,
+  [data-chat-surface="heroui-pro-template-chat"] [role="textbox"] {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
+
+  [data-chat-surface="heroui-pro-template-chat"] [data-slot="modal-close-trigger"],
+  [data-slot="dialog-close-trigger"],
+  [data-slot="alert-dialog-close-trigger"] {
+    min-width: 2.4rem;
+    min-height: 2.4rem;
+  }
+
+  .message-composer-footer {
+    position: sticky;
+    left: 0;
+    right: 0;
   }
 }

@@ -10,6 +10,10 @@
 // risks crashing itself.
 
 import { useEffect } from "react";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Button } from "@/components/heroui-pro/button";
 
 export default function GlobalError({ error, reset }: {
   error: Error & { digest?: string };
@@ -22,47 +26,39 @@ export default function GlobalError({ error, reset }: {
 
   return (
     <html lang="en">
-      <body
-        style={{
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          background: "#0a0a0a",
-          color: "#e4e4e7",
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: 0,
-          padding: "2rem",
-        }}
-      >
-        <div style={{ maxWidth: 480, textAlign: "center" }}>
-          <h1 style={{ fontSize: "1.75rem", margin: "0 0 0.5rem", fontWeight: 600 }}>
-            Raltic stopped responding
-          </h1>
-          <p style={{ color: "#a1a1aa", margin: "0 0 1.5rem" }}>
-            The app hit an unrecoverable error before the page could load.
-            Try refreshing. If it persists, our team has been notified.
-          </p>
-          {error.digest && (
-            <p style={{ color: "#71717a", fontSize: "0.75rem", fontFamily: "ui-monospace, monospace", margin: "0 0 1.5rem" }}>
-              {error.digest}
-            </p>
-          )}
-          <button
-            onClick={() => reset()}
-            style={{
-              padding: "0.625rem 1.25rem",
-              background: "white",
-              color: "black",
-              border: "none",
-              borderRadius: "0.5rem",
-              cursor: "pointer",
-              fontWeight: 500,
-              fontSize: "0.875rem",
-            }}
-          >
-            Reload
-          </button>
+      <body className="bg-background">
+        <div className="flex min-h-screen items-center justify-center bg-background p-8">
+          <Card className="w-full max-w-md">
+            <CardHeader className="gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 text-destructive-foreground">
+                  <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                </span>
+                Raltic stopped responding
+              </CardTitle>
+              <CardDescription>
+                The app hit an unrecoverable error before the page could load.
+              </CardDescription>
+            </CardHeader>
+            <CardPanel className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Try reloading first. If it keeps happening, our team has been notified.
+              </p>
+              {error.digest && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive-foreground">
+                  Reference: {error.digest}
+                </p>
+              )}
+            </CardPanel>
+            <CardFooter className="gap-2">
+              <Button type="button" onPress={() => reset()} className="w-full sm:w-auto">
+                Reload
+              </Button>
+              <Button type="button" variant="outline" render={<Link href="/" />} className="w-full sm:w-auto">
+                Home
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </body>
     </html>

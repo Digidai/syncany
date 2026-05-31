@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { safeNext } from "@/lib/safe-redirect";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
+import { Field, FieldLabel } from "@/components/heroui-pro/field";
 
 /**
  * Landing page for email verification.
@@ -188,16 +189,18 @@ function ErrorPanel({
           </p>
         ) : (
           <form onSubmit={handleResend} className="mt-6 space-y-3 text-left">
-            <label className="block text-xs font-medium" htmlFor="resend-email">Email</label>
-            <Input
-              id="resend-email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
-              placeholder="you@example.com"
-            />
+            <Field>
+              <FieldLabel htmlFor="resend-email">Email</FieldLabel>
+              <Input
+                id="resend-email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
+                placeholder="you@example.com"
+              />
+            </Field>
             <Button
               type="submit"
               disabled={resending || !email.trim()}
