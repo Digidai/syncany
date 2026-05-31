@@ -218,6 +218,7 @@ test("sidebar destination pages fill the workspace main column and keep navigati
       const root = stage?.firstElementChild as HTMLElement | null;
       const header = main?.querySelector<HTMLElement>("header");
       const active = document.querySelector<HTMLElement>("[data-testid='workspace-sidebar'] [aria-current='page']");
+      const activeContent = active?.closest<HTMLElement>(".sidebar__menu-item-content") ?? null;
       const topDestinationLinks = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='workspace-sidebar'] nav a"))
         .filter((el) => ["Inbox", "Tasks", "Agents", "People"].includes(el.textContent?.trim() ?? ""))
         .map((el) => {
@@ -241,6 +242,7 @@ test("sidebar destination pages fill the workspace main column and keep navigati
         root: rect(root),
         header: rect(header),
         active: rect(active),
+        activeContent: rect(activeContent),
         topDestinationGaps: topDestinationLinks.slice(1).map((row, index) => row.top - topDestinationLinks[index].bottom),
         mainListRowShadows: Array.from(main?.querySelectorAll<HTMLElement>("li") ?? [])
           .map((el) => getComputedStyle(el).boxShadow)
@@ -264,6 +266,8 @@ test("sidebar destination pages fill the workspace main column and keep navigati
       expect(pageMetrics.active?.height, `${destination.nav} active row height`).toBeCloseTo(32, 1);
       expect(pageMetrics.active?.borderRadius, `${destination.nav} active row should not render as a square slab`).not.toBe("0px");
       expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should not use the old solid green fill`).not.toBe("rgb(84, 167, 131)");
+      expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should render one visible layer`).not.toBe("rgba(0, 0, 0, 0)");
+      expect(pageMetrics.activeContent?.backgroundColor, `${destination.nav} HeroUI wrapper should not add a second active layer`).toBe("rgba(0, 0, 0, 0)");
     }
   }
 });

@@ -564,6 +564,8 @@
 
 .raltic-workspace-layout [data-testid="workspace-sidebar"] .sidebar__menu-item-content,
 .raltic-workspace-mobile-sidebar .sidebar__menu-item-content {
+  background-color: transparent !important;
+  box-shadow: none !important;
   gap: 0.5rem !important;
   padding-block: 0 !important;
 }

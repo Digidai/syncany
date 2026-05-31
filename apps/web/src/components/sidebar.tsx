@@ -337,7 +337,7 @@ const SIDEBAR_ITEM_CLASS =
   "!my-0 !rounded-[8px] !outline-none !p-0";
 
 const SIDEBAR_LINK_CLASS =
-  "flex h-8 w-full min-w-0 items-center gap-2 rounded-[8px] px-2.5 text-sm text-sidebar-foreground transition-[background-color,color,border-color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:bg-[var(--accent-soft)] data-[current=true]:text-[var(--accent-soft-foreground)] data-[current=true]:font-semibold data-[current=true]:ring-1 data-[current=true]:ring-accent/20";
+  "flex h-8 w-full min-w-0 items-center gap-2 rounded-[8px] border-l-2 border-transparent px-2.5 text-sm text-sidebar-foreground transition-[background-color,color,border-color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:border-sidebar-primary data-[current=true]:bg-sidebar-accent data-[current=true]:text-sidebar-accent-foreground data-[current=true]:font-semibold";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
