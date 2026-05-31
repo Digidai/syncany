@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertCircle, RotateCw } from "lucide-react";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 
 /**
  * Workspace-level error boundary. Catches uncaught render errors from
@@ -27,7 +28,8 @@ export default function WorkspaceError({ error, reset }: {
 
   return (
     <div className="flex h-full w-full flex-1 items-center justify-center p-8">
-      <div className="max-w-md rounded-lg border bg-card p-6 text-center shadow-sm">
+      <Card className="max-w-md text-center">
+        <CardPanel className="p-6">
         <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
         </div>
@@ -48,7 +50,8 @@ export default function WorkspaceError({ error, reset }: {
           <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
           Try again
         </Button>
-      </div>
+        </CardPanel>
+      </Card>
     </div>
   );
 }

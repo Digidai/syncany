@@ -29,7 +29,7 @@
   --code-foreground: var(--foreground);
   --foreground: #18181B;
   --muted: #6C7470;
-  --muted-foreground: #6C7470;
+  --muted-foreground: #58615D;
   --overlay: #FFFFFF;
   --overlay-foreground: #18181B;
   --surface: #FFFFFF;
@@ -40,7 +40,7 @@
   --surface-secondary-foreground: #18181B;
   --surface-tertiary-foreground: #18181B;
   --accent: #54A783;
-  --accent-foreground: #FCFCFC;
+  --accent-foreground: #18181B;
   --accent-hover: #4B9675;
   --accent-soft: rgba(84, 167, 131, 0.15);
   --accent-soft-foreground: #437861;
@@ -122,7 +122,7 @@
   --destructive-foreground: var(--danger-foreground);
   --info: var(--chart-2);
   --info-foreground: #18181B;
-  --sidebar: transparent;
+  --sidebar: #EEF4F1;
   --sidebar-foreground: #53616A;
   --sidebar-accent: var(--surface-secondary);
   --sidebar-accent-foreground: #18181B;
@@ -336,7 +336,7 @@
   --surface-secondary-foreground: #FCFCFC;
   --surface-tertiary-foreground: #FCFCFC;
   --accent: #54A783;
-  --accent-foreground: #FCFCFC;
+  --accent-foreground: #18181B;
   --accent-hover: #4B9675;
   --accent-soft: rgba(84, 167, 131, 0.12);
   --accent-soft-foreground: #85BEA3;
@@ -423,13 +423,13 @@
   --destructive-foreground: var(--danger-foreground);
   --info: var(--chart-2);
   --info-foreground: #FCFCFC;
-  --sidebar: transparent;
+  --sidebar: #0B0F0D;
   --sidebar-foreground: #C1CDD3;
   --sidebar-accent: #1F2A2F;
   --sidebar-accent-foreground: #FCFCFC;
   --sidebar-border: #28363C;
   --sidebar-primary: #54A783;
-  --sidebar-primary-foreground: #FCFCFC;
+  --sidebar-primary-foreground: #18181B;
   --sidebar-ring: #54A783;
   --code-highlight: #1F292D;
   --background-gradient: var(--background);
@@ -560,6 +560,12 @@
 [data-theme="dark"] .sidebar__mobile-dialog:has(.raltic-workspace-mobile-sidebar) {
   --background-gradient: var(--background);
   --autofill-bg: var(--surface);
+}
+
+.raltic-workspace-layout [data-testid="workspace-sidebar"] .sidebar__menu-item-content,
+.raltic-workspace-mobile-sidebar .sidebar__menu-item-content {
+  gap: 0.5rem !important;
+  padding-block: 0 !important;
 }
 
 .raltic-overlay-scope {

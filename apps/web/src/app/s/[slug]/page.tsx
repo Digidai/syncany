@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { api } from "@/lib/api";
 import { SetupWizard } from "@/components/setup-wizard";
-import { BrandMonogram, GradientText } from "@/components/brand";
+import { BrandMonogram } from "@/components/brand";
 import { Sparkles, ExternalLink } from "lucide-react";
 
 interface ServerStats {
@@ -168,21 +170,17 @@ export default function ServerHomePage() {
   if (!stats) return <div className="flex flex-1 items-center justify-center"><div className="text-sm text-muted-foreground">Workspace not found</div></div>;
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center px-8">
-      {/* Subtle hero wash — keeps the empty workspace from feeling like
-          a 404 page while the user is still figuring out what to do. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-1/3 h-[420px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(6,182,212,0.10),_transparent_70%)]" />
-      </div>
-      <div className="max-w-md w-full text-center">
+    <div className="relative flex h-full w-full min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+      <Card className="w-full max-w-md text-center">
+        <CardPanel className="p-8">
         <BrandMonogram letter={stats.name} size="xl" className="mx-auto mb-6" />
         <h1 className="mb-2 font-heading text-2xl font-semibold leading-tight">
-          Welcome to <GradientText>{stats.name}</GradientText>
+          Welcome to {stats.name}
         </h1>
         {stats.description && (
           <p className="text-sm text-muted-foreground mb-6">{stats.description}</p>
         )}
-        <div className="flex justify-center gap-8 mb-8">
+        <div className="mb-8 grid grid-cols-2 gap-3">
           <Stat label="Agents" value={stats.agentCount} />
           <Stat label="Channels" value={stats.channelCount} />
         </div>
@@ -241,18 +239,21 @@ export default function ServerHomePage() {
               You're a member here. Use the sidebar to jump into a channel.
             </p>
             {personal && hasBridgeInPersonal === false && (
-              <Link
-                href={`/s/${personal.slug}?wizard=1`}
-                className="inline-flex items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent"
+              <Button
+                render={<Link href={`/s/${personal.slug}?wizard=1`} />}
+                variant="outline"
+                size="sm"
+                className="w-full justify-center sm:w-auto"
               >
                 <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
                 Set up your bridge in your own workspace to bring YOUR agents online
                 <ExternalLink className="h-3 w-3 opacity-60" />
-              </Link>
+              </Button>
             )}
           </div>
         )}
-      </div>
+        </CardPanel>
+      </Card>
 
       {/* Wizard ALWAYS targets the user's PERSONAL workspace, regardless
           of how it was opened (auto-pop OR explicit ?wizard=1). The
@@ -284,9 +285,11 @@ export default function ServerHomePage() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="text-center">
-      <div className="text-2xl font-semibold text-foreground">{value}</div>
-      <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
-    </div>
+    <Card className="!shadow-none">
+      <CardPanel className="p-3 text-center">
+        <div className="text-2xl font-semibold text-foreground">{value}</div>
+        <Chip size="sm" variant="soft" color="default" className="mt-1 justify-center">{label}</Chip>
+      </CardPanel>
+    </Card>
   );
 }

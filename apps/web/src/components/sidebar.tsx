@@ -123,7 +123,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
   const sidebarContent = () => (
     <>
-      <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-4 !pb-3 !pt-4">
+      <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-3 !pb-2 !pt-3">
         <div className="flex-1 min-w-0">
           <WorkspaceSwitcher
             currentServerId={serverId}
@@ -137,7 +137,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           onClick={openCreateDialog}
           variant="outline"
           size="icon-sm"
-          className="h-9 w-9 shrink-0 rounded-full text-muted-foreground"
+          className="h-8 w-8 shrink-0 rounded-[8px] border-border bg-surface text-muted-foreground hover:border-accent/25 hover:bg-surface-secondary hover:text-foreground"
           title="New channel"
           aria-label="Create channel"
         >
@@ -147,7 +147,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
       <HeroSidebar.Content
         data-testid="workspace-sidebar-scroll"
-        className="!min-h-0 !flex-1 !gap-0 !px-4 !pb-3 !pt-0 text-sm"
+        className="!min-h-0 !flex-1 !gap-0 !px-3 !pb-2 !pt-0 text-sm"
       >
         <nav aria-label="Workspace navigation" className="text-sm">
           {isLoading ? (
@@ -157,7 +157,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
               {/* Top-level destination — sibling of Channels / DMs / Agents,
                   rendered as a single row (no section header) since there's
                   only one item under "Tasks". */}
-              <HeroSidebar.Menu className="space-y-1" aria-label="Workspace destinations">
+              <HeroSidebar.Menu className="!gap-0.5 space-y-0" aria-label="Workspace destinations">
                 <TopLevelLink
                   href={`/s/${serverSlug}/inbox`}
                   icon={<InboxIcon className="h-4 w-4" />}
@@ -198,7 +198,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 headerAction={
                   <Link
                     href={`/s/${serverSlug}/channels`}
-                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 hover:bg-default hover:text-foreground focus-visible:opacity-100"
+                    className={cn(
+                      "ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 transition-all hover:bg-default hover:text-foreground focus-visible:opacity-100",
+                      isMobile ? "opacity-100" : "opacity-0 group-hover/group:opacity-100",
+                    )}
                     title="Browse all channels"
                     aria-label="Browse all public channels"
                   >
@@ -224,7 +227,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                     onClick={openNewDmDialog}
                     variant="ghost"
                     size="icon-xs"
-                    className="ml-1 h-5 w-5 text-muted-foreground/60 opacity-0 transition-all group-hover/group:opacity-100 focus-visible:opacity-100"
+                    className={cn(
+                      "ml-1 h-5 w-5 text-muted-foreground/60 transition-all focus-visible:opacity-100",
+                      isMobile || dmChannels.length === 0 ? "opacity-100" : "opacity-0 group-hover/group:opacity-100",
+                    )}
                     title="Start a new direct message"
                     aria-label="Start a new direct message"
                   >
@@ -234,7 +240,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
                 // Render the empty-state row so the "+" stays discoverable
                 // for a brand-new workspace user who has zero DMs yet.
                 emptyHint={
-                  <p className="rounded-xl border border-dashed border-border bg-default px-3 py-2 text-[11px] text-muted-foreground">
+                  <p className="rounded-lg border border-dashed border-sidebar-border bg-sidebar-accent/45 px-2.5 py-2 text-[11px] text-sidebar-foreground">
                     No conversations yet. Tap <span className="font-mono">+</span> to start one.
                   </p>
                 }
@@ -260,7 +266,7 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
-      <HeroSidebar.Footer className="!gap-0 border-t border-sidebar-border bg-sidebar !px-4 !py-3">
+      <HeroSidebar.Footer className="!gap-0 border-t border-sidebar-border bg-sidebar !px-3 !py-2.5">
         <UserPill serverSlug={serverSlug} />
       </HeroSidebar.Footer>
     </>
@@ -273,8 +279,8 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
           data-testid="workspace-sidebar"
           className="!sticky !top-0 !min-h-0 !border-r !border-sidebar-border !bg-sidebar"
           style={{
-            "--sidebar-width": "15rem",
-            "--sidebar-width-collapsed": "15rem",
+            "--sidebar-width": "17rem",
+            "--sidebar-width-collapsed": "17rem",
             height: "var(--raltic-visual-viewport-height)",
           } as CSSProperties}
         >
@@ -305,7 +311,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
         serverId={serverId}
         open={openCreate}
         onOpenChange={setOpenCreate}
-        onCreated={() => location.reload()}
+        onCreated={() => {
+          setOpenCreate(false);
+          reloadChannels();
+        }}
       />
       {/* DM picker. Existing peers come from DM channel peer metadata so
           the "in DMs" hint is consistent for humans and agents. Agent
@@ -325,10 +334,10 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 // ── Building blocks (one source of truth for sidebar row rhythm) ──
 
 const SIDEBAR_ITEM_CLASS =
-  "!rounded-xl !outline-none";
+  "!my-0 !rounded-[8px] !outline-none !p-0";
 
 const SIDEBAR_LINK_CLASS =
-  "flex min-h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:bg-sidebar-primary data-[current=true]:text-sidebar-primary-foreground data-[current=true]:shadow-sm";
+  "flex h-8 w-full min-w-0 items-center gap-2 rounded-[8px] px-2.5 text-sm text-sidebar-foreground transition-[background-color,color,border-color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[current=true]:bg-[var(--accent-soft)] data-[current=true]:text-[var(--accent-soft-foreground)] data-[current=true]:font-semibold data-[current=true]:ring-1 data-[current=true]:ring-accent/20";
 
 /** Map each section name to a brand-tinted dot — visual rhythm that says
  *  "this is Raltic" without printing the logo on every group label. */
@@ -351,8 +360,8 @@ function SidebarGroup({
 }) {
   const dot = GROUP_DOT[label] ?? "bg-muted-foreground/40";
   return (
-    <HeroSidebar.Group className="group/group mt-5 !gap-1.5 first:mt-0">
-      <HeroSidebar.GroupLabel className="!flex !items-center !gap-1.5 !px-2 !py-1 text-[10.5px] font-medium uppercase text-muted-foreground/80">
+    <HeroSidebar.Group className="group/group mt-4 !gap-1 first:mt-0">
+      <HeroSidebar.GroupLabel className="!flex !items-center !gap-1.5 !px-2 !py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
         <span className={cn("h-1.5 w-1.5 rounded-full", dot)} aria-hidden />
         <span className="flex-1">{label}</span>
         {headerAction}
@@ -523,7 +532,7 @@ function ChannelGroup({
       {channels.length === 0 && emptyHint ? (
         emptyHint
       ) : (
-        <HeroSidebar.Menu className="space-y-1" aria-label={label}>
+        <HeroSidebar.Menu className="!gap-0.5 space-y-0" aria-label={label}>
           {channels.map((c) => (
             <ChannelLink key={c.id} channel={c} activeId={activeId} serverSlug={serverSlug} serverId={serverId} icon={icon} />
           ))}

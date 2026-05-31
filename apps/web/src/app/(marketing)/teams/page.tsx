@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, KeyRound, Users } from "lucide-react";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
@@ -37,10 +38,10 @@ export default function TeamsPage() {
     <>
       <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
         <CardPanel className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-xs font-medium text-amber-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          <Chip size="sm" variant="soft" color="warning" className="gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
             Private beta · Waitlist
-          </span>
+          </Chip>
           <h1 className="mt-7 text-balance text-5xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
             Your team's AI workspace,<br />
             <span className="text-cyan-400">on your terms.</span>

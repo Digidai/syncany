@@ -154,6 +154,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                           key={r}
                           type="button"
                           onClick={() => pickRuntime(r)}
+                          aria-pressed={runtime === r}
                           variant="outline"
                           className={cn(
                             optionButtonClass,
@@ -180,6 +181,7 @@ export function EditAgentDialog({ agent, open, onOpenChange, onSaved }: Props) {
                   <div role="group" aria-labelledby="edit-agent-model-label" className="flex flex-wrap gap-2">
                     {(isCloud ? CLOUD_MODELS : RUNTIME_MODELS[runtime]).map((m) => (
                       <Button key={m} type="button" onClick={() => setModel(m)}
+                        aria-pressed={model === m}
                         variant="outline"
                         size="sm"
                         className={cn(

@@ -9,6 +9,8 @@ import { EditAgentDialog } from "@/components/edit-agent-dialog";
 import { AlertDialog, AlertDialogPopup, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogClose } from "@/components/heroui-pro/alert-dialog";
 import { Button } from "@/components/heroui-pro/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
+import { Tabs, TabsIndicator, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
 import { useAgentActivity } from "@/hooks/use-agent-activity";
 import { MessageSquare, Pencil, Trash2, Hash, ListChecks, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -238,12 +240,12 @@ export default function AgentProfilePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
       {/* max-w-5xl keeps the action buttons next to the agent name on
           wide viewports instead of floating to the far right. Matches
           the body column constraint below so header + cards align. */}
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-start">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:flex-row sm:items-start">
           <GeneratedAvatar id={agent.id} name={agent.displayName} seed={agent.avatarSeed} size="xl" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -282,7 +284,7 @@ export default function AgentProfilePage() {
           </div>
         </div>
         {live?.label && (
-          <p className="mx-auto mt-2 max-w-5xl text-xs text-muted-foreground truncate">
+          <p className="mx-auto mt-2 w-full max-w-5xl text-xs text-muted-foreground truncate">
             {live.label}{live.detail ? ` — ${live.detail}` : ""}
           </p>
         )}
@@ -294,12 +296,14 @@ export default function AgentProfilePage() {
           the left + right of the centered tab strip and the active
           tab's 2px cyan border did not seam cleanly with the surrounding
           1px gray — visually "the top bar was a half / broken edge". */}
-      <div className="border-b bg-card">
-        <nav
-          role="tablist"
-          aria-label="Agent sections"
-          className="mx-auto flex max-w-5xl gap-1 px-6"
-        >
+      <Tabs
+        selectedKey={tab}
+        onSelectionChange={(key) => setTab(key as TabKey)}
+        className="shrink-0 border-b border-border/70 bg-card"
+      >
+        <TabsListContainer className="mx-auto w-full max-w-5xl px-6">
+          <TabsList aria-label="Agent sections" className="gap-1">
+            <TabsIndicator />
           {([
             { key: "chat",     label: "Chat",     icon: MessageSquare },
             { key: "tasks",    label: "Tasks",    icon: ListChecks },
@@ -309,36 +313,27 @@ export default function AgentProfilePage() {
             const active = tab === t.key;
             const Icon = t.icon;
             return (
-              <Button
+              <TabsTrigger
                 key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setTab(t.key)}
-                variant="ghost"
-                size="sm"
+                id={t.key}
                 className={cn(
-                  // -mb-px pulls the tab's 2px bottom border down so it
-                  // overlaps + visually "consumes" the bar's 1px border
-                  // exactly under the active tab. Inactive tabs stay
-                  // border-transparent so the bar line shows through —
-                  // continuous gray rule across the whole bar width.
-                  "-mb-px h-10 rounded-none border-b-2 px-3 text-sm transition-colors",
+                  "h-10 gap-1.5 rounded-none px-3 text-sm",
                   active
-                    ? "border-cyan-500 text-cyan-700 dark:text-cyan-400"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
+                    ? "text-cyan-700 dark:text-cyan-400"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {t.label}
-              </Button>
+              </TabsTrigger>
             );
           })}
-        </nav>
-      </div>
+          </TabsList>
+        </TabsListContainer>
+      </Tabs>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
-        <div className="mx-auto flex min-w-0 max-w-5xl flex-col gap-4">
+      <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
+        <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-4">
           {tab === "chat" && (
             <>
               {agent.systemPrompt && <SystemPromptCard prompt={agent.systemPrompt} />}
@@ -360,13 +355,15 @@ export default function AgentProfilePage() {
                   {history && history.length > 0 && (
                     <ul className="space-y-2">
                       {history.map((m) => (
-                        <li key={m.id} className="rounded border bg-background p-2 text-sm">
+                      <Card render={<li />} key={m.id} className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+                        <CardPanel className="p-2 text-sm">
                           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                             <span>{m.senderType === "agent" ? agent.displayName : "You"}</span>
                             <time>{new Date(m.createdAt).toLocaleString()}</time>
                           </div>
                           <p className="mt-1 min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{m.content}</p>
-                        </li>
+                        </CardPanel>
+                      </Card>
                       ))}
                     </ul>
                   )}
@@ -395,7 +392,8 @@ export default function AgentProfilePage() {
                 {tasks && tasks.length > 0 && (
                   <ul className="space-y-2">
                     {tasks.map((t) => (
-                      <li key={t.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+                      <Card render={<li />} key={t.id} className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+                        <CardPanel className="flex flex-wrap items-center gap-3 p-3 text-sm">
                         <span className={cn(
                           "h-2 w-2 shrink-0 rounded-full",
                           t.status === "done" ? "bg-emerald-500"
@@ -410,7 +408,8 @@ export default function AgentProfilePage() {
                             updated {new Date(t.updatedAt).toLocaleDateString()}
                           </div>
                         </div>
-                      </li>
+                        </CardPanel>
+                      </Card>
                     ))}
                   </ul>
                 )}
@@ -439,7 +438,8 @@ export default function AgentProfilePage() {
                 {channels && channels.length > 0 && (
                   <ul className="space-y-1.5">
                     {channels.map((c) => (
-                      <li key={c.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm hover:bg-accent/30">
+                      <Card render={<li />} key={c.id} className="border-transparent bg-[var(--surface-secondary)] !shadow-none transition-colors hover:border-accent/25">
+                        <CardPanel className="flex min-w-0 items-center justify-between gap-3 px-3 py-2 text-sm">
                         <Link
                           href={`/s/${slug}/${c.type === "dm" ? "dm" : "channel"}/${c.id}`}
                           className="flex min-w-0 flex-1 items-center gap-2"
@@ -452,7 +452,8 @@ export default function AgentProfilePage() {
                         <span className="shrink-0 text-[10.5px] text-muted-foreground">
                           since {new Date(c.joinedAt).toLocaleDateString()}
                         </span>
-                      </li>
+                        </CardPanel>
+                      </Card>
                     ))}
                   </ul>
                 )}
@@ -479,13 +480,13 @@ export default function AgentProfilePage() {
                     <Trash2 className="me-1 h-3.5 w-3.5" /> Delete agent
                   </Button>
                 </div>
-                <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-2">
                   <dt className="text-muted-foreground">Identifier</dt>
-                  <dd className="font-mono">@{agent.name}</dd>
+                  <dd className="min-w-0 break-all font-mono">@{agent.name}</dd>
                   <dt className="text-muted-foreground">Runtime</dt>
-                  <dd className="capitalize">{agent.runtime}</dd>
+                  <dd><Chip size="sm" variant="soft" color="accent" className="capitalize">{agent.runtime}</Chip></dd>
                   <dt className="text-muted-foreground">Model</dt>
-                  <dd className="font-mono">{agent.model}</dd>
+                  <dd className="min-w-0 break-all font-mono">{agent.model}</dd>
                   <dt className="text-muted-foreground">Created</dt>
                   <dd>{new Date(agent.createdAt).toLocaleString()}</dd>
                 </dl>

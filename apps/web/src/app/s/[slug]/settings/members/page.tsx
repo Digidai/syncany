@@ -9,6 +9,7 @@ import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
+import { Chip } from "@/components/heroui-pro/chip";
 import { InvitePresetButton, InviteRow, KeyCommandBlock } from "@/components/settings-shared";
 import { useSettings, SettingsSection } from "../layout";
 
@@ -167,10 +168,12 @@ export default function MembersSettingsPage() {
           </div>
 
           {issuedInvite && (
-            <div className="rounded-md border border-emerald-500/40 bg-emerald-50 p-3 text-xs">
+            <Card className="border-emerald-500/40 bg-emerald-50">
+              <CardPanel className="p-3 text-xs">
               <p className="mb-2 font-medium text-emerald-800">✓ Link copied — share it with whoever should join:</p>
               <KeyCommandBlock cmd={issuedInvite.url} />
-            </div>
+              </CardPanel>
+            </Card>
           )}
 
           {invites.filter(i => !i.revokedAt).length > 0 && (
@@ -200,7 +203,8 @@ export default function MembersSettingsPage() {
           ) : (
             <ul className="space-y-2">
               {members.map((m) => (
-                <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-lg border p-2.5 text-sm">
+                <Card render={<li />} key={m.userId} className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+                  <CardPanel className="flex flex-wrap items-center gap-3 p-2.5 text-sm">
                   {m.image
                     ? <img src={m.image} alt="" className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-medium text-cyan-700">{m.name.slice(0, 1).toUpperCase()}</div>}
@@ -218,7 +222,8 @@ export default function MembersSettingsPage() {
                       onClick={() => setRemoveTarget({ userId: m.userId, name: m.name })}
                     >Remove</Button>
                   )}
-                </li>
+                  </CardPanel>
+                </Card>
               ))}
             </ul>
           )}
@@ -251,15 +256,11 @@ export default function MembersSettingsPage() {
 // and removing the wrong person here is the most consequential mistake.
 // ---------------------------------------------------------------------------
 function RoleBadge({ role, className }: { role: string; className?: string }) {
-  const styles =
-    role === "owner"
-      ? "bg-amber-500/15 text-amber-800 ring-amber-500/30"
-      : role === "admin"
-      ? "bg-cyan-500/10 text-cyan-700 ring-cyan-500/30"
-      : "bg-zinc-100 text-zinc-700 ring-zinc-300";
+  const color: "warning" | "accent" | "default" =
+    role === "owner" ? "warning" : role === "admin" ? "accent" : "default";
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ${styles} ${className ?? ""}`}>
+    <Chip size="sm" variant="soft" color={color} className={`capitalize ${className ?? ""}`}>
       {role}
-    </span>
+    </Chip>
   );
 }

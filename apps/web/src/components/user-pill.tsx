@@ -44,7 +44,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
   // review MED — without the reservation the footer jumps ~14px.
   if (isPending || !session?.user) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/60 px-2 py-2 shadow-sm dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface/85 px-2 py-1.5 !shadow-none dark:border-white/10 dark:bg-white/5">
         <div className="h-8 w-8 animate-pulse rounded-xl bg-muted/60" />
         <div className="min-w-0 flex-1">
           {/* Skeleton heights match the resolved pill: name row uses
@@ -66,7 +66,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         data-testid="user-pill-trigger"
-        className="group flex w-full items-center gap-2 rounded-xl border border-white/60 bg-white/60 px-2 py-2 text-left shadow-sm transition-colors hover:border-cyan-200 hover:bg-white focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+        className="group flex w-full items-center gap-2 rounded-[9px] border border-border bg-surface/85 px-2 py-1.5 text-left !shadow-none transition-colors hover:border-accent/25 hover:bg-surface focus:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
         // No aria-label here — when present, it OVERRIDES the accessible
         // name computed from contents, hiding the visible username from
         // screen readers. The trigger's accessible name now comes from
@@ -102,15 +102,13 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
               (mirrored in the sr-only suffix above for AT users). */}
           <SelfStatusLine />
         </div>
-        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-100/75 text-muted-foreground transition-colors group-hover:bg-cyan-50 group-hover:text-cyan-700 dark:bg-white/10">
+        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[7px] bg-default text-muted-foreground transition-colors group-hover:bg-[var(--accent-soft)] group-hover:text-[var(--accent-soft-foreground)] dark:bg-white/10">
           <ChevronUp className="h-3 w-3" aria-hidden="true" />
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={4} className="w-60">
-        {/* Base UI 1.4 requires MenuGroupLabel (= DropdownMenuLabel) to
-            be wrapped in a MenuGroup. Without it, opening the menu throws
-            "Base UI error #31: MenuGroupContext is missing" and the entire
-            page hits the root error boundary. */}
+        {/* HeroUI/RAC menu labels are grouped so assistive tech reads
+            identity metadata separately from actionable menu items. */}
         <DropdownMenuGroup>
           {/* Status row — mirrors the inline label below the username
               + adds the explanatory subcopy ("teammates can see this")

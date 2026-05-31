@@ -8,6 +8,7 @@ import { api, type Agent, type Channel } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
 import { Button } from "@/components/heroui-pro/button";
+import { Chip } from "@/components/heroui-pro/chip";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { CreateChannelDialog } from "@/components/create-channel-dialog";
 import { CreateAgentDialog } from "@/components/create-agent-dialog";
@@ -150,7 +151,11 @@ export default function ChannelsAgentsPage() {
         serverId={server.id}
         open={openChannel}
         onOpenChange={setOpenChannel}
-        onCreated={() => location.reload()}
+        onCreated={() => {
+          setOpenChannel(false);
+          reload();
+          notifySuccess("Channel created");
+        }}
       />
       <CreateAgentDialog
         serverId={server.id}
@@ -184,25 +189,27 @@ export default function ChannelsAgentsPage() {
 function ChannelRow({ channel, slug }: { channel: Channel; slug: string }) {
   const Icon = channel.type === "private" ? Lock : Hash;
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm transition-colors hover:border-border hover:bg-accent/40">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate font-medium">{channel.name}</span>
-          {channel.type === "private" && (
-            <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700">private</span>
+    <Card render={<li />} className="border-transparent bg-[var(--surface-secondary)] !shadow-none transition-colors hover:border-accent/25">
+      <CardPanel className="flex flex-wrap items-center gap-3 p-3 text-sm">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-medium">{channel.name}</span>
+            {channel.type === "private" && (
+              <Chip size="sm" variant="soft" color="accent" className="text-[10px] uppercase tracking-wider">private</Chip>
+            )}
+          </div>
+          {channel.description && (
+            <p className="truncate text-xs text-muted-foreground">{channel.description}</p>
           )}
         </div>
-        {channel.description && (
-          <p className="truncate text-xs text-muted-foreground">{channel.description}</p>
-        )}
-      </div>
-      <Button variant="ghost" size="sm" render={<Link href={`/s/${slug}/channel/${channel.id}`} />} className="w-full shrink-0 justify-center sm:ml-auto sm:w-auto">
-        Open <ArrowRight className="ms-1 h-3.5 w-3.5" />
-      </Button>
-    </li>
+        <Button variant="ghost" size="sm" render={<Link href={`/s/${slug}/channel/${channel.id}`} />} className="w-full shrink-0 justify-center sm:ml-auto sm:w-auto">
+          Open <ArrowRight className="ms-1 h-3.5 w-3.5" />
+        </Button>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -223,7 +230,8 @@ function AgentRow({
     : agent.status === "sleeping" ? "idle"
     : "offline";
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-accent/30">
+    <Card render={<li />} className="border-transparent bg-[var(--surface-secondary)] !shadow-none transition-colors hover:border-accent/25">
+      <CardPanel className="flex flex-wrap items-center gap-3 p-3 text-sm">
       <GeneratedAvatar id={agent.id} name={agent.displayName} seed={agent.avatarSeed} size="md" />
       <div className="min-w-0 flex-1">
         {/* Name links to profile — that's the canonical "manage agent"
@@ -236,12 +244,12 @@ function AgentRow({
           >
             {agent.displayName}
           </Link>
-          <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+          <Chip size="sm" variant="soft" color="default" className="font-mono text-[10px]">
             @{agent.name}
-          </span>
-          <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-700">
+          </Chip>
+          <Chip size="sm" variant="soft" color="accent" className="text-[10px]">
             {agent.model}
-          </span>
+          </Chip>
           <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
             <span className={`h-1.5 w-1.5 rounded-full ${statusColor}`} aria-hidden="true" />
             {statusLabel}
@@ -275,7 +283,8 @@ function AgentRow({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
-    </li>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -301,16 +310,18 @@ function RestoreOnboardingRow({ serverId, onRestored }: { serverId: string; onRe
     }
   }
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-dashed p-3">
-      <div className="min-w-0">
-        <p className="text-sm font-medium">No Onboarding Assistant in this workspace.</p>
-        <p className="text-xs text-muted-foreground">
-          Re-create the starter agent + welcome channels (#onboarding + DM).
-        </p>
-      </div>
-      <Button onClick={handleRestore} loading={restoring} variant="outline" size="sm" className="shrink-0">
-        Restore
-      </Button>
-    </div>
+    <Card className="border-dashed border-border/70 bg-surface/70 !shadow-none">
+      <CardPanel className="flex flex-col items-start justify-between gap-3 p-3 sm:flex-row sm:items-center">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">No Onboarding Assistant in this workspace.</p>
+          <p className="text-xs text-muted-foreground">
+            Re-create the starter agent + welcome channels (#onboarding + DM).
+          </p>
+        </div>
+        <Button onClick={handleRestore} loading={restoring} variant="outline" size="sm" className="w-full shrink-0 sm:w-auto">
+          Restore
+        </Button>
+      </CardPanel>
+    </Card>
   );
 }

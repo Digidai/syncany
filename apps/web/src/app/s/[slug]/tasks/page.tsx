@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardPanel } from "@/components/heroui-pro/
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Select } from "@/components/heroui-pro/select";
+import { Chip } from "@/components/heroui-pro/chip";
 import { ListChecks } from "lucide-react";
 
 interface Task {
@@ -27,11 +28,15 @@ interface Task {
 }
 
 const COLUMNS = [
-  { key: "todo",        label: "To do",         color: "bg-zinc-100" },
-  { key: "in_progress", label: "In progress",   color: "bg-blue-50" },
-  { key: "in_review",   label: "In review",     color: "bg-amber-50" },
-  { key: "done",        label: "Done",          color: "bg-emerald-50" },
-] as const;
+  { key: "todo",        label: "To do",         color: "default" },
+  { key: "in_progress", label: "In progress",   color: "accent" },
+  { key: "in_review",   label: "In review",     color: "warning" },
+  { key: "done",        label: "Done",          color: "success" },
+] as const satisfies readonly {
+  key: Task["status"];
+  label: string;
+  color: "default" | "accent" | "warning" | "success";
+}[];
 
 export default function TaskBoardPage() {
   const params = useParams();
@@ -129,14 +134,14 @@ export default function TaskBoardPage() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
       {/* Full-width header bar — matches Inbox + Agent profile shells so
           navigating between sidebar destinations doesn't make the top
           chrome jump (used to: Tasks had no header, content floated
           inside padding). Inner row is max-w-5xl mx-auto so the title
           column lines up across pages too. */}
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row sm:items-center">
           {/* Page tint convention (D-style): Inbox=cyan (notice/attention),
               Tasks=amber (todo accent), Agents=emerald (automation),
               People=violet (humans). Distinct per top-level destination
@@ -161,14 +166,14 @@ export default function TaskBoardPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-5xl space-y-6">
-        <Card>
-          <CardHeader>
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div className="mx-auto w-full max-w-5xl space-y-5">
+        <Card className="border-border/70 bg-surface/80 !shadow-none">
+          <CardHeader className="px-4 py-3">
             <CardTitle className="text-sm font-semibold">Quick add</CardTitle>
           </CardHeader>
           <form onSubmit={handleCreate}>
-            <CardPanel>
+            <CardPanel className="px-4 py-3">
               <div className="flex flex-col gap-2 sm:flex-row">
           <Select
             value={createChannel}
@@ -187,24 +192,30 @@ export default function TaskBoardPage() {
           </form>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {COLUMNS.map(col => {
             const colTasks = tasks.filter(t => t.status === col.key);
             return (
-              <div key={col.key} className={"rounded-lg border p-3 " + col.color}>
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {col.label}
-                  <span className="ml-1 rounded bg-white px-1.5 text-[10px]">{colTasks.length}</span>
-                </h3>
+              <Card key={col.key} className="min-w-0 border-border/60 bg-surface/70 !shadow-none">
+                <CardPanel className="p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {col.label}
+                  </h3>
+                  <Chip size="sm" variant="soft" color={col.color}>
+                    {colTasks.length}
+                  </Chip>
+                </div>
                 <div className="space-y-2">
                   {loading && col.key === "todo" && (
                     <p className="text-xs text-muted-foreground">Loading…</p>
                   )}
                   {colTasks.map(t => (
-                    <div key={t.id} className="rounded border bg-white p-2 text-xs shadow-sm">
-                      <div className="flex items-baseline justify-between">
+                    <Card key={t.id} className="border-transparent bg-background/80 !shadow-none">
+                      <CardPanel className="p-2 text-xs">
+                      <div className="flex min-w-0 items-baseline justify-between gap-2">
                         <span className="font-mono text-[10px] text-muted-foreground">#{t.taskNumber}</span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
                           {channelById.get(t.channelId)?.name ?? t.channelId.slice(0, 6)}
                         </span>
                       </div>
@@ -216,7 +227,7 @@ export default function TaskBoardPage() {
                           → {labelFor(t.assigneeType, t.assigneeId)}
                         </div>
                       )}
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="mt-2 grid grid-cols-2 gap-1">
                         {COLUMNS.filter(c => c.key !== col.key).map(other => (
                           <Button
                             key={other.key}
@@ -224,15 +235,17 @@ export default function TaskBoardPage() {
                             onClick={() => move(t, other.key)}
                             variant="outline"
                             size="xs"
-                            className="h-6 px-1.5 text-[10px]"
+                            className="h-6 min-w-0 px-1.5 text-[10px]"
                             title={`Move to ${other.label}`}
-                          >→{other.label.split(" ")[0]}</Button>
+                          >{other.label.split(" ")[0]}</Button>
                         ))}
                       </div>
-                    </div>
+                      </CardPanel>
+                    </Card>
                   ))}
                 </div>
-              </div>
+                </CardPanel>
+              </Card>
             );
           })}
         </div>

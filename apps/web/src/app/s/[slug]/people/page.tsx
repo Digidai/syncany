@@ -8,6 +8,8 @@ import { notifyThrown } from "@/lib/notify";
 import { authClient } from "@/lib/auth-client";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,9 +79,9 @@ export default function PeoplePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-400">
             <Users className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -92,8 +94,8 @@ export default function PeoplePage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-5xl">
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div className="mx-auto w-full max-w-5xl">
           {(members === null || sessionPending) && (
             // Keep the page in Loading state until BOTH the members
             // fetch resolves AND the session resolves; rendering the
@@ -102,23 +104,26 @@ export default function PeoplePage() {
             <p className="text-sm text-muted-foreground">Loading…</p>
           )}
           {members !== null && !sessionPending && members.length === 0 && (
-            <div className="rounded-lg border border-dashed p-8 text-center">
+            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
+              <CardPanel className="p-8">
               <Users className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium">You're the only person here.</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Invite teammates from Settings → Members.
               </p>
-            </div>
+              </CardPanel>
+            </Card>
           )}
           {members !== null && !sessionPending && members.length > 0 && (
             <ul className="space-y-2">
               {members.map((m) => {
                 const isMe = m.userId === meId;
                 return (
-                  <li key={m.userId} className={cn(
-                    "flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20",
+                  <Card render={<li />} key={m.userId} className={cn(
+                    "border-border/60 bg-surface/80 !shadow-none transition-colors hover:border-accent/25",
                     isMe && "opacity-60",
                   )}>
+                    <CardPanel className="flex flex-wrap items-center gap-3 p-3">
                     {m.image ? (
                       <img src={m.image} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
                     ) : (
@@ -148,7 +153,8 @@ export default function PeoplePage() {
                         <ArrowRight className="h-3 w-3" />
                       </Button>
                     )}
-                  </li>
+                    </CardPanel>
+                  </Card>
                 );
               })}
             </ul>
@@ -162,16 +168,16 @@ export default function PeoplePage() {
 function RoleChip({ role }: { role: string }) {
   if (role === "owner") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400">
+      <Chip size="sm" variant="soft" color="warning" className="gap-1 text-[9px] uppercase tracking-wider">
         <Crown className="h-2.5 w-2.5" /> Owner
-      </span>
+      </Chip>
     );
   }
   if (role === "admin") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-violet-700 dark:text-violet-400">
+      <Chip size="sm" variant="soft" color="accent" className="gap-1 text-[9px] uppercase tracking-wider">
         <ShieldCheck className="h-2.5 w-2.5" /> Admin
-      </span>
+      </Chip>
     );
   }
   return null;  // no chip for plain members

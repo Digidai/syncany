@@ -182,13 +182,13 @@ export function CreateChannelDialog({ serverId, open, onOpenChange, onCreated }:
                         variant="outline"
                         size="sm"
                         className={`!h-auto min-w-0 flex-1 flex-col !items-stretch !justify-start !whitespace-normal rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
-                          type === t ? "border-foreground bg-accent" : "border-border hover:bg-accent/40"
+                          type === t ? "border-cyan-500 bg-cyan-500/10 text-foreground" : "border-border hover:bg-accent/40"
                         }`}>
                         <div className="flex items-center gap-2 font-medium">
                           {t === "public" ? <Hash className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                           {t === "public" ? "Public" : "Private"}
                         </div>
-                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        <div className={`mt-0.5 text-[11px] ${type === t ? "text-foreground/80" : "text-muted-foreground"}`}>
                           {t === "public"
                             ? "Anyone in the workspace can find and join."
                             : "Only invited members can see this channel."}
@@ -325,14 +325,14 @@ function PickerRow({ checked, onToggle, avatar, primary, secondary }: {
       variant="ghost"
       size="sm"
       className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
-        checked ? "bg-accent" : "hover:bg-accent/40"
+        checked ? "bg-cyan-500/10 text-foreground" : "hover:bg-accent/40"
       } text-foreground`}
     >
       {avatar}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-foreground">{primary}</div>
         {secondary && (
-          <div className="truncate text-[10.5px] text-muted-foreground">{secondary}</div>
+          <div className={`truncate text-[10.5px] ${checked ? "text-foreground/80" : "text-muted-foreground"}`}>{secondary}</div>
         )}
       </div>
       <span

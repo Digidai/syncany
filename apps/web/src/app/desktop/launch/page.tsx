@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2, Loader2, Monitor, PlugZap, ShieldCheck } from
 import { Button } from "@/components/heroui-pro/button";
 import { Alert, AlertDescription } from "@/components/heroui-pro/alert";
 import { Card, CardHeader, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { api, ApiError } from "@/lib/api";
 import { apiOrigin } from "@/lib/auth-client";
 
@@ -275,9 +276,15 @@ function StatusRow({
 function Step({ n, title, body, done }: { n: string; title: string; body: string; done: boolean }) {
   return (
     <div className="flex gap-3">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-card text-[11px] font-semibold">
-        {done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : n}
-      </div>
+      <Chip
+        size="sm"
+        variant="soft"
+        color={done ? "success" : "default"}
+        className="mt-0.5 h-6 w-6 shrink-0 justify-center p-0 text-[11px] font-semibold"
+        aria-label={done ? `Step ${n} complete` : `Step ${n}`}
+      >
+        {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : n}
+      </Chip>
       <div>
         <p className="font-medium">{title}</p>
         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{body}</p>

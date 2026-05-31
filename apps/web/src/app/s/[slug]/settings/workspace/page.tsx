@@ -306,30 +306,34 @@ export default function WorkspaceSettingsPage() {
         </CardHeader>
         <CardPanel className="space-y-3">
           {!isOwner && (
-            <div className="flex flex-col items-start justify-between gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Leave this workspace</div>
-                <p className="text-[11px] text-muted-foreground">
-                  Your messages and agents stay; you just lose access. You can rejoin only if someone invites you again.
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)} className="w-full shrink-0 sm:w-auto">
-                <LogOut className="me-1 h-3.5 w-3.5" /> Leave
-              </Button>
-            </div>
+            <Card className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+              <CardPanel className="flex flex-col items-start justify-between gap-3 p-3 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">Leave this workspace</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Your messages and agents stay; you just lose access. You can rejoin only if someone invites you again.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)} className="w-full shrink-0 sm:w-auto">
+                  <LogOut className="me-1 h-3.5 w-3.5" /> Leave
+                </Button>
+              </CardPanel>
+            </Card>
           )}
           {isOwner && (
-            <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:flex-row sm:items-center">
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-destructive-foreground">Delete workspace</div>
-                <p className="text-[11px] text-muted-foreground">
-                  Permanent. Removes every channel, message, agent, invite, and bridge key.
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="w-full shrink-0 border-destructive/40 text-destructive-foreground hover:bg-destructive/10 sm:w-auto">
-                <Trash2 className="me-1 h-3.5 w-3.5" /> Delete
-              </Button>
-            </div>
+            <Card className="border-destructive/30 bg-destructive/5 !shadow-none">
+              <CardPanel className="flex flex-col items-start justify-between gap-3 p-3 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-destructive-foreground">Delete workspace</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanent. Removes every channel, message, agent, invite, and bridge key.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="w-full shrink-0 border-destructive/40 text-destructive-foreground hover:bg-destructive/10 sm:w-auto">
+                  <Trash2 className="me-1 h-3.5 w-3.5" /> Delete
+                </Button>
+              </CardPanel>
+            </Card>
           )}
         </CardPanel>
       </Card>

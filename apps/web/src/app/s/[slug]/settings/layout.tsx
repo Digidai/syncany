@@ -8,6 +8,7 @@ import { api, type Server } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 
 // ---------------------------------------------------------------------------
 // Shared context — every tab needs server { id, slug, role }. Fetched once
@@ -85,34 +86,40 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
   if (loadError && !server) {
     return (
-      <div className="mx-auto mt-12 max-w-md space-y-3 rounded-lg border p-6 text-center">
-        <p className="text-sm font-medium">Couldn&apos;t load this workspace.</p>
-        <p className="text-xs text-muted-foreground break-all">{loadError}</p>
-        <Button
-          type="button"
-          onClick={loadServer}
-          variant="outline"
-          size="sm"
-        >
-          Retry
-        </Button>
-      </div>
+      <Card className="mx-auto mt-12 max-w-md">
+        <CardPanel className="space-y-3 p-6 text-center">
+          <p className="text-sm font-medium">Couldn&apos;t load this workspace.</p>
+          <p className="break-all text-xs text-muted-foreground">{loadError}</p>
+          <Button
+            type="button"
+            onClick={loadServer}
+            variant="outline"
+            size="sm"
+          >
+            Retry
+          </Button>
+        </CardPanel>
+      </Card>
     );
   }
 
   if (!server) {
-    return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Loading…</div>;
+    return (
+      <Card className="m-auto w-full max-w-sm border-dashed text-center !shadow-none">
+        <CardPanel className="text-sm text-muted-foreground">Loading…</CardPanel>
+      </Card>
+    );
   }
 
   return (
     <SettingsContext.Provider value={{ server, refreshServer: loadServer }}>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
+      <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden sm:flex-row">
         {/* Left tab nav. min-w-0 + sticky on mobile collapses to a horizontal
             scroll bar so narrow screens still navigate without scrolling
             past the content. */}
         <nav
           aria-label="Settings sections"
-          className="hidden w-56 shrink-0 overflow-y-auto border-r p-3 sm:block"
+          className="hidden w-60 shrink-0 overflow-y-auto border-r border-border/70 bg-sidebar p-2.5 sm:block"
         >
           <h2 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Settings
@@ -128,18 +135,20 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <li key={t.slug}>
-                  <Link
-                    href={href}
+                  <Button
+                    render={<Link href={href} />}
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
                     className={cn(
-                      "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                      "h-8 w-full justify-start gap-2 rounded-[8px] px-2.5 text-sm",
                       active
-                        ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        ? "bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] ring-1 ring-accent/25"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <t.Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span className="truncate">{t.label}</span>
-                  </Link>
+                  </Button>
                 </li>
               );
             })}
@@ -149,25 +158,27 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         {/* Mobile tab grid — all settings destinations stay visible on
             narrow screens instead of hiding later tabs behind horizontal
             scroll. */}
-        <div className="border-b sm:hidden">
-          <ul className="grid grid-cols-2 gap-1 px-2 py-2">
+        <div className="border-b border-border/70 bg-background/85 sm:hidden">
+          <ul className="flex gap-1 overflow-x-auto px-2 py-2">
             {TABS.map((t) => {
               const href = `/s/${slug}/settings/${t.slug}`;
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <li key={t.slug}>
-                  <Link
-                    href={href}
+                <li key={t.slug} className="shrink-0">
+                  <Button
+                    render={<Link href={href} />}
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
                     className={cn(
-                      "flex min-w-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs",
+                      "h-8 gap-1.5 rounded-[8px] px-2.5 text-xs",
                       active
-                        ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        ? "bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] ring-1 ring-accent/25"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <t.Icon className="h-3.5 w-3.5" aria-hidden="true" />
                     <span className="truncate">{t.label}</span>
-                  </Link>
+                  </Button>
                 </li>
               );
             })}
@@ -195,7 +206,7 @@ export function SettingsSection({
   title, description, children,
 }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-4 sm:space-y-6 sm:p-8">
+    <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:space-y-6 sm:p-8">
       <header>
         <h1 className="text-lg font-semibold sm:text-xl">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}

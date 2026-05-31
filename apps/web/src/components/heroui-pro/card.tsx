@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { Card as HeroCard } from "@heroui/react/card";
 import { cn } from "@/lib/utils";

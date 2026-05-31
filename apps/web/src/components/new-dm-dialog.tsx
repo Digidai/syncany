@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MessageSquare } from "lucide-react";
 import { api, type Agent } from "@/lib/api";
@@ -58,13 +58,6 @@ export function NewDmDialog({
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [opening, setOpening] = useState<string | null>(null);
-  // Focus restoration: stash the element that had focus when the dialog
-  // opened, restore it on close. Without this, keyboard users who opened
-  // via Enter on the "+" button find themselves dumped to <body> when
-  // they close. Stored in a ref to avoid re-renders on every focus shift.
-  const triggerRef = useRef<HTMLElement | null>(null);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     if (!open) {
       // Reset query when the dialog closes so re-opening starts fresh.
@@ -87,47 +80,6 @@ export function NewDmDialog({
     });
     return () => { cancelled = true; };
   }, [open, serverId]);
-
-  // Open/close side effects: Escape to dismiss, focus trap on Tab so
-  // keyboard users can't escape into the dimmed page behind the modal,
-  // and focus restoration when the dialog closes.
-  useEffect(() => {
-    if (!open) return;
-    triggerRef.current = (document.activeElement as HTMLElement) ?? null;
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onOpenChange(false);
-        return;
-      }
-      if (e.key !== "Tab") return;
-      // Cycle focus inside the dialog. Without a trap, Tab/Shift-Tab
-      // leaks to the workspace shell behind the backdrop (which is
-      // visually dimmed but still reachable for screen readers).
-      const root = dialogRef.current;
-      if (!root) return;
-      const focusables = root.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      // Restore focus to the element that opened the dialog. Defer to
-      // next tick so React has unmounted dialog children first.
-      const t = triggerRef.current;
-      if (t && document.body.contains(t)) {
-        queueMicrotask(() => t.focus());
-      }
-    };
-  }, [open, onOpenChange]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -8,6 +8,8 @@ import { notifyThrown } from "@/lib/notify";
 import { Inbox as InboxIcon, MessageSquare, ListChecks, Hash, Lock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 
 /**
  * Unified inbox — answers "what's waiting for me right now".
@@ -62,9 +64,9 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
             <InboxIcon className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -77,10 +79,11 @@ export default function InboxPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3">
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
           {loadError && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+            <Card className="border-destructive/30 bg-destructive/5 text-center">
+              <CardPanel className="p-6">
               <p className="text-sm font-medium text-destructive-foreground">Couldn't load inbox</p>
               <p className="mt-1 text-xs text-muted-foreground break-words">{loadError.message}</p>
               <Button
@@ -92,7 +95,8 @@ export default function InboxPage() {
               >
                 Try again
               </Button>
-            </div>
+              </CardPanel>
+            </Card>
           )}
 
           {!loadError && items === null && (
@@ -100,13 +104,15 @@ export default function InboxPage() {
           )}
 
           {!loadError && items && items.length === 0 && (
-            <div className="rounded-lg border border-dashed p-8 text-center">
+            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
+              <CardPanel className="p-8">
               <InboxIcon className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium">You're caught up.</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 No unread DMs and no open tasks assigned to you. Nice.
               </p>
-            </div>
+              </CardPanel>
+            </Card>
           )}
 
           {!loadError && items && items.length > 0 && (
@@ -128,9 +134,9 @@ function InboxRow({ item }: { item: InboxItem }) {
   const ChannelIcon = channelIcon;
   return (
     <li>
-      <Link
-        href={item.href}
-        className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/30 hover:border-foreground/20"
+      <Card
+        render={<Link href={item.href} />}
+        className="flex items-start gap-3 border-border/60 bg-surface/80 p-3 !shadow-none transition-colors hover:border-accent/25 hover:bg-[var(--accent-soft)]"
       >
         <div className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -141,21 +147,22 @@ function InboxRow({ item }: { item: InboxItem }) {
           <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <ChannelIcon className="h-3 w-3" aria-hidden="true" />
-            <span className="truncate">{item.channelType === "dm" ? "Direct message" : `#${item.channelName}`}</span>
-            <span aria-hidden="true">·</span>
-            <span className="rounded-full bg-muted px-1.5 py-px text-[9px] font-medium uppercase tracking-wider">
-              {item.kind}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              <ChannelIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{item.channelType === "dm" ? "Direct message" : `#${item.channelName}`}</span>
             </span>
-            <time className="ml-auto shrink-0">{relativeTime(item.createdAt)}</time>
+            <Chip size="sm" variant="soft" color={item.kind === "task" ? "warning" : "accent"} className="text-[9px] uppercase tracking-wider">
+              {item.kind}
+            </Chip>
+            <time className="shrink-0">{relativeTime(item.createdAt)}</time>
           </div>
           <p className="mt-1 text-sm leading-snug line-clamp-2">
             {item.preview}
           </p>
         </div>
         <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
-      </Link>
+      </Card>
     </li>
   );
 }

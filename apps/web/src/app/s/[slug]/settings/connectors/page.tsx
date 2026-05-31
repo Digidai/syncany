@@ -16,6 +16,7 @@ import { GitBranch, Briefcase, BookOpen, Plug, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifyThrown } from "@/lib/notify";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Select } from "@/components/heroui-pro/select";
@@ -126,7 +127,7 @@ export default function ConnectorsPage() {
           </CardDescription>
         </CardHeader>
         <CardPanel>
-          <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-[140px_1fr_1fr_auto]">
+          <form onSubmit={handleCreate} className="grid gap-3 lg:grid-cols-[140px_1fr_1fr_auto]">
             <Field>
               <FieldLabel htmlFor="connector-kind">Service</FieldLabel>
               <Select
@@ -171,17 +172,21 @@ export default function ConnectorsPage() {
         </CardHeader>
         <CardPanel>
           {!loading && connectors.length > 0 && (
-            <ul className="divide-y">
+            <ul className="space-y-2">
               {connectors.map(c => {
                 const meta = KIND_META[c.kind];
                 const Icon = meta.Icon;
                 return (
-                  <li key={c.id} className="flex items-center gap-3 py-2.5">
-                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Card render={<li />} key={c.id} className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+                    <CardPanel className="flex flex-wrap items-center gap-3 p-3">
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{c.label}</div>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="truncate text-sm font-medium">{c.label}</div>
+                        <Chip size="sm" variant="soft" color="default">{meta.label}</Chip>
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {meta.label}{c.scopes.length > 0 ? ` · ${c.scopes.join(", ")}` : ""}
+                        {c.scopes.length > 0 ? c.scopes.join(", ") : "No scopes"}
                         {c.lastUsedAt ? ` · used ${new Date(c.lastUsedAt).toLocaleDateString()}` : " · never used"}
                       </div>
                     </div>
@@ -190,10 +195,12 @@ export default function ConnectorsPage() {
                       size="sm"
                       aria-label={`Remove ${c.label}`}
                       onClick={() => setRevokeTarget(c)}
+                      className="ml-auto"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </li>
+                    </CardPanel>
+                  </Card>
                 );
               })}
             </ul>

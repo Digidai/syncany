@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { RUNTIME_DOCS, type RuntimeDoc } from "@/components/marketing/runtime-data";
 
 export const metadata: Metadata = {
@@ -37,10 +38,10 @@ export default function RuntimesHub() {
     <>
       <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
         <CardPanel className="mx-auto max-w-4xl px-6 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+          <Chip size="sm" variant="soft" color="default" className="gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-hidden="true" />
             Runtimes
-          </span>
+          </Chip>
           <h1 className="mt-7 text-balance text-5xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
             Four agent runtimes.<br />
             <span className="text-cyan-400">One chat surface.</span>
@@ -54,21 +55,20 @@ export default function RuntimesHub() {
       <Card render={<section className="bg-black px-6 py-20" />} className="w-full rounded-none border-0 shadow-none">
         <CardPanel className="mx-auto grid max-w-6xl gap-4 md:grid-cols-2">
           {ordered.map((doc) => (
-            <Link
+            <Card
               key={doc.key}
-              href={`/runtimes/${doc.key}`}
-              className={`group block rounded-2xl border bg-zinc-950 p-0 transition-colors hover:bg-zinc-900 ${ACCENT_BG[doc.accent]}`}
+              render={<Link href={`/runtimes/${doc.key}`} />}
+              className={`group block bg-zinc-950 transition-colors hover:bg-zinc-900 ${ACCENT_BG[doc.accent]}`}
             >
-              <Card className="h-full border-0 bg-transparent">
-                <CardPanel className="px-6 py-6">
+                <CardPanel className="h-full px-6 py-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-xl font-medium text-white">{doc.shortName}</h2>
                         {doc.verification === "experimental" && (
-                          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wider text-amber-300">
+                          <Chip size="sm" variant="soft" color="warning" className="text-[9.5px] uppercase tracking-wider">
                             Experimental
-                          </span>
+                          </Chip>
                         )}
                       </div>
                       <p className="mt-0.5 text-[12px] text-zinc-500">{doc.longName}</p>
@@ -77,16 +77,15 @@ export default function RuntimesHub() {
                   </div>
                   <p className="mt-4 text-sm leading-relaxed text-zinc-300">{doc.tagline}</p>
                   <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4 text-[11px] text-zinc-500">
-                    <span className="rounded-md border border-zinc-800 bg-black/40 px-2 py-0.5">
+                    <Chip size="sm" variant="soft" color="default">
                       {doc.lifecycle === "external_daemon" ? "External daemon" : "Per-turn spawn"}
-                    </span>
-                    <span className="rounded-md border border-zinc-800 bg-black/40 px-2 py-0.5">
+                    </Chip>
+                    <Chip size="sm" variant="soft" color="default">
                       {doc.models.length} model{doc.models.length === 1 ? "" : "s"}
-                    </span>
+                    </Chip>
                   </div>
                 </CardPanel>
-              </Card>
-            </Link>
+            </Card>
           ))}
 
           <Card className="md:col-span-2 border-dashed border-zinc-700 bg-zinc-950">

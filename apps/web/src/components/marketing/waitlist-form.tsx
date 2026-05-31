@@ -8,6 +8,7 @@ import { Input } from "@/components/heroui-pro/input";
 import { Select } from "@/components/heroui-pro/select";
 import { Textarea } from "@/components/heroui-pro/textarea";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Alert, AlertDescription, AlertTitle } from "@/components/heroui-pro/alert";
 
 const TEAM_SIZES = ["1-4", "5-20", "21-100", "100+"] as const;
 type TeamSize = (typeof TEAM_SIZES)[number];
@@ -77,18 +78,19 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
 
   if (state === "done") {
     return (
-      <div
+      <Alert
         role="status"
         aria-live="polite"
-        className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center"
+        variant="success"
+        className="text-center"
       >
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden="true" />
-        <h3 className="mt-4 text-xl font-medium text-white">You're on the list</h3>
-        <p className="mt-3 text-sm text-zinc-400">
+        <AlertTitle className="mt-4 text-xl">You're on the list</AlertTitle>
+        <AlertDescription className="mt-3">
           We'll reply within 1–2 business days. If it's urgent, write us at{" "}
-          <a className="text-zinc-200 underline-offset-4 hover:underline" href="mailto:hello@raltic.com">hello@raltic.com</a>.
-        </p>
-      </div>
+          <a className="text-foreground underline-offset-4 hover:underline" href="mailto:hello@raltic.com">hello@raltic.com</a>.
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -100,10 +102,11 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+          <FieldLabel htmlFor="waitlist-name" className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
             Your name <span className="ml-1 text-rose-400">*</span>
           </FieldLabel>
           <Input
+            id="waitlist-name"
             type="text"
             required
             autoComplete="name"
@@ -111,14 +114,14 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
             onChange={e => setName((e.target as HTMLInputElement).value)}
             placeholder="Jane Doe"
             disabled={state === "submitting"}
-            className={INPUT_CLS}
           />
         </Field>
         <Field>
-          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+          <FieldLabel htmlFor="waitlist-email" className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
             Work email <span className="ml-1 text-rose-400">*</span>
           </FieldLabel>
           <Input
+            id="waitlist-email"
             type="email"
             required
             autoComplete="email"
@@ -126,36 +129,35 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
             onChange={e => setEmail((e.target as HTMLInputElement).value)}
             placeholder="you@yourcompany.com"
             disabled={state === "submitting"}
-            className={INPUT_CLS}
           />
         </Field>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+          <FieldLabel htmlFor="waitlist-company" className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
             Company
           </FieldLabel>
           <Input
+            id="waitlist-company"
             type="text"
             autoComplete="organization"
             value={company}
             onChange={e => setCompany((e.target as HTMLInputElement).value)}
             placeholder="Acme Inc."
             disabled={state === "submitting"}
-            className={INPUT_CLS}
           />
         </Field>
         <Field>
-          <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+          <FieldLabel htmlFor="waitlist-team-size" className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
             Team size
           </FieldLabel>
           <Select
+            id="waitlist-team-size"
             value={teamSize}
             onChange={e => setTeamSize(e.target.value as TeamSize | "")}
             disabled={state === "submitting"}
             className="w-full"
-            selectClassName={INPUT_CLS}
             options={[{ value: "", label: "Pick one…" }, ...TEAM_SIZE_OPTIONS]}
           >
           </Select>
@@ -163,24 +165,25 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
       </div>
 
       <Field>
-        <FieldLabel className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
+        <FieldLabel htmlFor="waitlist-use-case" className="text-[11.5px] font-medium uppercase tracking-wider text-zinc-400">
           What would you use Raltic for?
         </FieldLabel>
         <Textarea
+          id="waitlist-use-case"
           rows={4}
           value={useCase}
           onChange={e => setUseCase((e.target as HTMLTextAreaElement).value)}
           placeholder="e.g. We run Claude Code daily and want a shared chat where the agent's work is visible to the whole eng team."
           disabled={state === "submitting"}
-          className={INPUT_CLS + " resize-none"}
+          className="resize-none"
           maxLength={2000}
         />
       </Field>
 
       {state === "error" && errorMsg && (
-        <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
-          {errorMsg}
-        </div>
+        <Alert variant="error">
+          <AlertDescription>{errorMsg}</AlertDescription>
+        </Alert>
       )}
 
       <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
@@ -190,8 +193,7 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
         <Button
           type="submit"
           disabled={state === "submitting"}
-          variant="secondary"
-          className="!h-11 w-full shrink-0 !bg-white !px-6 !text-[15px] !font-semibold !text-black hover:!bg-zinc-100 hover:!text-black sm:w-auto"
+          className="w-full shrink-0 sm:w-auto"
         >
           {state === "submitting" ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
@@ -203,8 +205,6 @@ export function WaitlistForm({ apiOrigin, refererPath = "/teams" }: {
     </form>
   );
 }
-
-const INPUT_CLS = "block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-60";
 
 function readUtmCookie(): Record<string, string> {
   if (typeof document === "undefined") return {};

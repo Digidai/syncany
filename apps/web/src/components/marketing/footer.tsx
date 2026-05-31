@@ -12,7 +12,7 @@ import { RalticLogo } from "@/components/raltic-logo";
 export function MarketingFooter() {
   return (
     <Card
-      render={<footer className="bg-black text-zinc-500" />}
+      render={<footer className="bg-black text-zinc-400" />}
       className="w-full rounded-none border-0 border-t border-zinc-900 bg-black shadow-none"
     >
       <CardPanel className="mx-auto grid max-w-6xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-5">
@@ -57,11 +57,11 @@ function FooterCol({ label, links }: { label: string; links: { label: string; hr
   return (
     <Card render={<div />} className="border-0 bg-transparent shadow-none">
       <CardPanel className="space-y-2.5 p-0">
-        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-600">{label}</p>
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">{label}</p>
         <ul className="space-y-2.5 text-sm">
           {links.map((l) => (
             <li key={l.href + l.label}>
-              <Link href={l.href} className="hover:text-white">{l.label}</Link>
+              <Link href={l.href} className="text-zinc-400 hover:text-white">{l.label}</Link>
             </li>
           ))}
         </ul>

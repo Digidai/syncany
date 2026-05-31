@@ -3,6 +3,7 @@ import { ArrowRight, GitBranch, Layers, FileText } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { SectionHeader } from "@/components/marketing/section-header";
 
 /**
@@ -31,10 +32,10 @@ export default function ConnectorsPage() {
     <>
       <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
         <CardPanel className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
+          <Chip size="sm" variant="soft" color="default" className="gap-2">
             <Layers className="h-3 w-3 text-cyan-400" />
             Connectors
-          </span>
+          </Chip>
           <h1 className="mt-7 text-balance text-5xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
             Give your agents access<br />
             <span className="text-cyan-400">to your tools.</span>
@@ -126,9 +127,9 @@ function ConnectorCard({ icon, name, blurb }: { icon: React.ReactNode; name: str
   return (
     <Card>
       <CardPanel>
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-black text-cyan-400">
+        <Chip size="lg" variant="soft" color="accent" className="h-10 w-10 justify-center p-0">
           {icon}
-        </div>
+        </Chip>
         <h3 className="mt-4 text-lg font-medium text-white">{name}</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">{blurb}</p>
       </CardPanel>

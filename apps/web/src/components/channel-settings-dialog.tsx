@@ -189,7 +189,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                         variant="outline"
                         size="sm"
                         className={`flex-1 rounded-md border px-3 py-1.5 text-left text-xs transition-colors ${
-                          channel.type === t ? "border-foreground bg-accent" : "border-border hover:bg-accent/40"
+                          channel.type === t ? "border-cyan-500 bg-cyan-500/10 text-foreground" : "border-border hover:bg-accent/40"
                         }`}
                       >
                         <span className="flex items-center gap-1.5 font-medium">
@@ -215,7 +215,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
 
               {/* Archive — softer than delete; reversible */}
               {canManage && channel.type !== "dm" && (
-                <div className="rounded-md border bg-muted/40 p-3">
+                <div className="rounded-md border bg-[var(--surface-secondary)] p-3">
                   <div className="flex items-start gap-2">
                     {channel.archivedAt != null
                       ? <ArchiveRestore className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -272,7 +272,7 @@ export function ChannelSettingsDialog({ channel, serverSlug, canManage, open, on
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive-foreground" />
                     <div className="flex-1 text-xs">
                       <p className="font-medium text-destructive-foreground">Delete channel</p>
-                      <p className="mt-0.5 text-muted-foreground">
+                      <p className="mt-0.5 text-destructive-foreground">
                         All messages, tasks, and reactions in <strong>#{channel.name}</strong> will be permanently removed. Members will lose access immediately.
                       </p>
                       {!confirmDelete ? (

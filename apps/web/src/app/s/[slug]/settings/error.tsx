@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertCircle, RotateCw } from "lucide-react";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 
 /**
  * Settings-section error boundary — narrower than the workspace one.
@@ -18,7 +19,8 @@ export default function SettingsError({ error, reset }: {
   useEffect(() => { console.error("[settings error.tsx]", error); }, [error]);
   return (
     <div className="flex h-full w-full flex-1 items-center justify-center p-6">
-      <div className="max-w-md rounded-lg border bg-card p-5 text-center shadow-sm">
+      <Card className="max-w-md text-center">
+        <CardPanel className="p-5">
         <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
         </div>
@@ -30,7 +32,8 @@ export default function SettingsError({ error, reset }: {
         <Button type="button" onClick={() => reset()} variant="outline" size="xs" className="mt-3 text-[11px]">
           <RotateCw className="h-3 w-3" aria-hidden="true" /> Try again
         </Button>
-      </div>
+        </CardPanel>
+      </Card>
     </div>
   );
 }

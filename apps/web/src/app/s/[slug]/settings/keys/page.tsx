@@ -11,6 +11,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } f
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel, FieldError } from "@/components/heroui-pro/field";
+import { Alert, AlertDescription, AlertTitle } from "@/components/heroui-pro/alert";
+import { Chip } from "@/components/heroui-pro/chip";
 import { ConfirmDialog } from "@/components/heroui-pro/confirm-dialog";
 import { KeyCommandBlock, MachineRow } from "@/components/settings-shared";
 import { useSettings, SettingsSection } from "../layout";
@@ -109,18 +111,20 @@ export default function MachineKeysPage() {
         </form>
         <CardFooter className="flex flex-col gap-3">
           {issued && (
-            <div className="w-full space-y-2 rounded-md border bg-emerald-50 p-3 text-xs">
-              <p className="font-medium text-emerald-800">
-                ✓ Key created. Copy it now — you won&apos;t see it again.
-              </p>
+            <Alert variant="success" className="w-full">
+              <AlertTitle>Key created</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>Copy it now — you won&apos;t see it again.</p>
               <KeyCommandBlock cmd={issued.cmd} />
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
           {keys.length > 0 && (
             <ul className="w-full space-y-3">
               {keys.filter((k) => !k.revokedAt).map((k) => (
-                <li key={k.id} className="rounded-lg border bg-card/40 p-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <Card render={<li />} key={k.id} className="border-transparent bg-[var(--surface-secondary)] !shadow-none">
+                  <CardPanel className="p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-medium">{k.name}</span>
@@ -139,19 +143,22 @@ export default function MachineKeysPage() {
                       className="self-start text-destructive-foreground sm:self-auto"
                       onClick={() => setRevokeTarget(k)}
                     >Revoke</Button>
-                  </div>
-                  {k.machines.length > 0 ? (
-                    <div className="mt-3 space-y-2">
-                      {k.machines.map((m) => <MachineRow key={m.fingerprint} machine={m} />)}
                     </div>
-                  ) : (
-                    <p className="mt-3 rounded border border-dashed border-zinc-300 px-2 py-1.5 text-[11px] text-muted-foreground">
-                      Key never connected. Open the{" "}
-                      <Link href={`/s/${slug}?wizard=1`} className="underline text-foreground hover:opacity-80">setup wizard</Link>{" "}
-                      for the bridge command + per-runtime install guidance.
-                    </p>
-                  )}
-                </li>
+                    {k.machines.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {k.machines.map((m) => <MachineRow key={m.fingerprint} machine={m} />)}
+                      </div>
+                    ) : (
+                      <Alert variant="info" className="mt-3">
+                        <AlertDescription className="text-xs">
+                          Key never connected. Open the{" "}
+                          <Link href={`/s/${slug}?wizard=1`} className="underline text-foreground hover:opacity-80">setup wizard</Link>{" "}
+                          for the bridge command + per-runtime install guidance.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardPanel>
+                </Card>
               ))}
             </ul>
           )}
@@ -185,9 +192,9 @@ export default function MachineKeysPage() {
 function ActiveBadge({ lastUsedAt }: { lastUsedAt: number | null }) {
   if (lastUsedAt === null) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-zinc-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" /> Never connected
-      </span>
+      <Chip size="sm" variant="soft" color="default" className="gap-1 text-[9px] uppercase tracking-wider">
+        <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" aria-hidden="true" /> Never connected
+      </Chip>
     );
   }
   const ageMs = Date.now() - lastUsedAt;
@@ -196,9 +203,9 @@ function ActiveBadge({ lastUsedAt }: { lastUsedAt: number | null }) {
   const FRESH_WINDOW_MS = 120_000;
   if (ageMs < FRESH_WINDOW_MS) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
-      </span>
+      <Chip size="sm" variant="soft" color="success" className="gap-1 text-[9px] uppercase tracking-wider">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" /> Active
+      </Chip>
     );
   }
   const mins = Math.floor(ageMs / 60_000);
@@ -206,8 +213,8 @@ function ActiveBadge({ lastUsedAt }: { lastUsedAt: number | null }) {
     : mins < 60 * 24 ? `${Math.floor(mins / 60)}h ago`
     : `${Math.floor(mins / (60 * 24))}d ago`;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-zinc-600">
-      <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" /> Idle {label}
-    </span>
+    <Chip size="sm" variant="soft" color="default" className="gap-1 text-[9px] uppercase tracking-wider">
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" aria-hidden="true" /> Idle {label}
+    </Chip>
   );
 }

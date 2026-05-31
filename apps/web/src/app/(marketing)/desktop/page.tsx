@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Download, ExternalLink, Monitor, 
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { Card, CardHeader, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 
 const RELEASES_URL = "https://github.com/Digidai/raltic/releases";
 
@@ -35,10 +36,10 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
         <Card render={<section className="border-b border-zinc-900 px-6 pt-28 pb-16 sm:pt-36" />} className="w-full rounded-none border-0 shadow-none">
           <CardPanel className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+              <Chip size="sm" variant="soft" color="warning" className="gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
                 Internal beta
-              </span>
+              </Chip>
               <h1 className="mt-7 max-w-3xl text-balance text-5xl font-medium leading-[1.05] text-white sm:text-6xl">
                 Raltic Desktop beta
               </h1>
@@ -148,7 +149,7 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
 function DesktopReturnBar() {
   return (
     <Card
-      render={<div className="sticky top-[65px] z-40 border-b border-cyan-400/20 bg-black/90 px-6 py-3 backdrop-blur-xl" />}
+      render={<div className="border-b border-cyan-400/20 bg-black/90 px-6 py-3 backdrop-blur-xl" />}
       className="w-full rounded-none border-0 bg-transparent"
     >
     

@@ -176,6 +176,98 @@ test("desktop shell keeps sidebar, header, chat surface, and composer aligned", 
   expect(metrics.composer!.right).toBeLessThanOrEqual(metrics.main!.right - 24);
 });
 
+test("sidebar destination pages fill the workspace main column and keep navigation highlight subtle", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+
+  const destinations = [
+    { path: "/s/demo/inbox", nav: "Inbox", heading: "Inbox" },
+    { path: "/s/demo/tasks", nav: "Tasks", heading: "Tasks" },
+    { path: "/s/demo/agents", nav: "Agents", heading: "Agents" },
+    { path: "/s/demo/people", nav: "People", heading: "People" },
+    { path: "/s/demo/channels", nav: "Channels", heading: "Channels" },
+  ];
+
+  for (const destination of destinations) {
+    await page.goto(destination.path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: destination.heading })).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Workspace navigation" })
+        .getByRole("link", { name: "Inbox", exact: true }),
+    ).toBeVisible();
+    if (destination.nav !== "Channels") {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Workspace navigation" })
+          .getByRole("link", { name: destination.nav, exact: true }),
+      ).toHaveAttribute("aria-current", "page");
+    }
+
+    const metrics = await shellMetrics(page);
+    assertNoDocumentOverflow(metrics);
+    assertRectInsideViewport(metrics.sidebar, metrics.viewport, "desktop sidebar");
+    assertRectInsideViewport(metrics.main, metrics.viewport, "workspace main");
+    expect(metrics.sidebar!.width).toBeGreaterThanOrEqual(260);
+    expect(metrics.sidebar!.width).toBeLessThanOrEqual(280);
+
+    const pageMetrics = await page.evaluate(() => {
+      const main = document.querySelector<HTMLElement>("[data-testid='workspace-main']");
+      const stage = main?.firstElementChild as HTMLElement | null;
+      const root = stage?.firstElementChild as HTMLElement | null;
+      const header = main?.querySelector<HTMLElement>("header");
+      const active = document.querySelector<HTMLElement>("[data-testid='workspace-sidebar'] [aria-current='page']");
+      const topDestinationLinks = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='workspace-sidebar'] nav a"))
+        .filter((el) => ["Inbox", "Tasks", "Agents", "People"].includes(el.textContent?.trim() ?? ""))
+        .map((el) => {
+          const box = el.getBoundingClientRect();
+          return { top: box.top, bottom: box.bottom, height: box.height };
+        });
+      const rect = (el: HTMLElement | null) => {
+        if (!el) return null;
+        const box = el.getBoundingClientRect();
+        return {
+          left: box.left,
+          right: box.right,
+          width: box.width,
+          height: box.height,
+          borderRadius: getComputedStyle(el).borderRadius,
+          backgroundColor: getComputedStyle(el).backgroundColor,
+        };
+      };
+      return {
+        main: rect(main),
+        root: rect(root),
+        header: rect(header),
+        active: rect(active),
+        topDestinationGaps: topDestinationLinks.slice(1).map((row, index) => row.top - topDestinationLinks[index].bottom),
+        mainListRowShadows: Array.from(main?.querySelectorAll<HTMLElement>("li") ?? [])
+          .map((el) => getComputedStyle(el).boxShadow)
+          .filter((shadow) => {
+            if (shadow === "none") return false;
+            const onlyTransparentZeroLayers = shadow
+              .replaceAll("rgba(0, 0, 0, 0) 0px 0px 0px 0px", "")
+              .replaceAll(",", "")
+              .trim().length === 0;
+            return !onlyTransparentZeroLayers;
+          }),
+      };
+    });
+
+    expect(pageMetrics.root?.width, `${destination.path} root should fill main`).toBeCloseTo(pageMetrics.main!.width, 1);
+    expect(pageMetrics.header?.left, `${destination.path} header starts at main edge`).toBeCloseTo(pageMetrics.main!.left, 1);
+    expect(pageMetrics.header?.right, `${destination.path} header reaches main edge`).toBeCloseTo(pageMetrics.main!.right, 1);
+    expect(pageMetrics.topDestinationGaps, `${destination.path} top-level sidebar rows should stay compact`).toEqual([6, 6, 6]);
+    expect(pageMetrics.mainListRowShadows, `${destination.path} repeated list rows should not add nested card shadows`).toEqual([]);
+    if (destination.nav !== "Channels") {
+      expect(pageMetrics.active?.height, `${destination.nav} active row height`).toBeCloseTo(32, 1);
+      expect(pageMetrics.active?.borderRadius, `${destination.nav} active row should not render as a square slab`).not.toBe("0px");
+      expect(pageMetrics.active?.backgroundColor, `${destination.nav} active row should not use the old solid green fill`).not.toBe("rgb(84, 167, 131)");
+    }
+  }
+});
+
 test("mobile drawer closes after channel and DM navigation without covering the next page", async ({ page, context }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setupWorkspaceWithUnread(page, context);

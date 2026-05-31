@@ -6,10 +6,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Copy, CheckCircle2, AlertTriangle, Download, WifiOff } from "lucide-react";
+import { Copy, CheckCircle2, AlertTriangle, Download, WifiOff, type LucideIcon } from "lucide-react";
 import { type MachineRuntimeRow, type RuntimeId, RUNTIME_LABEL } from "@/lib/api";
 import { notifySuccess, notifyThrown } from "@/lib/notify";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // KeyCommandBlock — copyable shell command surface.
@@ -49,8 +52,9 @@ const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 export function MachineRow({ machine }: { machine: MachineRuntimeRow }) {
   const stale = Date.now() - machine.detectedAt > STALE_THRESHOLD_MS;
   return (
-    <div className="rounded border bg-background/40 p-2">
-      <div className="flex items-baseline justify-between gap-2">
+    <Card className="!shadow-none">
+      <CardPanel className="p-2">
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
         <span className="text-[12px] font-medium">{machine.hostname ?? "Unknown machine"}</span>
         <span className="text-[10.5px] text-muted-foreground">
           {humanizeAge(machine.detectedAt)}
@@ -62,7 +66,8 @@ export function MachineRow({ machine }: { machine: MachineRuntimeRow }) {
           return <RuntimePill key={rid} id={rid} snapshot={r} stale={stale} detectedAt={machine.detectedAt} />;
         })}
       </div>
-    </div>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -82,12 +87,13 @@ function RuntimePill({
     ? "needs_login"
     : "ready";
 
-  const palette = {
-    ready:         { bg: "bg-cyan-50",   text: "text-cyan-800",   border: "border-cyan-200",   Icon: CheckCircle2 },
-    needs_login:   { bg: "bg-amber-50",  text: "text-amber-800",  border: "border-amber-200",  Icon: AlertTriangle },
-    not_installed: { bg: "bg-zinc-100",  text: "text-zinc-700",   border: "border-zinc-200",   Icon: Download },
-    stale:         { bg: "bg-zinc-100",  text: "text-zinc-500 italic", border: "border-zinc-300 border-dashed", Icon: WifiOff },
-  }[state];
+  const palettes: Record<typeof state, { color: "success" | "warning" | "default"; Icon: LucideIcon }> = {
+    ready:         { color: "success", Icon: CheckCircle2 },
+    needs_login:   { color: "warning", Icon: AlertTriangle },
+    not_installed: { color: "default", Icon: Download },
+    stale:         { color: "default", Icon: WifiOff },
+  };
+  const palette = palettes[state];
 
   const Icon = palette.Icon;
   const label = state === "ready" ? "Ready"
@@ -114,14 +120,17 @@ function RuntimePill({
       : `Last seen ${humanizeAge(detectedAt)}`;
 
   return (
-    <div
-      className={`flex items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] ${palette.bg} ${palette.text} ${palette.border}`}
-      title={tooltip}
+    <Chip
+      size="sm"
+      variant="soft"
+      color={palette.color}
+      className="min-w-0 justify-start gap-1.5 px-2 py-1.5 text-[11px]"
+      aria-label={`${RUNTIME_LABEL[id]}: ${label}. ${tooltip}`}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="font-medium">{RUNTIME_LABEL[id]}</span>
-      <span className="ml-auto text-[10px]">{label}</span>
-    </div>
+      <span className="min-w-0 truncate font-medium">{RUNTIME_LABEL[id]}</span>
+      <span className="ml-auto shrink-0 text-[10px]">{label}</span>
+    </Chip>
   );
 }
 
@@ -196,20 +205,25 @@ export function InviteRow({
   }
 
   return (
-    <li className={`flex items-center justify-between gap-3 rounded-lg border bg-card/40 p-3 text-sm ${used || expired ? "opacity-60" : ""}`}>
+    <Card render={<li />} className={cn(
+      "border-transparent bg-[var(--surface-secondary)] !shadow-none",
+      (used || expired) && "opacity-60",
+    )}>
+      <CardPanel className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="font-medium">
           {invite.maxUses === 0 ? "Open link" : invite.maxUses === 1 ? "Single-use link" : `Team link (${invite.maxUses} max)`}
-          {used && <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">used up</span>}
-          {expired && <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">expired</span>}
+          {used && <Chip size="sm" variant="soft" color="default" className="ml-2">used up</Chip>}
+          {expired && <Chip size="sm" variant="soft" color="warning" className="ml-2">expired</Chip>}
         </div>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{usesLabel} · {expiryLabel}</p>
       </div>
-      <div className="flex shrink-0 gap-1">
+      <div className="grid grid-cols-2 gap-1 sm:flex sm:shrink-0">
         <Button type="button" onClick={copy} variant="outline" size="xs" className="text-[11px]">Copy</Button>
         <Button type="button" onClick={onRevoke} variant="danger-soft" size="xs" className="text-[11px]">Revoke</Button>
       </div>
-    </li>
+      </CardPanel>
+    </Card>
   );
 }
 

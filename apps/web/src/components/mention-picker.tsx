@@ -207,7 +207,7 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
             onMouseEnter={() => { if (mode === "mouse") setActiveIdx(idx); }}
             className={cn(
               "!h-auto !w-full !justify-start !whitespace-normal rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
-              idx === activeIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
+              idx === activeIdx ? "bg-cyan-500/10 text-foreground ring-1 ring-cyan-500/25" : "hover:bg-accent/50",
             )}
           >
             <div className="shrink-0">
@@ -225,9 +225,9 @@ export function useMentionPicker({ members, onPick }: UseMentionPickerOpts) {
                   </span>
                 )}
               </div>
-              <div className="truncate text-[11px] text-muted-foreground">@{m.slug}</div>
+              <div className={cn("truncate text-[11px]", idx === activeIdx ? "text-foreground/80" : "text-muted-foreground")}>@{m.slug}</div>
             </div>
-            <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+            <AtSign className={cn("h-3 w-3 shrink-0", idx === activeIdx ? "text-foreground/70" : "text-muted-foreground/60")} aria-hidden="true" />
           </Button>
         ))}
         <div className="border-t px-2 pt-1.5 pb-1 text-[10px] text-muted-foreground">

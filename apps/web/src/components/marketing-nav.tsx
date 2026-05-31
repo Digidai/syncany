@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/heroui-pro/menu";
+import { Chip } from "@/components/heroui-pro/chip";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { cn } from "@/lib/utils";
 import { RalticLogo } from "./raltic-logo";
@@ -106,28 +107,43 @@ function ForDropdown() {
   return (
     <DropdownMenu onOpenChange={setOpen}>
       <DropdownMenuTrigger
-        className="!h-auto !rounded-none !bg-transparent !px-0 !py-0 text-zinc-400 hover:!bg-transparent hover:text-white"
+        className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-zinc-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         aria-haspopup="menu"
         aria-expanded={open}
       >
         For <ChevronDown className="h-3 w-3 transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-56 rounded-xl border border-zinc-800 bg-zinc-950">
-        <DropdownMenuItem href="/indie" className="!px-3 !py-2">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-56 !border-zinc-800 !bg-zinc-950 !text-zinc-100 !shadow-[0_18px_45px_rgba(0,0,0,0.45)]"
+      >
+        <DropdownMenuItem
+          href="/indie"
+          className="!px-3 !py-2 !text-zinc-100 hover:!bg-white/[0.06] focus-visible:!bg-white/[0.08]"
+        >
           <div>
-            <div className="font-medium">Indie devs</div>
-            <div className="mt-0.5 text-[11.5px] text-zinc-500">Solo dev / AI tinkerer</div>
+            <div className="font-medium text-zinc-100">Indie devs</div>
+            <div className="mt-0.5 text-[11.5px] text-zinc-400">Solo dev / AI tinkerer</div>
           </div>
         </DropdownMenuItem>
-        <DropdownMenuItem href="/teams" className="!px-3 !py-2">
+        <DropdownMenuItem
+          href="/teams"
+          className="!px-3 !py-2 !text-zinc-100 hover:!bg-white/[0.06] focus-visible:!bg-white/[0.08]"
+        >
           <div>
             <div className="flex items-center gap-1.5">
-              <span>Teams</span>
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+              <span className="text-zinc-100">Teams</span>
+              <Chip
+                size="sm"
+                variant="soft"
+                color="warning"
+                className="!bg-amber-400/15 !text-[9px] !text-amber-300 uppercase tracking-wider"
+              >
                 Waitlist
-              </span>
+              </Chip>
             </div>
-            <div className="mt-0.5 text-[11.5px] text-zinc-500">Mid-market eng orgs</div>
+            <div className="mt-0.5 text-[11.5px] text-zinc-400">Mid-market eng orgs</div>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>

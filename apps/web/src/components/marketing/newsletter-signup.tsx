@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Alert, AlertDescription, AlertTitle } from "@/components/heroui-pro/alert";
 
 /**
  * Compact email-only signup. Sits at the bottom of /indie and /teams
@@ -55,14 +56,18 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
 
   if (state === "done") {
     return (
-      <div
+      <Alert
         role="status"
         aria-live="polite"
-        className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300"
+        variant="success"
+        className="max-w-full"
       >
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-        {msg}
-      </div>
+        <AlertTitle className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Subscribed
+        </AlertTitle>
+        <AlertDescription className="whitespace-normal text-left">{msg}</AlertDescription>
+      </Alert>
     );
   }
 
@@ -75,7 +80,7 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
       className="relative flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
     >
       <Field>
-        <FieldLabel className="sr-only">Your email address</FieldLabel>
+        <FieldLabel htmlFor="newsletter-email" className="sr-only">Your email address</FieldLabel>
         <Input
           id="newsletter-email"
           type="email"
@@ -90,14 +95,13 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
           }}
           placeholder="you@example.com"
           disabled={state === "submitting"}
-          className="flex-1 [&_input]:bg-zinc-950 [&_input]:text-white [&_input]:placeholder:text-zinc-600"
+          className="flex-1"
         />
       </Field>
       <Button
         type="submit"
         disabled={state === "submitting"}
-        variant="secondary"
-        className="shrink-0 !bg-white !text-black hover:!bg-zinc-100 hover:!text-black"
+        className="shrink-0"
       >
         {state === "submitting" ? (
           <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Sending…</>
@@ -106,7 +110,11 @@ export function NewsletterSignup({ apiOrigin, page = "/" }: {
         )}
       </Button>
       {state === "error" && msg && (
-        <p role="alert" className="text-[12px] text-rose-300 sm:absolute sm:mt-12">{msg}</p>
+        <div className="sm:absolute sm:mt-12">
+          <Alert variant="error">
+            <AlertDescription>{msg}</AlertDescription>
+          </Alert>
+        </div>
       )}
     </form>
   );

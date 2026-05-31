@@ -12,6 +12,7 @@ import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
 import { Radio, RadioGroup } from "@/components/heroui-pro/radio";
+import { Chip } from "@/components/heroui-pro/chip";
 import { SettingsSection } from "../layout";
 
 // Personal account settings — scoped to the signed-in user, not the
@@ -188,17 +189,19 @@ export default function AccountSettingsPage() {
           <CardDescription>The address you sign in with. Changing it requires re-verification (coming soon).</CardDescription>
         </CardHeader>
         <CardPanel>
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3">
-            <Mail className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-3">
+            <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate font-mono text-sm" title={user.email ?? undefined}>
               {user.email ?? "no email"}
             </span>
             {user.emailVerified ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700">
+              <Chip size="sm" variant="soft" color="success" className="gap-1 text-[10px] uppercase tracking-wider">
                 <ShieldCheck className="h-3 w-3" /> verified
-              </span>
+              </Chip>
             ) : (
-              <span className="text-[11px] text-amber-700">unverified</span>
+              <Chip size="sm" variant="soft" color="warning" className="text-[10px] uppercase tracking-wider">
+                unverified
+              </Chip>
             )}
             {user.email && (
               <Button type="button" onClick={copyEmail} variant="ghost" size="xs" className="shrink-0">

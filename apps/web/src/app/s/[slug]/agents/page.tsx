@@ -9,6 +9,8 @@ import { notifyThrown } from "@/lib/notify";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { CreateAgentDialog } from "@/components/create-agent-dialog";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { useAgentActivities } from "@/hooks/use-agent-activity";
 import { cn } from "@/lib/utils";
 
@@ -75,9 +77,9 @@ export default function AgentsIndexPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
           {/* Emerald — distinct from per-runtime colors (claude=cyan,
               codex=amber, openclaw=violet, hermes=rose). The page is
               "agents in this workspace" so we use a runtime-agnostic
@@ -105,13 +107,14 @@ export default function AgentsIndexPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-5xl">
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div className="mx-auto w-full max-w-5xl">
           {agents === null && (
             <p className="text-sm text-muted-foreground">Loading…</p>
           )}
           {agents !== null && agents.length === 0 && (
-            <div className="rounded-lg border border-dashed p-8 text-center">
+            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
+              <CardPanel className="p-8">
               <Cpu className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium">No agents yet.</p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -128,14 +131,16 @@ export default function AgentsIndexPage() {
                   <Plus className="h-3.5 w-3.5" /> Create agent
                 </Button>
               )}
-            </div>
+              </CardPanel>
+            </Card>
           )}
           {agents !== null && agents.length > 0 && (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {agents.map((a) => {
                 const act = activities[a.id];
                 return (
-                  <li key={a.id} className="rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+                  <Card render={<li />} key={a.id} className="border-border/60 bg-surface/80 !shadow-none transition-colors hover:border-accent/25">
+                    <CardPanel className="p-3">
                     <div className="flex items-start gap-3">
                       <GeneratedAvatar id={a.id} name={a.displayName} seed={a.avatarSeed} size="lg" />
                       <div className="min-w-0 flex-1">
@@ -182,7 +187,8 @@ export default function AgentsIndexPage() {
                         <ArrowRight className="h-3 w-3" />
                       </Button>
                     </div>
-                  </li>
+                    </CardPanel>
+                  </Card>
                 );
               })}
             </ul>
@@ -208,17 +214,16 @@ function RuntimeChip({ runtime }: { runtime: string }) {
   // values from pre-removal rows. Fall through to a neutral zinc tone
   // for unknown runtimes — never throw, never white-screen. Detected
   // by review (backcompat H1).
-  const tone: Record<string, string> = {
-    claude:   "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
-    codex:    "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-    openclaw: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
-    hermes:   "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  const tone: Record<string, "accent" | "warning" | "default" | "danger"> = {
+    claude:   "accent",
+    codex:    "warning",
+    openclaw: "default",
+    hermes:   "danger",
   };
-  const cls = tone[runtime] ?? "bg-zinc-500/10 text-zinc-700 dark:text-zinc-400";
   return (
-    <span className={cn("rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider", cls)}>
+    <Chip size="sm" variant="soft" color={tone[runtime] ?? "default"} className="text-[9px] uppercase tracking-wider">
       {runtime}
-    </span>
+    </Chip>
   );
 }
 

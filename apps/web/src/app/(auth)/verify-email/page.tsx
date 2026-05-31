@@ -8,6 +8,8 @@ import { safeNext } from "@/lib/safe-redirect";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Field, FieldLabel } from "@/components/heroui-pro/field";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Alert, AlertDescription } from "@/components/heroui-pro/alert";
 
 /**
  * Landing page for email verification.
@@ -114,17 +116,21 @@ function VerifyEmailInner() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
-      <div className="max-w-sm w-full text-center">
-        <h1 className="text-2xl font-semibold">Email verified ✓</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <Card className="w-full max-w-sm text-center">
+        <CardHeader>
+          <CardTitle>Email verified</CardTitle>
+          <CardDescription>
           If you signed up on a different device, return there — this
           tab confirmed your email and the other one will pick it up
           automatically. Otherwise, sign in below.
-        </p>
-        <Button render={<Link href={signInHref} />} className="mt-6">
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="justify-center">
+        <Button render={<Link href={signInHref} />}>
           Sign in
         </Button>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
@@ -172,23 +178,28 @@ function ErrorPanel({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
-      <div className="max-w-md w-full text-center">
-        <h1 className="text-2xl font-semibold">
+      <Card className="w-full max-w-md text-center">
+        <CardHeader>
+        <CardTitle>
           {isExpired ? "This link expired" : isInvalid ? "This link is invalid" : "Verification failed"}
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
+        </CardTitle>
+        <CardDescription>
           {isExpired
             ? "Verification links are good for a short window. Enter your email and we'll send a fresh one."
             : isInvalid
               ? "The link may have been copy-pasted incorrectly, or it was already used. Try requesting a new one below."
               : "Something went wrong on our end."}
-        </p>
+        </CardDescription>
+        </CardHeader>
+        <CardPanel>
         {resentTo ? (
-          <p className="mt-6 rounded border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-            If an account exists for <strong>{resentTo}</strong>, a new verification link is on its way.
-          </p>
+          <Alert variant="success">
+            <AlertDescription>
+              If an account exists for <strong>{resentTo}</strong>, a new verification link is on its way.
+            </AlertDescription>
+          </Alert>
         ) : (
-          <form onSubmit={handleResend} className="mt-6 space-y-3 text-left">
+          <form onSubmit={handleResend} className="space-y-3 text-left">
             <Field>
               <FieldLabel htmlFor="resend-email">Email</FieldLabel>
               <Input
@@ -209,16 +220,21 @@ function ErrorPanel({
               {resending ? "Sending…" : "Send a new verification link"}
             </Button>
             {resendError && (
-              <p className="text-xs text-destructive-foreground">{resendError}</p>
+              <Alert variant="error">
+                <AlertDescription>{resendError}</AlertDescription>
+              </Alert>
             )}
           </form>
         )}
+        </CardPanel>
+        <CardFooter className="justify-center">
         <p className="mt-6 text-xs text-muted-foreground">
           Already verified? <Link href="/login" className="underline hover:text-foreground">Sign in</Link>.
           {" "}
           <span className="opacity-60">[ref: {errorCode}]</span>
         </p>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

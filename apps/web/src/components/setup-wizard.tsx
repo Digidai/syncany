@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, RUNTIME_LABEL, type RuntimeId } from "@/lib/api";
+import { api, ApiError, type RuntimeId } from "@/lib/api";
 import { getApiOrigin } from "@/lib/auth-client";
 import { Button } from "@/components/heroui-pro/button";
 import { Input } from "@/components/heroui-pro/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
+import { Dialog, DialogPortal, DialogBackdrop, DialogPopup } from "@/components/heroui-pro/dialog";
 import { Radio, RadioGroup } from "@/components/heroui-pro/radio";
+import { Tabs, TabsIndicator, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
+import { Chip } from "@/components/heroui-pro/chip";
+import { MachineRow } from "@/components/settings-shared";
 import { CheckCircle2, Circle, Copy, KeyRound, Terminal, MessageSquare, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -423,19 +427,21 @@ export function SetupWizard({
       ? `raltic-bridge setup ${issued}`
       : `raltic-bridge setup ${issued} --server-url ${API_URL}`
     : "";
+  const wizardTitle = hasExistingBridge
+    ? "Connect another laptop"
+    : flavor === "invite"
+    ? "Bring YOUR agents online"
+    : "Set up your laptop";
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-background/80 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex min-h-full w-full max-w-xl items-start justify-center">
-        <div className="w-full">
-          <Card>
+    <Dialog open onOpenChange={(next) => { if (!next) handleDismiss(); }}>
+      <DialogPortal>
+        <DialogBackdrop />
+        <DialogPopup className="sm:max-w-xl" showCloseButton={false} aria-label={wizardTitle}>
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 shadow-none">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>
-                {hasExistingBridge
-                  ? "Connect another laptop"
-                  : flavor === "invite"
-                  ? "Bring YOUR agents online"
-                  : "Set up your laptop"}
+                {wizardTitle}
               </CardTitle>
               <Button
                 type="button"
@@ -463,7 +469,7 @@ export function SetupWizard({
               )}
             </CardDescription>
           </CardHeader>
-          <CardPanel>
+          <CardPanel className="min-h-0 flex-1 overflow-y-auto">
             <ol className="space-y-3 text-sm">
               <Step n={1} active={step === 1} done={step > 1} title="Welcome" />
               <Step n={2} active={step === 2} done={step > 2}
@@ -655,34 +661,37 @@ export function SetupWizard({
                           who want bridge to keep running after closing
                           terminal; Desktop points users to the installed
                           app's authenticated launch flow. */}
-                      <div role="tablist" aria-label="Install method" className="flex gap-1 border-b">
-                        {[
-                          { id: "quick" as const, label: "Quick (recommended)" },
-                          { id: "persistent" as const, label: "Persistent" },
-                          { id: "desktop" as const, label: "Desktop app" },
-                        ].map((t) => {
-                          const active = installTab === t.id;
-                          return (
-                            <Button
-                              key={t.id}
-                              type="button"
-                              role="tab"
-                              aria-selected={active}
-                              onClick={() => setInstallTab(t.id)}
-                              variant="ghost"
-                              size="xs"
-                              className={
-                                "h-8 rounded-none border-b-2 px-2.5 text-xs transition-colors " +
-                                (active
-                                  ? "border-cyan-500 text-cyan-700 dark:text-cyan-400"
-                                  : "border-transparent text-muted-foreground hover:text-foreground")
-                              }
-                            >
-                              {t.label}
-                            </Button>
-                          );
-                        })}
-                      </div>
+                      <Tabs
+                        selectedKey={installTab}
+                        onSelectionChange={(key) => setInstallTab(key as typeof installTab)}
+                      >
+                        <TabsListContainer className="border-b">
+                          <TabsList aria-label="Install method" className="gap-1">
+                            <TabsIndicator />
+                            {[
+                              { id: "quick" as const, label: "Quick (recommended)" },
+                              { id: "persistent" as const, label: "Persistent" },
+                              { id: "desktop" as const, label: "Desktop app" },
+                            ].map((t) => {
+                              const active = installTab === t.id;
+                              return (
+                                <TabsTrigger
+                                  key={t.id}
+                                  id={t.id}
+                                  className={cn(
+                                    "h-8 rounded-none px-2.5 text-xs",
+                                    active
+                                      ? "text-cyan-700 dark:text-cyan-400"
+                                      : "text-muted-foreground hover:text-foreground",
+                                  )}
+                                >
+                                  {t.label}
+                                </TabsTrigger>
+                              );
+                            })}
+                          </TabsList>
+                        </TabsListContainer>
+                      </Tabs>
 
                       {installTab === "quick" && (
                         <>
@@ -732,7 +741,10 @@ export function SetupWizard({
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Terminal className="h-3 w-3" />
                     Waiting for the bridge to connect…
-                    <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+                    <Chip size="sm" variant="soft" color="warning" className="ml-auto gap-1 text-[10px] uppercase tracking-wider">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
+                      polling
+                    </Chip>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Once it prints <code>[bridge] ready</code> the wizard will advance automatically.
@@ -801,41 +813,16 @@ export function SetupWizard({
                       their state update without manual reload. Renders
                       ALL machines that have used this key (rare but
                       possible — same key on multiple laptops). */}
-                  {detectedMachines.length > 0 && detectedMachines.map((machine, idx) => (
-                    <div key={machine.fingerprint ?? idx} className="rounded border bg-muted/30 p-2 text-[12px] space-y-1">
+                  {detectedMachines.length > 0 && (
+                    <div className="space-y-2">
                       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        {detectedMachines.length === 1 ? "Detected on your laptop" : `Detected on ${machine.hostname ?? "machine " + (idx + 1)}`}
+                        Detected runtimes
                       </p>
-                      {machine.runtimes.map((r) => (
-                        <div key={r.id} className="flex items-center gap-1.5">
-                          {r.detected && r.authed ? (
-                            <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600" />
-                          ) : r.detected ? (
-                            <AlertTriangle className="h-3 w-3 shrink-0 text-amber-600" />
-                          ) : (
-                            <span className="h-3 w-3 shrink-0 rounded-full bg-zinc-300" />
-                          )}
-                          <span className="font-medium">
-                            {RUNTIME_LABEL[r.id]}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {r.detected && r.authed
-                              ? `${r.version ?? ""} ready`
-                              : r.detected
-                              // external_daemon runtimes (openclaw,
-                              // hermes) report needs_login when the
-                              // daemon is reachable-but-not-running;
-                              // the fix is `start`, not `login`.
-                              // Codex review MED.
-                              ? (r.id === "openclaw" || r.id === "hermes")
-                                ? `installed — daemon not running`
-                                : `installed — run \`${r.id} login\``
-                              : "not installed"}
-                          </span>
-                        </div>
+                      {detectedMachines.map((machine, idx) => (
+                        <MachineRow key={machine.fingerprint ?? idx} machine={machine} />
                       ))}
                     </div>
-                  ))}
+                  )}
 
                   {firstReplySeen ? (
                     <p className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
@@ -864,9 +851,9 @@ export function SetupWizard({
             <span>Step {step} of 4</span>
           </CardFooter>
           </Card>
-        </div>
-      </div>
-    </div>
+        </DialogPopup>
+      </DialogPortal>
+    </Dialog>
   );
 }
 

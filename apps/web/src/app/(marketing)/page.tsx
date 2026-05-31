@@ -9,6 +9,7 @@ import { MarketingButton } from "@/components/marketing/marketing-button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { SectionHeader } from "@/components/marketing/section-header";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
 import { MarketingFaqList } from "@/components/marketing/faq-list";
 
@@ -112,14 +113,14 @@ function Hero(): React.ReactElement {
                 dual-actor framing lands BEFORE the headline. Lets the
                 H1 keep Slack-style "Where X happens" punch instead of
                 having to also be the positioning statement itself. */}
-            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
+            <Chip size="sm" variant="soft" color="default" className="gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" aria-hidden="true" />
               Built for <span className="text-white">humans</span>{" "}
               <span className="text-zinc-400">&amp;</span>{" "}
               <span className="text-cyan-400">AI</span>
               <span className="mx-1 text-zinc-400">·</span>
               Private beta · Free
-            </span>
+            </Chip>
 
           {/* H1 follows the "Where X happens" pattern that Slack proved
               for chat-as-destination products. `and AI` in cyan picks
@@ -183,10 +184,10 @@ function Hero(): React.ReactElement {
                   <span className="ml-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
                     <Hash className="h-3 w-3" aria-hidden="true" /> launch
                   </span>
-                  <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+                  <Chip size="sm" variant="soft" color="success" className="ml-auto gap-1.5 text-[10px]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" aria-hidden="true" />
                     Live
-                  </span>
+                  </Chip>
                 </div>
                 <div className="space-y-5 p-5 text-sm">
                   <MockMessage name="Sarah" time="2:14 PM" body="Pricing page ships tomorrow. Can the team gut-check it actually lands for security buyers?" />
@@ -228,10 +229,10 @@ function TwoWaysToRun(): React.ReactElement {
             <div className="relative border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent" />
           } className="bg-transparent">
             <CardPanel className="p-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
-              <span className="h-1 w-1 rounded-full bg-cyan-400" />
+            <Chip size="sm" variant="soft" color="accent" className="gap-1.5 text-[10px] uppercase tracking-wider">
+              <span className="h-1 w-1 rounded-full bg-cyan-400" aria-hidden="true" />
               Default · Zero install
-            </span>
+            </Chip>
             <h3 className="mt-4 text-xl font-medium text-white">Raltic cloud Agent</h3>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               Sign up, get an Agent running in our sandbox container in seconds. Give it a system prompt, point it at channels, done. We handle the routing, you write the persona.
@@ -255,10 +256,10 @@ function TwoWaysToRun(): React.ReactElement {
             <div className="relative border border-zinc-800 bg-zinc-950" />
           } className="bg-zinc-950">
             <CardPanel className="p-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
-              <span className="h-1 w-1 rounded-full bg-zinc-400" />
+            <Chip size="sm" variant="soft" color="default" className="gap-1.5 text-[10px] uppercase tracking-wider">
+              <span className="h-1 w-1 rounded-full bg-zinc-400" aria-hidden="true" />
               Bring your own
-            </span>
+            </Chip>
             <h3 className="mt-4 text-xl font-medium text-white">Your CLI · Your daemon</h3>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               Already running Claude Code, Codex, OpenClaw, or Hermes locally? Install our bridge daemon (one line) and connect them as Agents. Your repo, secrets, and provider keys never leave your machine.
@@ -342,9 +343,9 @@ function RuntimeBadge({ name, sub, dot, experimental }: {
         <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
         <span className="text-sm font-medium text-white">{name}</span>
         {experimental && (
-          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-1.5 py-px text-[9.5px] font-medium uppercase tracking-wider text-zinc-400">
+          <Chip size="sm" variant="soft" color="warning" className="text-[9.5px] uppercase tracking-wider">
             Experimental
-          </span>
+          </Chip>
         )}
       </div>
       <div className="mt-0.5 font-mono text-[10.5px] text-zinc-400">{sub}</div>
@@ -366,6 +367,7 @@ function Architecture(): React.ReactElement {
     >
       <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
+          dark={false}
           eyebrow="The reason your team blocks AI tools"
           title={<>You shouldn't have to choose between <span className="text-zinc-500">AI and security</span>.</>}
           description="Every other AI tool ships your source code to a vendor's servers to do its job. Legal blocks it, security blocks it, your enterprise customers ask hard questions about it. Raltic removes the problem entirely — your code stays on your machines, and we never see it."
@@ -452,9 +454,9 @@ function ArchCard({ n, icon, title, body, tag, footer }: {
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10.5px] text-zinc-600">step {n}</span>
-            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-zinc-600">
+            <Chip size="sm" variant="soft" color="default" className="font-mono text-[9.5px] uppercase tracking-wider">
               {tag}
-            </span>
+            </Chip>
           </div>
         </div>
         <h3 className="mt-5 text-lg font-medium tracking-tight text-zinc-900">{title}</h3>
@@ -569,13 +571,13 @@ function TeammateCard({
     avatarBg = "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)";
     accent = "bg-cyan-500";
     runtimePill = (
-      <span className="rounded-full bg-cyan-500/15 px-1.5 py-px text-[10px] font-semibold tracking-wide text-cyan-300">Claude</span>
+      <Chip size="sm" variant="soft" color="accent" className="text-[10px] tracking-wide">Claude</Chip>
     );
   } else {
     avatarBg = "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)";
     accent = "bg-amber-500";
     runtimePill = (
-      <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold tracking-wide text-amber-300">OpenAI</span>
+      <Chip size="sm" variant="soft" color="warning" className="text-[10px] tracking-wide">OpenAI</Chip>
     );
   }
 
@@ -654,6 +656,7 @@ function UseCases(): React.ReactElement {
     >
       <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
+          dark={false}
           eyebrow="Use cases"
           title={<>What teams <span className="text-zinc-500">actually</span> use it for.</>}
           description="Pick the one closest to your team. You can have it live in your workspace before this afternoon's standup — no integration project, no engineering ticket."
@@ -762,17 +765,17 @@ function RosterRow({ name, runtime, role }: {
   name: string; runtime: "claude" | "codex"; role: string;
 }): React.ReactElement {
   const accent = runtime === "claude"
-    ? { dot: "bg-cyan-400", pill: "bg-cyan-500/15 text-cyan-300" }
-    : { dot: "bg-amber-400", pill: "bg-amber-500/15 text-amber-300" };
+    ? { dot: "bg-cyan-400", color: "accent" as const, label: "Claude" }
+    : { dot: "bg-amber-400", color: "warning" as const, label: "OpenAI" };
   return (
     <li className="flex items-start gap-3">
       <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${accent.dot}`} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[13px] text-white">@{name}</span>
-          <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold tracking-wide ${accent.pill}`}>
-            {runtime === "codex" ? "OpenAI" : "Claude"}
-          </span>
+          <Chip size="sm" variant="soft" color={accent.color} className="text-[10px] tracking-wide">
+            {accent.label}
+          </Chip>
         </div>
         <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-400">{role}</p>
       </div>
@@ -790,6 +793,7 @@ function WhyRaltic(): React.ReactElement {
     >
       <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
+          dark={false}
           eyebrow="The problems your team is hitting today"
           title={<>The reasons your <span className="text-zinc-500">last AI rollout</span> stalled.</>}
         />
@@ -923,22 +927,22 @@ function ComparisonRow({ label, vals }: {
 function ComparisonCell({ value, highlight }: { value: "yes" | "no" | "partial"; highlight: boolean }): React.ReactElement {
   if (value === "yes") {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-300" title="Yes">
+      <Chip size="sm" variant="soft" color="accent" className="h-6 w-6 justify-center p-0" aria-label="Yes">
         <CheckCircle2 className={"h-4 w-4 " + (highlight ? "text-cyan-300" : "text-cyan-400")} aria-label="Yes" />
-      </span>
+      </Chip>
     );
   }
   if (value === "partial") {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-zinc-400" title="Partial">
+      <Chip size="sm" variant="soft" color="default" className="h-6 w-6 justify-center p-0" aria-label="Partial">
         <Minus className="h-4 w-4" aria-label="Partial" />
-      </span>
+      </Chip>
     );
   }
   return (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-zinc-600" title="No">
+    <Chip size="sm" variant="soft" color="default" className="h-6 w-6 justify-center p-0 opacity-60" aria-label="No">
       <X className="h-4 w-4" aria-label="No" />
-    </span>
+    </Chip>
   );
 }
 
@@ -1008,6 +1012,7 @@ function Pricing(): React.ReactElement {
     >
       <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
+          dark={false}
           eyebrow="Pricing"
           title={<>Free <span className="text-zinc-500">while we're in beta.</span></>}
           description="Your team is already paying for ChatGPT, Claude, Cursor, and three more — we're not going to be tool number seven. Beta is free, paid plans are upfront when they land, and you'll always pay the AI providers directly with no markup from us."
@@ -1071,14 +1076,14 @@ function PricingCard({ tag, name, price, note, features, highlight }: {
       <CardPanel className="p-7">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium tracking-tight">{name}</h3>
-          <span className={
-            "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider " +
-            (tag === "now"
-              ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-              : (highlight ? "border-zinc-800 text-zinc-500" : "border-zinc-300 text-zinc-500"))
-          }>
+          <Chip
+            size="sm"
+            variant="soft"
+            color={tag === "now" ? "accent" : "default"}
+            className="font-mono text-[10px] uppercase tracking-wider"
+          >
             {tag}
-          </span>
+          </Chip>
         </div>
         <div className="mt-4 text-3xl font-medium tracking-tight">{price}</div>
         <p className={"mt-1 text-xs " + (highlight ? "text-zinc-400" : "text-zinc-600")}>{note}</p>
@@ -1214,10 +1219,10 @@ function nameHue(name: string): number {
  *  doesn't see, and the agent-rail color silently vanished from the
  *  bundle. Codex review LOW. Now: rail uses full class strings. */
 const RUNTIME_PALETTE = {
-  claude:   { grad: "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)", text: "text-cyan-300",   pillBg: "bg-cyan-500/15 text-cyan-300",     rail: "before:bg-cyan-400/60",   label: "Claude" },
-  codex:    { grad: "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)", text: "text-amber-300",  pillBg: "bg-amber-500/15 text-amber-300",   rail: "before:bg-amber-400/60",  label: "OpenAI" },
-  openclaw: { grad: "linear-gradient(140deg, #a78bfa 0%, #7c3aed 100%)", text: "text-violet-300", pillBg: "bg-violet-500/15 text-violet-300", rail: "before:bg-violet-400/60", label: "OpenClaw" },
-  hermes:   { grad: "linear-gradient(140deg, #fb7185 0%, #be123c 100%)", text: "text-rose-300",   pillBg: "bg-rose-500/15 text-rose-300",     rail: "before:bg-rose-400/60",   label: "Hermes" },
+  claude:   { grad: "linear-gradient(140deg, #22d3ee 0%, #06b6d4 100%)", text: "text-cyan-300",   chipColor: "accent" as const,  rail: "before:bg-cyan-400/60",   label: "Claude" },
+  codex:    { grad: "linear-gradient(140deg, #f59e0b 0%, #b45309 100%)", text: "text-amber-300",  chipColor: "warning" as const, rail: "before:bg-amber-400/60",  label: "OpenAI" },
+  openclaw: { grad: "linear-gradient(140deg, #a78bfa 0%, #7c3aed 100%)", text: "text-violet-300", chipColor: "default" as const, rail: "before:bg-violet-400/60", label: "OpenClaw" },
+  hermes:   { grad: "linear-gradient(140deg, #fb7185 0%, #be123c 100%)", text: "text-rose-300",   chipColor: "default" as const, rail: "before:bg-rose-400/60",   label: "Hermes" },
 } as const;
 
 function MockMessage({ name, time, body, runtime, muted }: {
@@ -1250,9 +1255,9 @@ function MockMessage({ name, time, body, runtime, muted }: {
             // / "OpenClaw" / "Hermes") not internal runtime keys. A buyer
             // scanning should immediately see "the AI I already know"
             // for claude/codex; "the local daemon I run" for openclaw/hermes.
-            <span className={"rounded-full px-1.5 py-px text-[10px] font-semibold tracking-wide " + palette.pillBg}>
+            <Chip size="sm" variant="soft" color={palette.chipColor} className="text-[10px] tracking-wide">
               {palette.label}
-            </span>
+            </Chip>
           )}
           <span className="text-[11px] text-zinc-400">{time}</span>
         </div>
@@ -1268,9 +1273,9 @@ function Step({ n, title, body }: { n: number; title: string; body: string }): R
   return (
     <Card render={<div className="rounded-2xl border border-zinc-800 bg-black" />} className="bg-black">
       <CardPanel className="p-8">
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 font-mono text-sm font-medium text-zinc-300">
+        <Chip size="lg" variant="soft" color="default" className="h-9 w-9 justify-center p-0 font-mono text-sm font-medium">
           {n}
-        </div>
+        </Chip>
         <h3 className="mt-5 text-lg font-medium tracking-tight text-white">{title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">{body}</p>
       </CardPanel>
@@ -1282,9 +1287,9 @@ function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; 
   return (
     <Card render={<div className="border border-zinc-200 bg-white" />} className="bg-white">
       <CardPanel className="p-7">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+        <Chip size="lg" variant="soft" color="default" className="h-10 w-10 justify-center p-0 text-zinc-700">
           {icon}
-        </div>
+        </Chip>
         <h3 className="mt-5 text-base font-medium tracking-tight text-zinc-900">{title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600">{body}</p>
       </CardPanel>
@@ -1303,9 +1308,9 @@ function BentoCard({ title, body, tag, className }: {
       className="bg-white"
     >
       <CardPanel className="p-7">
-        <span className="inline-block rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+        <Chip size="sm" variant="soft" color="default" className="text-[10px] uppercase tracking-wider">
           {tag}
-        </span>
+        </Chip>
         <h3 className="mt-4 text-xl font-medium tracking-tight text-zinc-900">{title}</h3>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-600">{body}</p>
       </CardPanel>

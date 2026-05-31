@@ -54,17 +54,27 @@ export default function InvitePage() {
   }
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">Loading…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-8">
+        <Card className="w-full max-w-sm border-dashed text-center shadow-none">
+          <CardPanel className="text-sm text-muted-foreground">Loading…</CardPanel>
+        </Card>
+      </div>
+    );
   }
 
   if (error || !preview) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-8">
-        <div className="max-w-sm w-full text-center">
-          <h1 className="text-xl font-semibold">Invite unavailable</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-          <Link href="/" className="mt-4 inline-block text-sm underline">Go home</Link>
-        </div>
+        <Card className="w-full max-w-sm text-center">
+          <CardHeader>
+            <CardTitle>Invite unavailable</CardTitle>
+            <CardDescription>{error ?? "This invite can no longer be used."}</CardDescription>
+          </CardHeader>
+          <CardFooter className="justify-center">
+            <Button render={<Link href="/" />} variant="outline" size="sm">Go home</Button>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
@@ -84,14 +94,19 @@ export default function InvitePage() {
               </p>
             </CardPanel>
             <CardFooter className="flex-col gap-2">
-              <Link href={`/login?next=${encodeURIComponent(`/invite/${inviteId}`)}`}
-                className="block w-full rounded bg-foreground px-4 py-2 text-center text-sm text-background hover:opacity-90">
+              <Button
+                render={<Link href={`/login?next=${encodeURIComponent(`/invite/${inviteId}`)}`} />}
+                className="w-full"
+              >
                 Sign in
-              </Link>
-              <Link href={`/signup?next=${encodeURIComponent(`/invite/${inviteId}`)}`}
-                className="block w-full rounded border px-4 py-2 text-center text-sm hover:bg-accent">
+              </Button>
+              <Button
+                render={<Link href={`/signup?next=${encodeURIComponent(`/invite/${inviteId}`)}`} />}
+                variant="outline"
+                className="w-full"
+              >
                 Create account
-              </Link>
+              </Button>
             </CardFooter>
           </Card>
         </div>

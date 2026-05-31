@@ -207,6 +207,14 @@ export async function setupMockWorkspace(page: Page, context: BrowserContext) {
       defaultServerSlug: "demo",
       hasConnectedBridge: true,
     }));
+    if (path === "/api/v1/inbox") return route.fulfill(json({ items: [], count: 0 }));
+    if (path === "/api/v1/tasks" && method === "GET") return route.fulfill(json({ tasks: [] }));
+    if (path === "/api/v1/servers/srv-demo/channels/browse") return route.fulfill(json({
+      channels: [
+        { id: onboardingChannel.id, name: onboardingChannel.name, description: onboardingChannel.description, createdAt: onboardingChannel.createdAt, isMember: true },
+        { id: researchChannel.id, name: researchChannel.name, description: researchChannel.description, createdAt: researchChannel.createdAt, isMember: true },
+      ],
+    }));
     if (path === "/api/v1/agents") return route.fulfill(json({ agents }));
     if (path === "/api/v1/servers/srv-demo/members") return route.fulfill(json({ members: workspaceMembers, viewerRole: "owner" }));
     if (path === "/api/v1/channels/ch-onboarding") return route.fulfill(json({

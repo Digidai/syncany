@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRight, Laptop, Cloud, KeyRound, Sparkles } from "lucide-react";
 import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
@@ -31,10 +32,10 @@ export default function IndiePage() {
     <>
       <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
         <CardPanel className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
+          <Chip size="sm" variant="soft" color="default" className="gap-2">
             <Sparkles className="h-3 w-3 text-cyan-400" />
             For solo devs &amp; AI tinkerers
-          </span>
+          </Chip>
           <h1 className="mt-7 text-balance text-5xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
             All your AI agents.<br />
             <span className="text-cyan-400">One chat.</span>

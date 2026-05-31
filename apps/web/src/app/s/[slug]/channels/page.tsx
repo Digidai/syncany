@@ -7,6 +7,8 @@ import { Hash, ArrowRight, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifyThrown, notifySuccess } from "@/lib/notify";
 import { Button } from "@/components/heroui-pro/button";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
+import { Chip } from "@/components/heroui-pro/chip";
 
 /**
  * Browse + join public channels in this workspace.
@@ -64,9 +66,9 @@ export default function ChannelsBrowsePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border/70 bg-background/85 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
             <Hash className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -79,24 +81,27 @@ export default function ChannelsBrowsePage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-5xl">
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div className="mx-auto w-full max-w-5xl">
           {rows === null && (
             <p className="text-sm text-muted-foreground">Loading…</p>
           )}
           {rows !== null && rows.length === 0 && (
-            <div className="rounded-lg border border-dashed p-8 text-center">
+            <Card className="mx-auto w-full max-w-xl border-dashed border-border/70 bg-surface/70 text-center !shadow-none">
+              <CardPanel className="p-8">
               <Hash className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium">No public channels yet.</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Admins can create channels from Settings → Channels & agents.
               </p>
-            </div>
+              </CardPanel>
+            </Card>
           )}
           {rows !== null && rows.length > 0 && (
             <ul className="space-y-2">
               {rows.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+                <Card render={<li />} key={r.id} className="border-border/60 bg-surface/80 !shadow-none transition-colors hover:border-accent/25">
+                  <CardPanel className="flex flex-wrap items-center gap-3 p-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
                     <Hash className="h-4 w-4" aria-hidden="true" />
                   </div>
@@ -112,9 +117,9 @@ export default function ChannelsBrowsePage() {
                     )}
                   </div>
                   {r.isMember ? (
-                    <span className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 sm:ml-auto sm:w-auto">
+                    <Chip size="sm" variant="soft" color="success" className="w-full justify-center gap-1 sm:ml-auto sm:w-auto">
                       <Check className="h-3 w-3" /> Joined
-                    </span>
+                    </Chip>
                   ) : (
                     <Button
                       type="button"
@@ -128,7 +133,8 @@ export default function ChannelsBrowsePage() {
                       <ArrowRight className="h-3 w-3" />
                     </Button>
                   )}
-                </li>
+                  </CardPanel>
+                </Card>
               ))}
             </ul>
           )}
