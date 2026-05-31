@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, Download, ExternalLink, Monitor, RefreshCw } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
+import { Card, CardHeader, CardPanel } from "@/components/heroui-pro/card";
 
 const RELEASES_URL = "https://github.com/Digidai/raltic/releases";
 
@@ -31,8 +32,8 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
     <>
       <main className="bg-black text-white">
         {fromDesktopWelcome ? <DesktopReturnBar /> : null}
-        <section className="border-b border-zinc-900 px-6 pt-28 pb-16 sm:pt-36">
-          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_360px] lg:items-start">
+        <Card render={<section className="border-b border-zinc-900 px-6 pt-28 pb-16 sm:pt-36" />} className="w-full rounded-none border-0 shadow-none">
+          <CardPanel className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
@@ -56,28 +57,30 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
               </div>
             </div>
 
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5">
-              <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-800 bg-black">
-                  <Monitor className="h-5 w-5 text-cyan-300" />
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-800 bg-black">
+                    <Monitor className="h-5 w-5 text-cyan-300" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Current status</p>
+                    <p className="text-sm text-zinc-500">Manual beta install</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-white">Current status</p>
-                  <p className="text-sm text-zinc-500">Manual beta install</p>
-                </div>
-              </div>
-              <dl className="mt-4 space-y-3 text-sm">
+              </CardHeader>
+              <CardPanel className="space-y-3 text-sm">
                 <StatusRow label="Code signing" value="Not enabled" />
                 <StatusRow label="Auto-update" value="Not promised for beta" />
                 <StatusRow label="Distribution" value="GitHub pre-release" />
                 <StatusRow label="Audience" value="Named testers only" />
-              </dl>
-            </div>
-          </div>
-        </section>
+              </CardPanel>
+            </Card>
+          </CardPanel>
+        </Card>
 
-        <section id="install" className="px-6 py-16">
-          <div className="mx-auto max-w-6xl">
+        <Card render={<section id="install" className="px-6 py-16" />} className="w-full rounded-none border-0 shadow-none">
+          <CardPanel className="mx-auto max-w-6xl">
             <div className="mb-8 flex items-center gap-2 text-sm font-medium text-zinc-300">
               <Download className="h-4 w-4 text-cyan-300" />
               Install path
@@ -99,35 +102,43 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
                 body="Sign in, return to the desktop launch screen, then click Connect this computer. The app creates a workspace-scoped bridge key."
               />
             </div>
-          </div>
-        </section>
+          </CardPanel>
+        </Card>
 
-        <section className="border-y border-zinc-900 bg-zinc-950/55 px-6 py-14">
-          <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_1fr]">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-amber-200">
-                <AlertTriangle className="h-4 w-4" />
-                Unsigned beta warnings
-              </div>
-              <ul className="space-y-3 text-sm leading-6 text-zinc-400">
-                <li>macOS Gatekeeper may say the app cannot be opened or is from an unidentified developer.</li>
-                <li>Windows SmartScreen may show Unknown Publisher until Windows signing is added.</li>
-                <li>Do not treat this as the public release channel.</li>
-              </ul>
-            </div>
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-cyan-200">
-                <RefreshCw className="h-4 w-4" />
-                Updates during beta
-              </div>
-              <p className="text-sm leading-6 text-zinc-400">
-                Install new beta versions manually from GitHub Releases. The
-                production auto-update channel will be enabled after signed and
-                notarized releases are available.
-              </p>
-            </div>
-          </div>
-        </section>
+        <Card render={<section className="border-y border-zinc-900 bg-zinc-950/55 px-6 py-14" />} className="w-full rounded-none border-0 shadow-none">
+          <CardPanel className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_1fr]">
+            <Card>
+              <CardHeader>
+                <div className="mb-4 flex items-center gap-2 text-sm font-medium text-amber-200">
+                  <AlertTriangle className="h-4 w-4" />
+                  Unsigned beta warnings
+                </div>
+              </CardHeader>
+              <CardPanel className="pt-0">
+                <ul className="space-y-3 text-sm leading-6 text-zinc-400">
+                  <li>macOS Gatekeeper may say the app cannot be opened or is from an unidentified developer.</li>
+                  <li>Windows SmartScreen may show Unknown Publisher until Windows signing is added.</li>
+                  <li>Do not treat this as the public release channel.</li>
+                </ul>
+              </CardPanel>
+            </Card>
+            <Card>
+              <CardHeader>
+                <div className="mb-4 flex items-center gap-2 text-sm font-medium text-cyan-200">
+                  <RefreshCw className="h-4 w-4" />
+                  Updates during beta
+                </div>
+              </CardHeader>
+              <CardPanel className="pt-0">
+                <p className="text-sm leading-6 text-zinc-400">
+                  Install new beta versions manually from GitHub Releases. The
+                  production auto-update channel will be enabled after signed and
+                  notarized releases are available.
+                </p>
+              </CardPanel>
+            </Card>
+          </CardPanel>
+        </Card>
       </main>
       <MarketingFooter />
     </>
@@ -136,38 +147,48 @@ export default async function DesktopBetaPage({ searchParams }: DesktopBetaPageP
 
 function DesktopReturnBar() {
   return (
-    <div className="sticky top-[65px] z-40 border-b border-cyan-400/20 bg-black/90 px-6 py-3 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href="/desktop/welcome"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-100 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to desktop setup
-        </Link>
-        <p className="text-xs text-zinc-500">Install notes opened inside Raltic Desktop</p>
-      </div>
-    </div>
+    <Card
+      render={<div className="sticky top-[65px] z-40 border-b border-cyan-400/20 bg-black/90 px-6 py-3 backdrop-blur-xl" />}
+      className="w-full rounded-none border-0 bg-transparent"
+    >
+    
+      <CardPanel className="px-0">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            href="/desktop/welcome"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-100 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to desktop setup
+          </Link>
+          <p className="text-xs text-zinc-500">Install notes opened inside Raltic Desktop</p>
+        </div>
+      </CardPanel>
+    </Card>
   );
 }
 
 function StatusRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className="text-right text-zinc-200">{value}</dd>
-    </div>
+    <Card className="bg-zinc-950/70 px-0">
+      <CardPanel className="grid grid-cols-2 gap-3 py-3">
+        <dt className="text-zinc-500">{label}</dt>
+        <dd className="text-right text-zinc-200">{value}</dd>
+      </CardPanel>
+    </Card>
   );
 }
 
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-black text-sm font-medium text-cyan-300">
-        {n}
-      </div>
-      <h2 className="mt-5 text-lg font-medium text-white">{title}</h2>
-      <p className="mt-3 text-sm leading-6 text-zinc-400">{body}</p>
-    </div>
+    <Card>
+      <CardPanel>
+        <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-black text-sm font-medium text-cyan-300">
+          {n}
+        </div>
+        <h2 className="mt-5 text-lg font-medium text-white">{title}</h2>
+        <p className="mt-3 text-sm leading-6 text-zinc-400">{body}</p>
+      </CardPanel>
+    </Card>
   );
 }

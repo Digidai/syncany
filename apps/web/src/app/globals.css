@@ -586,10 +586,17 @@
 }
 
 .raltic-overlay-scope .button--primary {
-  --button-bg: var(--primary);
-  --button-bg-hover: color-mix(in srgb, var(--primary) 88%, var(--foreground) 12%);
-  --button-bg-pressed: color-mix(in srgb, var(--primary) 82%, var(--foreground) 18%);
+  --button-bg: color-mix(in srgb, var(--primary) 75%, #000 25%);
+  --button-bg-hover: color-mix(in srgb, var(--button-bg) 88%, #000 12%);
+  --button-bg-pressed: color-mix(in srgb, var(--button-bg) 82%, #000 18%);
   --button-fg: var(--primary-foreground);
+}
+
+.raltic-overlay-scope .button--danger {
+  --button-bg: color-mix(in srgb, var(--destructive) 90%, #000 10%);
+  --button-bg-hover: color-mix(in srgb, var(--button-bg) 90%, #000 10%);
+  --button-bg-pressed: color-mix(in srgb, var(--button-bg) 84%, #000 16%);
+  --button-fg: var(--destructive-foreground);
 }
 
 @media (max-width: 639px) {

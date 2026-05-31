@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowRight, Laptop, Cloud, KeyRound, Sparkles } from "lucide-react";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
@@ -28,8 +29,8 @@ export const metadata: Metadata = {
 export default function IndiePage() {
   return (
     <>
-      <section className="border-b border-zinc-900 bg-black px-6 pt-32 pb-20 sm:pt-40">
-        <div className="mx-auto max-w-4xl text-center">
+      <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-4xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
             <Sparkles className="h-3 w-3 text-cyan-400" />
             For solo devs &amp; AI tinkerers
@@ -52,40 +53,42 @@ export default function IndiePage() {
           <p className="mt-5 text-[12px] text-zinc-500">
             No credit card · Local-first by default · Free during private beta
           </p>
-        </div>
-      </section>
+        </CardPanel>
+      </Card>
 
-      <section className="bg-black px-6 py-24">
-        <SectionHeader
-          eyebrow="What you get"
-          title={<>The bits an indie dev actually needs.</>}
-        />
-        <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-3">
-          <Card icon={<Laptop className="h-5 w-5" />} title="Local-first by default">
-            Agents run on your laptop with your existing CLI auth. Repo, secrets, and provider keys never leave the machine.
-          </Card>
-          <Card icon={<Cloud className="h-5 w-5" />} title="Or zero install">
-            Pick the cloud runtime at signup — your agent spins up in our sandbox container. No daemon to babysit when you don't feel like it.
-          </Card>
-          <Card icon={<KeyRound className="h-5 w-5" />} title="Off-ramp at any time">
-            One click revokes every machine key + every cloud agent. No dangling subscriptions to chase down across providers.
-          </Card>
-        </div>
-      </section>
+      <Card render={<section className="bg-black px-6 py-24" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto">
+          <SectionHeader
+            eyebrow="What you get"
+            title={<>The bits an indie dev actually needs.</>}
+          />
+          <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-3">
+            <BenefitCard icon={<Laptop className="h-5 w-5" />} title="Local-first by default">
+              Agents run on your laptop with your existing CLI auth. Repo, secrets, and provider keys never leave the machine.
+            </BenefitCard>
+            <BenefitCard icon={<Cloud className="h-5 w-5" />} title="Or zero install">
+              Pick the cloud runtime at signup — your agent spins up in our sandbox container. No daemon to babysit when you don't feel like it.
+            </BenefitCard>
+            <BenefitCard icon={<KeyRound className="h-5 w-5" />} title="Off-ramp at any time">
+              One click revokes every machine key + every cloud agent. No dangling subscriptions to chase down across providers.
+            </BenefitCard>
+          </div>
+        </CardPanel>
+      </Card>
 
-      <section className="border-y border-zinc-900 bg-white text-zinc-900">
-        <div className="mx-auto max-w-3xl px-6 py-24">
+      <Card render={<section className="border-y border-zinc-900 bg-white text-zinc-900" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-3xl px-6 py-24">
           <SectionHeader
             dark={false}
             eyebrow="FAQ"
             title={<>Indie-specific questions.</>}
           />
           <MarketingFaqList idPrefix="indie" items={INDIE_FAQ} theme="light" />
-        </div>
-      </section>
+        </CardPanel>
+      </Card>
 
-      <section className="border-t border-zinc-900 bg-black px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
+      <Card render={<section className="border-t border-zinc-900 bg-black px-6 py-24" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance text-3xl font-medium tracking-[-0.02em] text-white sm:text-4xl">
             Your AI is too good to live in browser tabs.
           </h2>
@@ -97,34 +100,38 @@ export default function IndiePage() {
               Start free <ArrowRight className="h-4 w-4" />
             </MarketingButton>
           </div>
-          <div className="mx-auto mt-12 max-w-md">
-            <p className="mb-3 text-[11.5px] uppercase tracking-[0.18em] text-zinc-500">
-              Or just keep tabs on us
-            </p>
-            <NewsletterSignup apiOrigin={API_ORIGIN} page="/indie" />
-          </div>
-        </div>
-      </section>
+          <Card className="mx-auto mt-12 max-w-md">
+            <CardPanel>
+              <p className="mb-3 text-[11.5px] uppercase tracking-[0.18em] text-zinc-500">
+                Or just keep tabs on us
+              </p>
+              <NewsletterSignup apiOrigin={API_ORIGIN} page="/indie" />
+            </CardPanel>
+          </Card>
+        </CardPanel>
+      </Card>
 
       <MarketingFooter />
     </>
   );
 }
 
-function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function BenefitCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
-      <div className="text-cyan-400">{icon}</div>
-      <h3 className="mt-4 text-base font-medium text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">{children}</p>
-    </div>
+    <Card>
+      <CardPanel>
+        <div className="text-cyan-400">{icon}</div>
+        <h3 className="mt-4 text-base font-medium text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">{children}</p>
+      </CardPanel>
+    </Card>
   );
 }
 
 const INDIE_FAQ: { q: string; a: string }[] = [
   {
     q: "Can I just use my own provider?",
-    a: "Yes — that's the default. Claude Code, Codex, OpenClaw, Hermes all run with whatever auth you've already set up locally. Raltic never sees your provider keys.",
+    a: "Yes — that's the default. Claude Code, Codex, OpenClaw, Hermes all run with whatever auth you've already set up locally. Raltic never sees your keys.",
   },
   {
     q: "What if I want zero install?",

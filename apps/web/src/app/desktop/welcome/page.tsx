@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { ArrowRight, KeyRound, Laptop, MessageSquare } from "lucide-react";
+import type { ElementType } from "react";
 
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { RalticLogo } from "@/components/raltic-logo";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 
 export const metadata: Metadata = {
   title: "Raltic Desktop",
@@ -65,29 +67,37 @@ export default function DesktopWelcomePage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-[#d8d0c4] bg-white p-5 shadow-[0_20px_60px_rgba(31,29,26,0.10)]">
-            <div className="space-y-3">
-              {steps.map((step) => {
-                const Icon = step.icon;
-                return (
-                  <div
-                    key={step.title}
-                    className="grid grid-cols-[2.75rem_1fr] gap-3 rounded-lg border border-[#eee7dc] bg-[#fbfaf7] p-4"
-                  >
-                    <div className="flex size-11 items-center justify-center rounded-lg bg-[#eff8fb] text-[#0f6f7e]">
-                      <Icon className="size-5" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-semibold text-[#24211c]">{step.title}</h2>
-                      <p className="mt-1 text-sm leading-6 text-[#6a6359]">{step.body}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <Card className="rounded-lg border border-[#d8d0c4] bg-white p-5 shadow-[0_20px_60px_rgba(31,29,26,0.10)]">
+            <CardPanel className="space-y-3 p-0">
+              {steps.map((step) => <WelcomeStep key={step.title} {...step} />)}
+            </CardPanel>
+          </Card>
         </section>
       </div>
     </main>
+  );
+}
+
+function WelcomeStep({
+  icon: Icon,
+  title,
+  body,
+}: {
+  icon: ElementType<{ className?: string }>;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Card className="grid grid-cols-[2.75rem_1fr] gap-3 rounded-lg border border-[#eee7dc] bg-[#fbfaf7] p-4">
+      <CardPanel className="grid grid-cols-[2.75rem_1fr] gap-3 p-0">
+        <div className="flex size-11 items-center justify-center rounded-lg bg-[#eff8fb] text-[#0f6f7e]">
+          <Icon className="size-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-[#24211c]">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-[#6a635f]">{body}</p>
+        </div>
+      </CardPanel>
+    </Card>
   );
 }

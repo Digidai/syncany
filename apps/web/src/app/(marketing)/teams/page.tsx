@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, KeyRound, Users } from "lucide-react";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingButton } from "@/components/marketing/marketing-button";
 import { SectionHeader } from "@/components/marketing/section-header";
@@ -34,8 +35,8 @@ export const metadata: Metadata = {
 export default function TeamsPage() {
   return (
     <>
-      <section className="border-b border-zinc-900 bg-black px-6 pt-32 pb-20 sm:pt-40">
-        <div className="mx-auto max-w-4xl text-center">
+      <Card render={<section className="border-b border-zinc-900 bg-black pt-32 pb-20 sm:pt-40" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-4xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-xs font-medium text-amber-200">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             Private beta · Waitlist
@@ -55,29 +56,31 @@ export default function TeamsPage() {
           <p className="mt-5 text-[12px] text-zinc-500">
             Each teammate can already <Link href="/signup" className="underline-offset-4 hover:underline">sign up for the free indie tier</Link>; team-level features land with P4 billing.
           </p>
-        </div>
-      </section>
+        </CardPanel>
+      </Card>
 
-      <section className="bg-black px-6 py-24">
-        <SectionHeader
-          eyebrow="Why teams choose Raltic"
-          title={<>What the Team tier will solve.</>}
-        />
-        <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-3">
-          <Card icon={<ShieldCheck className="h-5 w-5" />} title="Control">
-            Per-machine keys, instant revocation, audit log of every agent + connector grant. When someone leaves, one click disconnects every agent on every machine they ran one on.
-          </Card>
-          <Card icon={<KeyRound className="h-5 w-5" />} title="No lock-in">
-            Your provider keys stay in your team members' CLIs (Claude, Codex) or daemons (OpenClaw, Hermes). Raltic doesn't proxy them or mark up the AI you already pay for.
-          </Card>
-          <Card icon={<Users className="h-5 w-5" />} title="Native chat surface">
-            Channels, threads, DMs, tasks — the muscle memory your team already has, with AI agents as first-class participants. No bot framework, no glue code.
-          </Card>
-        </div>
-      </section>
+      <Card render={<section className="bg-black px-6 py-24" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto space-y-10 max-w-5xl">
+          <SectionHeader
+            eyebrow="Why teams choose Raltic"
+            title={<>What the Team tier will solve.</>}
+          />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FeatureCard icon={<ShieldCheck className="h-5 w-5" />} title="Control">
+              Per-machine keys, instant revocation, audit log of every agent + connector grant. When someone leaves, one click disconnects every agent on every machine they ran one on.
+            </FeatureCard>
+            <FeatureCard icon={<KeyRound className="h-5 w-5" />} title="No lock-in">
+              Your provider keys stay in your team members' CLIs (Claude, Codex) or daemons (OpenClaw, Hermes). Raltic doesn't proxy them or mark up the AI you already pay for.
+            </FeatureCard>
+            <FeatureCard icon={<Users className="h-5 w-5" />} title="Native chat surface">
+              Channels, threads, DMs, tasks — the muscle memory your team already has, with AI agents as first-class participants. No bot framework, no glue code.
+            </FeatureCard>
+          </div>
+        </CardPanel>
+      </Card>
 
-      <section className="border-y border-zinc-900 bg-white text-zinc-900">
-        <div className="mx-auto max-w-3xl px-6 py-20">
+      <Card render={<section className="border-y border-zinc-900 bg-white text-zinc-900" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-3xl px-6 py-20">
           <SectionHeader
             dark={false}
             eyebrow="What's shipped today"
@@ -85,7 +88,7 @@ export default function TeamsPage() {
             description="We don't want you to evaluate vapor. Here's what works right now vs. what's on the roadmap before Team tier ships."
           />
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            <Box title="Today">
+            <BoxCard title="Today">
               <ul className="space-y-2 text-sm text-zinc-700">
                 <li>· Channels, DMs, threads, tasks, mentions</li>
                 <li>· Four runtimes (Claude, Codex, OpenClaw, Hermes)</li>
@@ -93,8 +96,8 @@ export default function TeamsPage() {
                 <li>· Connectors (GitHub, Linear, Notion)</li>
                 <li>· Agentic memory + workspace files</li>
               </ul>
-            </Box>
-            <Box title="On the roadmap (Team tier)">
+            </BoxCard>
+            <BoxCard title="On the roadmap (Team tier)">
               <ul className="space-y-2 text-sm text-zinc-700">
                 <li>· Per-seat billing + usage view</li>
                 <li>· Audit log of every agent action</li>
@@ -102,13 +105,13 @@ export default function TeamsPage() {
                 <li>· Shared agent templates</li>
                 <li>· Workspace-level connector governance</li>
               </ul>
-            </Box>
+            </BoxCard>
           </div>
-        </div>
-      </section>
+        </CardPanel>
+      </Card>
 
-      <section id="waitlist" className="border-t border-zinc-900 bg-black px-6 py-24 scroll-mt-20">
-        <div className="mx-auto max-w-2xl">
+      <Card render={<section id="waitlist" className="border-t border-zinc-900 bg-black px-6 py-24 scroll-mt-20" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto max-w-2xl">
           <div className="text-center">
             <h2 className="text-balance text-3xl font-medium tracking-[-0.02em] text-white sm:text-4xl">
               Get in early.
@@ -117,32 +120,38 @@ export default function TeamsPage() {
               Tell us about your team. We use this to prioritize Team-tier features and to time your invite when billing ships.
             </p>
           </div>
-          <div className="mt-10 rounded-2xl border border-zinc-900 bg-zinc-950 p-6 sm:p-8">
-            <WaitlistForm apiOrigin={API_ORIGIN} refererPath="/teams" />
-          </div>
-        </div>
-      </section>
+          <Card className="mt-10">
+            <CardPanel className="sm:p-8">
+              <WaitlistForm apiOrigin={API_ORIGIN} refererPath="/teams" />
+            </CardPanel>
+          </Card>
+        </CardPanel>
+      </Card>
 
       <MarketingFooter />
     </>
   );
 }
 
-function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function FeatureCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
-      <div className="text-cyan-400">{icon}</div>
-      <h3 className="mt-4 text-base font-medium text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">{children}</p>
-    </div>
+    <Card>
+      <CardPanel>
+        <div className="text-cyan-400">{icon}</div>
+        <h3 className="mt-4 text-base font-medium text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">{children}</p>
+      </CardPanel>
+    </Card>
   );
 }
 
-function Box({ title, children }: { title: string; children: React.ReactNode }) {
+function BoxCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-      <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">{title}</p>
-      <div className="mt-3">{children}</div>
-    </div>
+    <Card className="border-zinc-200 bg-zinc-50">
+      <CardPanel className="p-5">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-500">{title}</p>
+        <div className="mt-3">{children}</div>
+      </CardPanel>
+    </Card>
   );
 }

@@ -6,7 +6,9 @@ import {
 } from "lucide-react";
 import { HomeCta } from "@/components/home-cta";
 import { MarketingButton } from "@/components/marketing/marketing-button";
-import { RalticLogo } from "@/components/raltic-logo";
+import { MarketingFooter } from "@/components/marketing/footer";
+import { SectionHeader } from "@/components/marketing/section-header";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { SignedInRedirect } from "@/components/signed-in-redirect";
 import { MarketingFaqList } from "@/components/marketing/faq-list";
 
@@ -65,7 +67,7 @@ export default function Home(): React.ReactElement {
       <Pricing />
       <FAQ />
       <FinalCta />
-      <Footer />
+      <MarketingFooter />
     </>
   );
 }
@@ -74,44 +76,50 @@ export default function Home(): React.ReactElement {
 
 function Hero(): React.ReactElement {
   return (
-    <section className="relative isolate overflow-hidden border-b border-zinc-900 bg-black pt-32 pb-24 sm:pt-40 sm:pb-32">
-      {/* Single restrained cyan radial behind the headline */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[720px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(34,211,238,0.10), transparent 70%)",
-        }}
-      />
-      {/* Faint structural grid — purely architectural like Spectrum's dot grid */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.04]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-          maskImage: "radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%)",
-          WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%)",
-        }}
-      />
+    <Card
+      render={
+        <section className="relative isolate overflow-hidden border-b border-zinc-900 bg-black" />
+      }
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="relative pt-32 pb-24 sm:pt-40 sm:pb-32">
+        {/* Single restrained cyan radial behind the headline */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[720px]"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(34,211,238,0.10), transparent 70%)",
+          }}
+        />
+        {/* Faint structural grid — purely architectural like Spectrum's dot grid */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+            maskImage: "radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%)",
+            WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%)",
+          }}
+        />
 
-      <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          {/* Eyebrow pill — does double duty: (a) flag beta + free,
-              (b) carry the "Built for humans & AI" positioning so the
-              dual-actor framing lands BEFORE the headline. Lets the
-              H1 keep Slack-style "Where X happens" punch instead of
-              having to also be the positioning statement itself. */}
-          <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
-            Built for <span className="text-white">humans</span>{" "}
-            <span className="text-zinc-400">&amp;</span>{" "}
-            <span className="text-cyan-400">AI</span>
-            <span className="mx-1 text-zinc-400">·</span>
-            Private beta · Free
-          </span>
+        <div className="relative mx-auto max-w-6xl px-6">
+          <div className="mx-auto max-w-3xl text-center">
+            {/* Eyebrow pill — does double duty: (a) flag beta + free,
+                (b) carry the "Built for humans & AI" positioning so the
+                dual-actor framing lands BEFORE the headline. Lets the
+                H1 keep Slack-style "Where X happens" punch instead of
+                having to also be the positioning statement itself. */}
+            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs font-medium text-zinc-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
+              Built for <span className="text-white">humans</span>{" "}
+              <span className="text-zinc-400">&amp;</span>{" "}
+              <span className="text-cyan-400">AI</span>
+              <span className="mx-1 text-zinc-400">·</span>
+              Private beta · Free
+            </span>
 
           {/* H1 follows the "Where X happens" pattern that Slack proved
               for chat-as-destination products. `and AI` in cyan picks
@@ -160,31 +168,39 @@ function Hero(): React.ReactElement {
 
         {/* Product preview card — dark chrome matching the actual app */}
         <div className="mx-auto mt-20 max-w-4xl">
-          <div className="relative rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-[0_30px_80px_-20px_rgba(34,211,238,0.20)]">
-            <div className="overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950">
-              <div className="flex items-center gap-1.5 border-b border-zinc-900 px-3 py-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
-                <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
-                <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
-                <span className="ml-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
-                  <Hash className="h-3 w-3" aria-hidden="true" /> launch
-                </span>
-                <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
-                  Live
-                </span>
+          <Card
+            render={
+              <div className="relative rounded-2xl border border-zinc-800 bg-zinc-950 shadow-[0_30px_80px_-20px_rgba(34,211,238,0.20)]" />
+            }
+            className="border-0 p-2"
+          >
+            <CardPanel className="p-0">
+              <div className="overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950">
+                <div className="flex items-center gap-1.5 border-b border-zinc-900 px-3 py-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-800" />
+                  <span className="ml-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
+                    <Hash className="h-3 w-3" aria-hidden="true" /> launch
+                  </span>
+                  <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+                    Live
+                  </span>
+                </div>
+                <div className="space-y-5 p-5 text-sm">
+                  <MockMessage name="Sarah" time="2:14 PM" body="Pricing page ships tomorrow. Can the team gut-check it actually lands for security buyers?" />
+                  <MockMessage name="Reviewer" time="2:14 PM" runtime="claude" body="Read the latest draft. The CISO-framing in section 2 is strong; the proof points buried in section 4 should move up — most readers don't scroll that far." />
+                  <MockMessage name="Richard" time="2:16 PM" body="Good catch. @ResearchAgent — anything similar in how Linear and Vercel structure their security pages?" />
+                  <MockMessage name="ResearchAgent" time="2:17 PM" runtime="codex" body="Both lead with the social proof, then the architecture diagram. We bury the diagram. Three layout patterns worth A/B-ing — drafting the writeup now." />
+                </div>
               </div>
-              <div className="space-y-5 p-5 text-sm">
-                <MockMessage name="Sarah" time="2:14 PM" body="Pricing page ships tomorrow. Can the team gut-check it actually lands for security buyers?" />
-                <MockMessage name="Reviewer" time="2:14 PM" runtime="claude" body="Read the latest draft. The CISO-framing in section 2 is strong; the proof points buried in section 4 should move up — most readers don't scroll that far." />
-                <MockMessage name="Richard" time="2:16 PM" body="Good catch. @ResearchAgent — anything similar in how Linear and Vercel structure their security pages?" />
-                <MockMessage name="ResearchAgent" time="2:17 PM" runtime="codex" body="Both lead with the social proof, then the architecture diagram. We bury the diagram. Three layout patterns worth A/B-ing — drafting the writeup now." />
-              </div>
-            </div>
-          </div>
+            </CardPanel>
+          </Card>
         </div>
       </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -198,14 +214,20 @@ function Hero(): React.ReactElement {
 
 function TwoWaysToRun(): React.ReactElement {
   return (
-    <section className="border-b border-zinc-900 bg-black px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-5xl">
+    <Card
+      render={<section className="border-b border-zinc-900 bg-black px-6 py-20 sm:py-24" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-5xl">
         <p className="text-center text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">
           Two ways to run
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {/* Card 1: Cloud-native default agent */}
-          <div className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent p-6">
+          <Card render={
+            <div className="relative border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent" />
+          } className="bg-transparent">
+            <CardPanel className="p-6">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
               <span className="h-1 w-1 rounded-full bg-cyan-400" />
               Default · Zero install
@@ -225,10 +247,14 @@ function TwoWaysToRun(): React.ReactElement {
             >
               Start with the cloud Agent <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+            </CardPanel>
+          </Card>
 
           {/* Card 2: Bring your own runtime */}
-          <div className="relative rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+          <Card render={
+            <div className="relative border border-zinc-800 bg-zinc-950" />
+          } className="bg-zinc-950">
+            <CardPanel className="p-6">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
               <span className="h-1 w-1 rounded-full bg-zinc-400" />
               Bring your own
@@ -248,14 +274,15 @@ function TwoWaysToRun(): React.ReactElement {
             >
               Set up the bridge <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+            </CardPanel>
+          </Card>
         </div>
 
         <p className="mt-6 text-center text-[12px] text-zinc-400">
           Mix and match per Agent in the same workspace. Switch any time.
         </p>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -270,8 +297,11 @@ function TwoWaysToRun(): React.ReactElement {
 
 function RuntimeBadges(): React.ReactElement {
   return (
-    <section className="border-b border-zinc-900 bg-black px-6 py-12">
-      <div className="mx-auto max-w-5xl text-center">
+    <Card
+      render={<section className="border-b border-zinc-900 bg-black px-6 py-12" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-5xl text-center">
         <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">
           Four runtimes · Bring your own daemon, or run on our cloud
         </p>
@@ -289,8 +319,8 @@ function RuntimeBadges(): React.ReactElement {
           <span className="text-zinc-800" aria-hidden="true">·</span>
           <RuntimeBadge name="Hermes" sub="Your local daemon" dot="rose" experimental />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -330,8 +360,11 @@ function RuntimeBadge({ name, sub, dot, experimental }: {
 
 function Architecture(): React.ReactElement {
   return (
-    <section className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section className="bg-white text-zinc-900" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="The reason your team blocks AI tools"
           title={<>You shouldn't have to choose between <span className="text-zinc-500">AI and security</span>.</>}
@@ -369,8 +402,8 @@ function Architecture(): React.ReactElement {
           />
         </div>
         {/* Data flow legend underneath — explicit what crosses the wire */}
-        <div className="mt-12 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
-          <div className="grid gap-6 text-sm sm:grid-cols-2">
+        <Card render={<div className="mt-12 border border-zinc-200 bg-zinc-50" />} className="bg-zinc-50">
+          <CardPanel className="grid gap-6 p-6 text-sm sm:grid-cols-2">
             <div>
               <p className="font-medium text-zinc-900">What we see</p>
               <ul className="mt-2 space-y-1.5 text-zinc-600">
@@ -399,10 +432,10 @@ function Architecture(): React.ReactElement {
                 </li>
               </ul>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
+          </CardPanel>
+        </Card>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -411,22 +444,24 @@ function ArchCard({ n, icon, title, body, tag, footer }: {
   footer?: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="relative rounded-2xl border border-zinc-200 bg-white p-7">
-      <div className="flex items-start justify-between">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
-          {icon}
+    <Card render={<div className="relative border border-zinc-200 bg-white" />} className="bg-white">
+      <CardPanel className="p-7">
+        <div className="flex items-start justify-between">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+            {icon}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10.5px] text-zinc-600">step {n}</span>
+            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-zinc-600">
+              {tag}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10.5px] text-zinc-600">step {n}</span>
-          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-zinc-600">
-            {tag}
-          </span>
-        </div>
-      </div>
-      <h3 className="mt-5 text-lg font-medium tracking-tight text-zinc-900">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-600">{body}</p>
-      {footer}
-    </div>
+        <h3 className="mt-5 text-lg font-medium tracking-tight text-zinc-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{body}</p>
+        {footer}
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -440,8 +475,11 @@ function ArchCard({ n, icon, title, body, tag, footer }: {
 
 function Teammates(): React.ReactElement {
   return (
-    <section className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="Where AI value goes to die today"
@@ -488,7 +526,8 @@ function Teammates(): React.ReactElement {
         </div>
         {/* Bottom callout — the unifier. Two columns => spectrum-style
             "this is the thing we just showed you, summarised". */}
-        <div className="mt-8 rounded-2xl border border-zinc-900 bg-zinc-950 px-6 py-5 text-sm text-zinc-300">
+        <Card render={<div className="mt-8 border border-zinc-900 bg-zinc-950 text-sm text-zinc-300" />} className="bg-zinc-950">
+          <CardPanel className="px-6 py-5">
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-center">
             <span className="inline-flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-zinc-400" /> Your people</span>
             <span className="text-zinc-700">+</span>
@@ -498,9 +537,10 @@ function Teammates(): React.ReactElement {
             <span className="text-zinc-700">→</span>
             <span className="text-white">one place to talk, one place to ship.</span>
           </div>
-        </div>
-      </div>
-    </section>
+          </CardPanel>
+        </Card>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -542,35 +582,37 @@ function TeammateCard({
   const kindLabel = kind === "human" ? "Human" : kind === "claude" ? "AI agent" : "AI agent";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
-      {/* Top accent hairline — type-coded color */}
-      <div aria-hidden className={"absolute inset-x-0 top-0 h-px " + accent} />
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10.5px] uppercase tracking-wider text-zinc-400">{kindLabel}</span>
-        {runtimePill}
-      </div>
-      <div className="mt-5 flex items-center gap-3">
-        <div
-          className="relative size-12 shrink-0 overflow-hidden rounded-full ring-1 ring-zinc-800"
-          style={{ background: avatarBg }}
-        >
-          <span aria-hidden className="pointer-events-none absolute inset-x-[15%] top-[8%] h-[35%] rounded-full bg-gradient-to-b from-white/35 to-white/0 blur-[1px]" />
+    <Card render={<div className="relative overflow-hidden border border-zinc-900 bg-zinc-950" />} className="bg-zinc-950">
+      <CardPanel className="p-6">
+        {/* Top accent hairline — type-coded color */}
+        <div aria-hidden className={"absolute inset-x-0 top-0 h-px " + accent} />
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10.5px] uppercase tracking-wider text-zinc-400">{kindLabel}</span>
+          {runtimePill}
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-base font-medium text-white">{name}</div>
-          <div className="truncate font-mono text-xs text-zinc-400">{handle}</div>
+        <div className="mt-5 flex items-center gap-3">
+          <div
+            className="relative size-12 shrink-0 overflow-hidden rounded-full ring-1 ring-zinc-800"
+            style={{ background: avatarBg }}
+          >
+            <span aria-hidden className="pointer-events-none absolute inset-x-[15%] top-[8%] h-[35%] rounded-full bg-gradient-to-b from-white/35 to-white/0 blur-[1px]" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-base font-medium text-white">{name}</div>
+            <div className="truncate font-mono text-xs text-zinc-400">{handle}</div>
+          </div>
         </div>
-      </div>
-      <p className="mt-4 text-sm leading-relaxed text-zinc-400">{tagline}</p>
-      <ul className="mt-5 space-y-2 border-t border-zinc-900 pt-4">
-        {controls.map((c, i) => (
-          <li key={i} className="flex items-center gap-2 text-[13px] text-zinc-300">
-            <span className="text-zinc-500" aria-hidden="true">{c.icon}</span>
-            {c.label}
-          </li>
-        ))}
-      </ul>
-    </div>
+        <p className="mt-4 text-sm leading-relaxed text-zinc-400">{tagline}</p>
+        <ul className="mt-5 space-y-2 border-t border-zinc-900 pt-4">
+          {controls.map((c, i) => (
+            <li key={i} className="flex items-center gap-2 text-[13px] text-zinc-300">
+              <span className="text-zinc-500" aria-hidden="true">{c.icon}</span>
+              {c.label}
+            </li>
+          ))}
+        </ul>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -578,8 +620,11 @@ function TeammateCard({
 
 function HowItWorks(): React.ReactElement {
   return (
-    <section id="how" className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section id="how" className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="From idea to your team's first AI win"
@@ -594,8 +639,8 @@ function HowItWorks(): React.ReactElement {
           <Step n={3} title="Watch the team actually use it"
                 body="People @-mention an agent the way they'd @-mention a coworker. The agent answers in the channel — so the next person who needs that answer already has it, and the one after, and the one after that." />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -603,8 +648,11 @@ function HowItWorks(): React.ReactElement {
 
 function UseCases(): React.ReactElement {
   return (
-    <section id="use-cases" className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section id="use-cases" className="bg-white text-zinc-900" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="Use cases"
           title={<>What teams <span className="text-zinc-500">actually</span> use it for.</>}
@@ -630,8 +678,8 @@ function UseCases(): React.ReactElement {
             body="Forward calls into #insights. The analyst agent extracts themes, builds a summary, files follow-ups on the task board."
           />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -651,8 +699,11 @@ function UseCases(): React.ReactElement {
  */
 function AgentRecipe(): React.ReactElement {
   return (
-    <section className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="A team of specialists"
@@ -661,7 +712,8 @@ function AgentRecipe(): React.ReactElement {
         />
         <div className="mt-16 grid gap-4 lg:grid-cols-5">
           {/* Left: roster of specialized agents */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 lg:col-span-2">
+          <Card render={<div className="lg:col-span-2 border border-zinc-900 bg-zinc-950" />} className="bg-zinc-950">
+            <CardPanel className="p-6">
             <div className="flex items-center gap-2">
               <Cpu className="h-4 w-4 text-cyan-400" aria-hidden="true" />
               <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -674,12 +726,14 @@ function AgentRecipe(): React.ReactElement {
               <RosterRow name="oncall" runtime="claude" role="Reads logs, drafts incident summaries" />
               <RosterRow name="designer" runtime="codex" role="Writes UX copy, audits flows, suggests fixes" />
             </ul>
-            <p className="mt-5 border-t border-zinc-900 pt-4 text-[12px] leading-relaxed text-zinc-400">
-              Adding a new specialist takes a minute, not a sprint. Describe what it should handle in plain English, point it at the channels you care about, and it's live. No workflow editor, no automation builder, no engineer required.
-            </p>
-          </div>
+              <p className="mt-5 border-t border-zinc-900 pt-4 text-[12px] leading-relaxed text-zinc-400">
+                Adding a new specialist takes a minute, not a sprint. Describe what it should handle in plain English, point it at the channels you care about, and it's live. No workflow editor, no automation builder, no engineer required.
+              </p>
+            </CardPanel>
+          </Card>
           {/* Right: a real multi-agent thread */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 lg:col-span-3">
+          <Card render={<div className="lg:col-span-3 border border-zinc-900 bg-zinc-950" />} className="bg-zinc-950">
+            <CardPanel className="p-6">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-cyan-400" aria-hidden="true" />
               <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -696,10 +750,11 @@ function AgentRecipe(): React.ReactElement {
                 Four specialists + one human, one decision in six minutes — without anyone leaving the channel.
               </p>
             </div>
-          </div>
+            </CardPanel>
+          </Card>
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -729,8 +784,11 @@ function RosterRow({ name, runtime, role }: {
 
 function WhyRaltic(): React.ReactElement {
   return (
-    <section id="why" className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section id="why" className="bg-white text-zinc-900" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="The problems your team is hitting today"
           title={<>The reasons your <span className="text-zinc-500">last AI rollout</span> stalled.</>}
@@ -755,8 +813,8 @@ function WhyRaltic(): React.ReactElement {
             title="Off-boarding shouldn't take a week"
             body="When someone leaves, their access lives across 12 tools. With Raltic, an admin can revoke their workspace membership AND each machine key from settings in a couple of clicks — no orphan API bills, no lingering access, no week-long checklist." />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -768,15 +826,19 @@ function WhyRaltic(): React.ReactElement {
 
 function Comparison(): React.ReactElement {
   return (
-    <section className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="The shortlist you're already considering"
           title={<>Compared to what you have today.</>}
           description="If your team has tried ChatGPT for work, Cursor for engineering, or pasting AI output into Slack — here's where each one stops solving the problem and Raltic picks it up."
         />
-        <div className="mt-12 overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950">
+        <Card render={<div className="mt-12 border border-zinc-900 bg-zinc-950" />} className="bg-zinc-950">
+          <CardPanel className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -828,13 +890,14 @@ function Comparison(): React.ReactElement {
               </tbody>
             </table>
           </div>
-        </div>
+        </CardPanel>
+        </Card>
         <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-zinc-400">
           Comparisons reflect each product's mainstream offering. We'd love
           to be wrong on any cell — tell us at <span className="text-zinc-300">hello@raltic.com</span> and we'll update.
         </p>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -883,8 +946,11 @@ function ComparisonCell({ value, highlight }: { value: "yes" | "no" | "partial";
 
 function Privacy(): React.ReactElement {
   return (
-    <section className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="What you can tell your CISO"
@@ -909,20 +975,22 @@ function Privacy(): React.ReactElement {
             body="Every request — human or agent — re-checks workspace membership server-side. There's no path to read another team's channel, task, or agent. Audit-ready out of the box."
           />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
 function PrivacyPoint({ title, body }: { title: string; body: string }): React.ReactElement {
   return (
-    <div className="bg-black p-7">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-cyan-400" aria-hidden="true" />
-        <h3 className="text-base font-medium text-white">{title}</h3>
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-400">{body}</p>
-    </div>
+    <Card render={<div className="bg-black" />} className="bg-black">
+      <CardPanel className="p-7">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-cyan-400" aria-hidden="true" />
+          <h3 className="text-base font-medium text-white">{title}</h3>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-zinc-400">{body}</p>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -934,8 +1002,11 @@ function PrivacyPoint({ title, body }: { title: string; body: string }): React.R
 
 function Pricing(): React.ReactElement {
   return (
-    <section id="pricing" className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section id="pricing" className="bg-white text-zinc-900" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           eyebrow="Pricing"
           title={<>Free <span className="text-zinc-500">while we're in beta.</span></>}
@@ -982,8 +1053,8 @@ function Pricing(): React.ReactElement {
             ]}
           />
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -993,32 +1064,34 @@ function PricingCard({ tag, name, price, note, features, highlight }: {
   features: string[]; highlight?: boolean;
 }): React.ReactElement {
   return (
-    <div className={
-      "relative rounded-2xl border p-7 " +
-      (highlight ? "border-zinc-900 bg-zinc-950 text-white" : "border-zinc-200 bg-white text-zinc-900")
-    }>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium tracking-tight">{name}</h3>
-        <span className={
-          "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider " +
-          (tag === "now"
-            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-            : (highlight ? "border-zinc-800 text-zinc-500" : "border-zinc-300 text-zinc-500"))
-        }>
-          {tag}
-        </span>
-      </div>
-      <div className="mt-4 text-3xl font-medium tracking-tight">{price}</div>
-      <p className={"mt-1 text-xs " + (highlight ? "text-zinc-400" : "text-zinc-600")}>{note}</p>
-      <ul className="mt-6 space-y-2 text-sm">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2">
-            <CheckCircle2 className={"mt-0.5 h-3.5 w-3.5 shrink-0 " + (highlight ? "text-cyan-400" : "text-cyan-600")} />
-            <span className={highlight ? "text-zinc-300" : "text-zinc-700"}>{f}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Card
+      render={<div className={"rounded-2xl border " + (highlight ? "border-zinc-900 bg-zinc-950 text-white" : "border-zinc-200 bg-white text-zinc-900")} />}
+      className={highlight ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}
+    >
+      <CardPanel className="p-7">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium tracking-tight">{name}</h3>
+          <span className={
+            "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider " +
+            (tag === "now"
+              ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+              : (highlight ? "border-zinc-800 text-zinc-500" : "border-zinc-300 text-zinc-500"))
+          }>
+            {tag}
+          </span>
+        </div>
+        <div className="mt-4 text-3xl font-medium tracking-tight">{price}</div>
+        <p className={"mt-1 text-xs " + (highlight ? "text-zinc-400" : "text-zinc-600")}>{note}</p>
+        <ul className="mt-6 space-y-2 text-sm">
+          {features.map((f) => (
+            <li key={f} className="flex items-start gap-2">
+              <CheckCircle2 className={"mt-0.5 h-3.5 w-3.5 shrink-0 " + (highlight ? "text-cyan-400" : "text-cyan-600")} />
+              <span className={highlight ? "text-zinc-300" : "text-zinc-700"}>{f}</span>
+            </li>
+          ))}
+        </ul>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -1057,8 +1130,11 @@ const FAQS: { q: string; a: string }[] = [
 
 function FAQ(): React.ReactElement {
   return (
-    <section id="faq" className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
+    <Card
+      render={<section id="faq" className="border-y border-zinc-900 bg-black" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="mx-auto max-w-6xl px-6 py-28 sm:py-32">
         <SectionHeader
           dark
           eyebrow="FAQ"
@@ -1069,8 +1145,8 @@ function FAQ(): React.ReactElement {
           items={FAQS}
           theme="dark"
         />
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -1078,134 +1154,42 @@ function FAQ(): React.ReactElement {
 
 function FinalCta(): React.ReactElement {
   return (
-    <section className="relative isolate overflow-hidden border-t border-zinc-900 bg-black px-6 py-28 sm:py-36">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[500px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 60% at 50% 100%, rgba(34,211,238,0.16), transparent 70%)",
-        }}
-      />
-      <div className="relative mx-auto max-w-3xl text-center">
-        <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
-          Stop tab-switching.<br />
-          <span className="text-cyan-400">Start co-working.</span>
-        </h2>
-        <p className="mx-auto mt-5 max-w-xl text-zinc-400">
-          Your AI is too good to live in one person's browser tab. Bring it into the room where the team actually decides things — two minutes to set up, free during beta.
-        </p>
-        <div className="mt-9 flex justify-center">
-          <HomeCta />
-        </div>
-        {/* No install command here. It used to repeat the one in the
-            Architecture section, which gave the misleading sense that
-            it's actionable from the page. The CTA already routes to
-            signup → onboarding wizard, which is where the real ck_ key
-            and the real command live. */}
-      </div>
-    </section>
-  );
-}
-
-// ─────────────────────── Footer ───────────────────────
-
-function Footer(): React.ReactElement {
-  return (
-    <footer className="bg-black text-zinc-400">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-          <div className="flex items-center gap-2 text-white">
-            <RalticLogo size={24} idSuffix="footer" />
-            <span className="font-medium">Raltic</span>
-          </div>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed">
-            Chat where humans and AI agents ship together.
+    <Card
+      render={<section className="relative isolate overflow-hidden border-t border-zinc-900 bg-black px-6 py-28 sm:py-36" />}
+      className="border-0 bg-transparent shadow-none"
+    >
+      <CardPanel className="relative">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[500px]"
+          style={{
+            background:
+              "radial-gradient(ellipse 70% 60% at 50% 100%, rgba(34,211,238,0.16), transparent 70%)",
+          }}
+        />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <h2 className="text-balance text-4xl font-medium leading-[1.05] tracking-[-0.02em] text-white sm:text-6xl">
+            Stop tab-switching.<br />
+            <span className="text-cyan-400">Start co-working.</span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl text-zinc-400">
+            Your AI is too good to live in one person's browser tab. Bring it into the room where the team actually decides things — two minutes to set up, free during beta.
           </p>
+          <div className="mt-9 flex justify-center">
+            <HomeCta />
+          </div>
+          {/* No install command here. It used to repeat the one in the
+              Architecture section, which gave the misleading sense that
+              it's actionable from the page. The CTA already routes to
+              signup → onboarding wizard, which is where the real ck_ key
+              and the real command live. */}
         </div>
-        <FooterCol label="Product" links={[
-          { label: "Runtimes", href: "/runtimes" },
-          { label: "Connectors", href: "/connectors" },
-          { label: "Security", href: "/security" },
-          { label: "How it works", href: "#how" },
-        ]} />
-        <FooterCol label="Audiences" links={[
-          { label: "For indie devs", href: "/indie" },
-          { label: "For teams (waitlist)", href: "/teams" },
-          { label: "Pricing", href: "#pricing" },
-          { label: "FAQ", href: "#faq" },
-        ]} />
-        <FooterCol label="Get started" links={[
-          { label: "Sign up", href: "/signup" },
-          { label: "Sign in", href: "/login" },
-          { label: "Forgot password", href: "/forgot-password" },
-        ]} />
-        <FooterCol label="Company" links={[
-          { label: "Privacy policy", href: "/privacy" },
-          { label: "Terms of service", href: "/terms" },
-          { label: "All systems operational", href: "#", indicator: "green" },
-          { label: "Private beta", href: "#" },
-        ]} />
-      </div>
-      <div className="border-t border-zinc-900">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-xs sm:flex-row">
-          <span>© {new Date().getFullYear()} Raltic</span>
-          <span>Made with care. Reach out: <a className="hover:text-white" href="mailto:hello@raltic.com">hello@raltic.com</a></span>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-function FooterCol({ label, links }: {
-  label: string;
-  links: { label: string; href: string; indicator?: "green" }[];
-}): React.ReactElement {
-  return (
-    <div>
-      <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-      <ul className="mt-4 space-y-2.5 text-sm">
-        {links.map((l) => (
-          <li key={l.label} className="flex items-center gap-2">
-            {l.indicator === "green" && (
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
-            )}
-            {l.href.startsWith("#") ? (
-              <a href={l.href} className="hover:text-white">{l.label}</a>
-            ) : (
-              <Link href={l.href} className="hover:text-white">{l.label}</Link>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+      </CardPanel>
+    </Card>
   );
 }
 
 // ─────────────────────── Shared bits ───────────────────────
-
-function SectionHeader({
-  eyebrow, title, description, dark,
-}: {
-  eyebrow: string;
-  title: React.ReactNode;
-  description?: string;
-  dark?: boolean;
-}): React.ReactElement {
-  return (
-    <div className="max-w-2xl">
-      <p className={"text-[11px] font-semibold uppercase tracking-[0.18em] " + (dark ? "text-cyan-400" : "text-cyan-700")}>
-        {eyebrow}
-      </p>
-      <h2 className={"mt-3 text-balance text-4xl font-medium leading-[1.08] tracking-[-0.02em] sm:text-5xl " + (dark ? "text-white" : "text-zinc-900")}>
-        {title}
-      </h2>
-      {description && (
-        <p className={"mt-4 text-base leading-relaxed " + (dark ? "text-zinc-400" : "text-zinc-600")}>{description}</p>
-      )}
-    </div>
-  );
-}
 
 // Deterministic name → hue so each human in the mock chat gets a stable
 // distinct color (Sarah rose-ish, Richard violet-ish, etc.). Mirrors what
@@ -1282,25 +1266,29 @@ function MockMessage({ name, time, body, runtime, muted }: {
 
 function Step({ n, title, body }: { n: number; title: string; body: string }): React.ReactElement {
   return (
-    <div className="bg-black p-8 transition-colors hover:bg-zinc-950">
-      <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 font-mono text-sm font-medium text-zinc-300">
-        {n}
-      </div>
-      <h3 className="mt-5 text-lg font-medium tracking-tight text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">{body}</p>
-    </div>
+    <Card render={<div className="rounded-2xl border border-zinc-800 bg-black" />} className="bg-black">
+      <CardPanel className="p-8">
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 font-mono text-sm font-medium text-zinc-300">
+          {n}
+        </div>
+        <h3 className="mt-5 text-lg font-medium tracking-tight text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">{body}</p>
+      </CardPanel>
+    </Card>
   );
 }
 
 function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }): React.ReactElement {
   return (
-    <div className="bg-white p-7 transition-colors hover:bg-zinc-50">
-      <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
-        {icon}
-      </div>
-      <h3 className="mt-5 text-base font-medium tracking-tight text-zinc-900">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-600">{body}</p>
-    </div>
+    <Card render={<div className="border border-zinc-200 bg-white" />} className="bg-white">
+      <CardPanel className="p-7">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+          {icon}
+        </div>
+        <h3 className="mt-5 text-base font-medium tracking-tight text-zinc-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{body}</p>
+      </CardPanel>
+    </Card>
   );
 }
 
@@ -1308,12 +1296,19 @@ function BentoCard({ title, body, tag, className }: {
   title: string; body: string; tag: string; className?: string;
 }): React.ReactElement {
   return (
-    <div className={"group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-7 transition-colors hover:border-zinc-300 hover:bg-zinc-50 " + (className ?? "")}>
-      <span className="inline-block rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-        {tag}
-      </span>
-      <h3 className="mt-4 text-xl font-medium tracking-tight text-zinc-900">{title}</h3>
-      <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-600">{body}</p>
-    </div>
+    <Card
+      render={
+        <div className={"relative overflow-hidden rounded-2xl border border-zinc-200 bg-white " + (className ?? "")} />
+      }
+      className="bg-white"
+    >
+      <CardPanel className="p-7">
+        <span className="inline-block rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+          {tag}
+        </span>
+        <h3 className="mt-4 text-xl font-medium tracking-tight text-zinc-900">{title}</h3>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-600">{body}</p>
+      </CardPanel>
+    </Card>
   );
 }

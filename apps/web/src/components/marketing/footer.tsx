@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 import { RalticLogo } from "@/components/raltic-logo";
 
 /**
@@ -10,8 +11,11 @@ import { RalticLogo } from "@/components/raltic-logo";
  */
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-zinc-900 bg-black text-zinc-500">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-5">
+    <Card
+      render={<footer className="bg-black text-zinc-500" />}
+      className="w-full rounded-none border-0 border-t border-zinc-900 bg-black shadow-none"
+    >
+      <CardPanel className="mx-auto grid max-w-6xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2 text-white">
             <RalticLogo size={24} idSuffix="footer-shared" />
@@ -38,28 +42,30 @@ export function MarketingFooter() {
           { label: "Privacy policy", href: "/privacy" },
           { label: "Terms of service", href: "/terms" },
         ]} />
-      </div>
-      <div className="border-t border-zinc-900">
+      </CardPanel>
+      <CardPanel className="border-t border-zinc-900">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-xs sm:flex-row">
           <span>© {new Date().getFullYear()} Raltic</span>
           <span>Reach out: <a className="hover:text-white" href="mailto:hello@raltic.com">hello@raltic.com</a></span>
         </div>
-      </div>
-    </footer>
+      </CardPanel>
+    </Card>
   );
 }
 
 function FooterCol({ label, links }: { label: string; links: { label: string; href: string }[] }) {
   return (
-    <div>
-      <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-600">{label}</p>
-      <ul className="mt-4 space-y-2.5 text-sm">
-        {links.map((l) => (
-          <li key={l.href + l.label}>
-            <Link href={l.href} className="hover:text-white">{l.label}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Card render={<div />} className="border-0 bg-transparent shadow-none">
+      <CardPanel className="space-y-2.5 p-0">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-zinc-600">{label}</p>
+        <ul className="space-y-2.5 text-sm">
+          {links.map((l) => (
+            <li key={l.href + l.label}>
+              <Link href={l.href} className="hover:text-white">{l.label}</Link>
+            </li>
+          ))}
+        </ul>
+      </CardPanel>
+    </Card>
   );
 }

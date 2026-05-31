@@ -1,29 +1,31 @@
 import { ArrowRight, CheckCircle2, ExternalLink, Terminal } from "lucide-react";
+
 import { MarketingFooter } from "./footer";
 import { MarketingButton } from "./marketing-button";
 import { SectionHeader } from "./section-header";
 import type { RuntimeDoc } from "./runtime-data";
 import { MarketingFaqList } from "./faq-list";
+import { Card, CardPanel } from "@/components/heroui-pro/card";
 
 /** Per-accent class lookups — kept inline (vs. dynamic class names) so
  *  Tailwind's purger sees the strings at build time. */
 const ACCENT_TEXT: Record<RuntimeDoc["accent"], string> = {
-  cyan:   "text-cyan-300",
-  amber:  "text-amber-300",
+  cyan: "text-cyan-300",
+  amber: "text-amber-300",
   violet: "text-violet-300",
-  rose:   "text-rose-300",
+  rose: "text-rose-300",
 };
 const ACCENT_BG: Record<RuntimeDoc["accent"], string> = {
-  cyan:   "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-  amber:  "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  cyan: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+  amber: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   violet: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  rose:   "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
 };
 const ACCENT_GLOW: Record<RuntimeDoc["accent"], string> = {
-  cyan:   "rgba(34,211,238,0.10)",
-  amber:  "rgba(245,158,11,0.10)",
+  cyan: "rgba(34,211,238,0.10)",
+  amber: "rgba(245,158,11,0.10)",
   violet: "rgba(167,139,250,0.10)",
-  rose:   "rgba(251,113,133,0.10)",
+  rose: "rgba(251,113,133,0.10)",
 };
 
 /**
@@ -39,8 +41,8 @@ export function RuntimePage({ doc }: { doc: RuntimeDoc }) {
   return (
     <>
       <Hero doc={doc} />
-      <section className="border-y border-zinc-900 bg-black">
-        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2">
+      <Card render={<section className="border-y border-zinc-900 bg-black" />} className="w-full rounded-none border-0 shadow-none">
+        <CardPanel className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2">
           <div>
             <h2 className="text-2xl font-medium text-white">What it is</h2>
             <p className="mt-3 text-zinc-400">{doc.whatItIs}</p>
@@ -60,8 +62,8 @@ export function RuntimePage({ doc }: { doc: RuntimeDoc }) {
               Lifecycle: <span className="text-zinc-200">{doc.lifecycle === "external_daemon" ? "External daemon (yours)" : "Per-turn CLI spawn"}</span>
             </div>
           </div>
-        </div>
-      </section>
+        </CardPanel>
+      </Card>
 
       <InstallStrip doc={doc} />
       <BestAt doc={doc} />
@@ -120,8 +122,8 @@ function Hero({ doc }: { doc: RuntimeDoc }) {
 
 function InstallStrip({ doc }: { doc: RuntimeDoc }) {
   return (
-    <section className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 py-24">
+    <Card render={<section className="bg-white text-zinc-900" />} className="w-full rounded-none border-0 shadow-none">
+      <CardPanel className="mx-auto max-w-6xl px-6 py-24">
         <SectionHeader
           dark={false}
           eyebrow="Install"
@@ -133,65 +135,69 @@ function InstallStrip({ doc }: { doc: RuntimeDoc }) {
           }
         />
         <div className="mx-auto mt-10 max-w-3xl">
-          <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 font-mono text-sm">
-            <Terminal className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-            <code className="flex-1 truncate text-zinc-800">{doc.installCmd}</code>
-          </div>
+          <Card className="rounded-xl border border-zinc-200 bg-zinc-50">
+            <CardPanel className="flex items-center gap-3 px-4 py-3">
+              <Terminal className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+              <code className="flex-1 truncate text-zinc-800">{doc.installCmd}</code>
+            </CardPanel>
+          </Card>
           <p className="mt-4 text-center text-[12px] text-zinc-500">
             Then sign up and pick <span className="font-medium text-zinc-800">{doc.shortName}</span> when creating your first agent.
           </p>
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
 function BestAt({ doc }: { doc: RuntimeDoc }) {
   return (
-    <section className="border-y border-zinc-900 bg-black">
-      <div className="mx-auto max-w-6xl px-6 py-24">
+    <Card render={<section className="border-y border-zinc-900 bg-black" />} className="w-full rounded-none border-0 shadow-none">
+      <CardPanel className="mx-auto max-w-6xl px-6 py-24">
         <SectionHeader
           eyebrow="Best at"
           title={<>Three things this runtime is best at in Raltic.</>}
         />
         <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-3">
           {doc.bestAt.map((point, idx) => (
-            <div key={idx} className="rounded-xl border border-zinc-900 bg-zinc-950 p-5">
-              <div className={`flex items-center gap-2 ${ACCENT_TEXT[doc.accent]}`}>
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-[10.5px] font-medium uppercase tracking-wider">{`#${idx + 1}`}</span>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-300">{point}</p>
-            </div>
+            <Card key={idx} className="rounded-xl border border-zinc-900 bg-zinc-950">
+              <CardPanel>
+                <div className={`flex items-center gap-2 ${ACCENT_TEXT[doc.accent]}`}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-[10.5px] font-medium uppercase tracking-wider">{`#${idx + 1}`}</span>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{point}</p>
+              </CardPanel>
+            </Card>
           ))}
         </div>
         <p className="mx-auto mt-10 max-w-2xl text-center text-[12px] text-zinc-500">
-          Available models in Raltic: {doc.models.map(m => <code key={m} className="mx-0.5 rounded bg-zinc-900 px-1 py-0.5 text-zinc-300">{m}</code>)}
+          Available models in Raltic: {doc.models.map((m) => <code key={m} className="mx-0.5 rounded bg-zinc-900 px-1 py-0.5 text-zinc-300">{m}</code>)}
         </p>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
 function Faq({ doc }: { doc: RuntimeDoc }) {
   return (
-    <section className="bg-white text-zinc-900">
-      <div className="mx-auto max-w-3xl px-6 py-24">
+    <Card render={<section className="bg-white text-zinc-900" />} className="w-full rounded-none border-0 shadow-none">
+      <CardPanel className="mx-auto max-w-3xl px-6 py-24">
         <SectionHeader
           dark={false}
           eyebrow="FAQ"
           title={<>Questions specific to {doc.shortName}.</>}
         />
         <MarketingFaqList idPrefix={doc.key} items={doc.faq} theme="light" />
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
 
 function Cta({ doc }: { doc: RuntimeDoc }) {
   return (
-    <section className="border-t border-zinc-900 bg-black px-6 py-24">
-      <div className="mx-auto max-w-2xl text-center">
+    <Card render={<section className="border-t border-zinc-900 bg-black" />} className="w-full rounded-none border-0 shadow-none">
+      <CardPanel className="mx-auto max-w-2xl px-6 py-24 text-center">
         <h2 className="text-balance text-3xl font-medium tracking-[-0.02em] text-white sm:text-4xl">
           Bring {doc.shortName} into the team channel.
         </h2>
@@ -203,7 +209,7 @@ function Cta({ doc }: { doc: RuntimeDoc }) {
             Start free <ArrowRight className="h-4 w-4" />
           </MarketingButton>
         </div>
-      </div>
-    </section>
+      </CardPanel>
+    </Card>
   );
 }
