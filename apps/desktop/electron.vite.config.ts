@@ -19,6 +19,13 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
  */
 export default defineConfig({
   main: {
+    define: {
+      // `ws` treats these native modules as optional runtime accelerators.
+      // Vite turns unresolved optional peer deps into top-level throws in the
+      // Electron main bundle, so force the pure-JS branches for desktop.
+      "process.env.WS_NO_BUFFER_UTIL": JSON.stringify("1"),
+      "process.env.WS_NO_UTF_8_VALIDATE": JSON.stringify("1"),
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/main/index.ts"),

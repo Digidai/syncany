@@ -2,7 +2,7 @@
 
 Minimal Electron shell that:
 
-1. Loads the desktop launch surface at `https://raltic.com/desktop/launch`
+1. Loads the desktop welcome surface at `https://raltic.com/desktop/welcome`
    (origin overridable with `RALTIC_WEB_URL`) in a single window.
 2. Boots `@raltic/bridge-core` inside the main process so a separate
    `npx @raltic/bridge` terminal isn't required.
@@ -36,11 +36,12 @@ pnpm --filter @raltic/desktop package  # → unpacked internal QA app
 The intended product flow is:
 
 1. Open the app.
-2. Sign in on the desktop-aware login screen if no web session exists.
-3. The desktop launch screen resolves the user's default/personal workspace.
-4. Click **Connect this computer** to create a per-machine key, save it locally,
+2. Review the desktop welcome screen, then click **Get started**.
+3. Sign in on the desktop-aware login screen if no web session exists.
+4. The desktop launch screen resolves the user's default/personal workspace.
+5. Click **Connect this computer** to create a per-machine key, save it locally,
    and start the embedded bridge.
-5. The app opens the workspace once the bridge is running. Users can also
+6. The app opens the workspace once the bridge is running. Users can also
    choose **Skip for now** when they only want cloud agents or human chat.
 
 The desktop main process stores bridge config at `~/.raltic/desktop/config.json`:

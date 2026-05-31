@@ -56,6 +56,69 @@ function setPixel(rgba, width, x, y, color) {
   rgba[i + 3] = color[3];
 }
 
+function clamp01(n) {
+  return Math.max(0, Math.min(1, n));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function mixColor(a, b, t) {
+  return [
+    Math.round(lerp(a[0], b[0], t)),
+    Math.round(lerp(a[1], b[1], t)),
+    Math.round(lerp(a[2], b[2], t)),
+    Math.round(lerp(a[3] ?? 255, b[3] ?? 255, t)),
+  ];
+}
+
+function gradientColor(stops, t) {
+  const n = clamp01(t);
+  for (let i = 1; i < stops.length; i += 1) {
+    if (n <= stops[i][0]) {
+      const [prevAt, prev] = stops[i - 1];
+      const [nextAt, next] = stops[i];
+      return mixColor(prev, next, (n - prevAt) / (nextAt - prevAt));
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+function blendOverPixel(rgba, width, x, y, color) {
+  const i = (y * width + x) * 4;
+  const sa = (color[3] ?? 255) / 255;
+  if (sa <= 0) return;
+  const da = rgba[i + 3] / 255;
+  const oa = sa + da * (1 - sa);
+  if (oa <= 0) return;
+  rgba[i] = Math.round((color[0] * sa + rgba[i] * da * (1 - sa)) / oa);
+  rgba[i + 1] = Math.round((color[1] * sa + rgba[i + 1] * da * (1 - sa)) / oa);
+  rgba[i + 2] = Math.round((color[2] * sa + rgba[i + 2] * da * (1 - sa)) / oa);
+  rgba[i + 3] = Math.round(oa * 255);
+}
+
+function blendScreenPixel(rgba, width, x, y, color) {
+  const i = (y * width + x) * 4;
+  const screened = [
+    Math.round(255 - ((255 - color[0]) * (255 - rgba[i])) / 255),
+    Math.round(255 - ((255 - color[1]) * (255 - rgba[i + 1])) / 255),
+    Math.round(255 - ((255 - color[2]) * (255 - rgba[i + 2])) / 255),
+    color[3],
+  ];
+  blendOverPixel(rgba, width, x, y, screened);
+}
+
+function distanceToColor(rgba, i, color) {
+  return Math.abs(rgba[i] - color[0])
+    + Math.abs(rgba[i + 1] - color[1])
+    + Math.abs(rgba[i + 2] - color[2]);
+}
+
+function pixelLooksCyan(rgba, i) {
+  return rgba[i + 1] > rgba[i] + 18 && rgba[i + 2] > rgba[i] + 18;
+}
+
 function roundedRectMask(x, y, w, h, r) {
   const dx = x < r ? r - x : x >= w - r ? x - (w - r - 1) : 0;
   const dy = y < r ? r - y : y >= h - r ? y - (h - r - 1) : 0;
@@ -81,20 +144,81 @@ function fillCircle(rgba, width, height, cx, cy, radius, color) {
   }
 }
 
-function fillLine(rgba, width, height, x1, y1, x2, y2, thickness, color) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len2 = dx * dx + dy * dy;
-  const r = thickness / 2;
-  const r2 = r * r;
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len2));
-      const px = x1 + t * dx;
-      const py = y1 + t * dy;
-      const ddx = x - px;
-      const ddy = y - py;
-      if (ddx * ddx + ddy * ddy <= r2) setPixel(rgba, width, x, y, color);
+function drawSoftCircle(rgba, width, height, cx, cy, radius, color, opts = {}) {
+  const pad = Math.ceil(opts.pad ?? 2);
+  const bg = opts.backgroundColor;
+  for (let y = Math.max(0, Math.floor(cy - radius - pad)); y < Math.min(height, Math.ceil(cy + radius + pad)); y += 1) {
+    for (let x = Math.max(0, Math.floor(cx - radius - pad)); x < Math.min(width, Math.ceil(cx + radius + pad)); x += 1) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const alpha = (color[3] ?? 255) * clamp01(radius + 1 - dist);
+      if (alpha <= 0) continue;
+      const next = [color[0], color[1], color[2], Math.round(alpha)];
+      if (opts.screenOnCyan) {
+        const i = (y * width + x) * 4;
+        if (rgba[i + 3] > 0 && pixelLooksCyan(rgba, i)) {
+          blendScreenPixel(rgba, width, x, y, next);
+          continue;
+        }
+      }
+      if (opts.screenOnPainted && bg) {
+        const i = (y * width + x) * 4;
+        if (rgba[i + 3] > 0 && distanceToColor(rgba, i, bg) > 45) {
+          blendScreenPixel(rgba, width, x, y, next);
+          continue;
+        }
+      }
+      blendOverPixel(rgba, width, x, y, next);
+    }
+  }
+}
+
+function drawOrb(rgba, width, height, cx, cy, radius, stops, opts = {}) {
+  const bg = opts.backgroundColor;
+  const lightX = cx - radius * 0.28;
+  const lightY = cy - radius * 0.32;
+  const shadowX = cx + radius * 0.45;
+  const shadowY = cy + radius * 0.62;
+  for (let y = Math.max(0, Math.floor(cy - radius - 2)); y < Math.min(height, Math.ceil(cy + radius + 2)); y += 1) {
+    for (let x = Math.max(0, Math.floor(cx - radius - 2)); x < Math.min(width, Math.ceil(cx + radius + 2)); x += 1) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      const dx = px - cx;
+      const dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const edge = clamp01(radius + 1.2 - dist);
+      if (edge <= 0) continue;
+
+      const lightDist = Math.hypot(px - lightX, py - lightY);
+      let color = gradientColor(stops, lightDist / (radius * 1.36));
+
+      const shadowDist = Math.hypot(px - shadowX, py - shadowY);
+      const shadow = 0.32 * clamp01(1 - shadowDist / (radius * 0.8));
+      color = mixColor(color, [0, 0, 0, 255], shadow);
+
+      const rim = 0.36 * clamp01((radius - (py - (cy - radius))) / (radius * 0.22));
+      color = mixColor(color, [255, 255, 255, 255], rim);
+
+      const spec = 0.66 * Math.pow(clamp01(1 - lightDist / (radius * 0.48)), 1.8);
+      color = mixColor(color, [255, 255, 255, 255], spec);
+      color[3] = Math.round((opts.alpha ?? 255) * edge);
+
+      if (opts.screenOnCyan) {
+        const i = (y * width + x) * 4;
+        if (rgba[i + 3] > 0 && pixelLooksCyan(rgba, i)) {
+          blendScreenPixel(rgba, width, x, y, color);
+          continue;
+        }
+      }
+      if (opts.screenOnPainted && bg) {
+        const i = (y * width + x) * 4;
+        if (rgba[i + 3] > 0 && distanceToColor(rgba, i, bg) > 45) {
+          blendScreenPixel(rgba, width, x, y, color);
+          continue;
+        }
+      }
+      blendOverPixel(rgba, width, x, y, color);
     }
   }
 }
@@ -102,18 +226,27 @@ function fillLine(rgba, width, height, x1, y1, x2, y2, thickness, color) {
 function drawIcon(size) {
   const rgba = Buffer.alloc(size * size * 4);
   const s = size / 1024;
-  const bg = [9, 16, 27, 255];
-  const panel = [13, 28, 45, 255];
-  const cyan = [8, 184, 204, 255];
-  const mint = [50, 211, 166, 255];
-  fillRoundedRect(rgba, size, size, Math.round(80 * s), Math.round(80 * s), Math.round(864 * s), Math.round(864 * s), Math.round(210 * s), bg);
-  fillCircle(rgba, size, size, Math.round(710 * s), Math.round(260 * s), Math.round(180 * s), [20, 90, 115, 180]);
-  fillRoundedRect(rgba, size, size, Math.round(158 * s), Math.round(158 * s), Math.round(708 * s), Math.round(708 * s), Math.round(164 * s), panel);
-  fillRoundedRect(rgba, size, size, Math.round(300 * s), Math.round(250 * s), Math.round(110 * s), Math.round(520 * s), Math.round(48 * s), cyan);
-  fillRoundedRect(rgba, size, size, Math.round(300 * s), Math.round(250 * s), Math.round(330 * s), Math.round(104 * s), Math.round(50 * s), cyan);
-  fillRoundedRect(rgba, size, size, Math.round(522 * s), Math.round(300 * s), Math.round(110 * s), Math.round(210 * s), Math.round(50 * s), cyan);
-  fillRoundedRect(rgba, size, size, Math.round(300 * s), Math.round(462 * s), Math.round(320 * s), Math.round(100 * s), Math.round(48 * s), mint);
-  fillLine(rgba, size, size, Math.round(470 * s), Math.round(548 * s), Math.round(680 * s), Math.round(780 * s), Math.round(112 * s), mint);
+  const bg = [247, 244, 239, 255];
+  fillRoundedRect(rgba, size, size, Math.round(72 * s), Math.round(72 * s), Math.round(880 * s), Math.round(880 * s), Math.round(220 * s), bg);
+
+  const cx1 = 422 * s;
+  const cx2 = 602 * s;
+  const cy = 512 * s;
+  const r = 250 * s;
+  drawSoftCircle(rgba, size, size, cx1, cy + 22 * s, r * 1.08, [6, 182, 212, 76], { backgroundColor: bg, pad: 4 });
+  drawSoftCircle(rgba, size, size, cx2, cy + 22 * s, r * 1.08, [245, 158, 11, 72], { backgroundColor: bg, pad: 4 });
+  drawOrb(rgba, size, size, cx1, cy, r, [
+    [0, [165, 243, 252, 255]],
+    [0.4, [34, 211, 238, 255]],
+    [0.85, [14, 116, 144, 255]],
+    [1, [8, 51, 68, 255]],
+  ], { backgroundColor: bg });
+  drawOrb(rgba, size, size, cx2, cy, r, [
+    [0, [254, 243, 199, 255]],
+    [0.4, [251, 191, 36, 255]],
+    [0.85, [180, 83, 9, 255]],
+    [1, [69, 26, 3, 255]],
+  ], { backgroundColor: bg, screenOnCyan: true });
   return png(size, size, rgba);
 }
 
@@ -121,11 +254,8 @@ function drawTray(size) {
   const rgba = Buffer.alloc(size * size * 4);
   const black = [0, 0, 0, 255];
   const s = size / 32;
-  fillRoundedRect(rgba, size, size, Math.round(7 * s), Math.round(5 * s), Math.round(5 * s), Math.round(22 * s), Math.round(2 * s), black);
-  fillRoundedRect(rgba, size, size, Math.round(7 * s), Math.round(5 * s), Math.round(14 * s), Math.round(5 * s), Math.round(2 * s), black);
-  fillRoundedRect(rgba, size, size, Math.round(17 * s), Math.round(8 * s), Math.round(5 * s), Math.round(8 * s), Math.round(2 * s), black);
-  fillRoundedRect(rgba, size, size, Math.round(7 * s), Math.round(14 * s), Math.round(14 * s), Math.round(5 * s), Math.round(2 * s), black);
-  fillLine(rgba, size, size, Math.round(15 * s), Math.round(18 * s), Math.round(24 * s), Math.round(27 * s), Math.round(5 * s), black);
+  fillCircle(rgba, size, size, Math.round(13 * s), Math.round(16 * s), Math.round(9 * s), black);
+  fillCircle(rgba, size, size, Math.round(20 * s), Math.round(16 * s), Math.round(9 * s), black);
   return png(size, size, rgba);
 }
 

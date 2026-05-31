@@ -1,28 +1,28 @@
-import require$$1$5, { Tray, Menu, app, nativeImage, dialog, ipcMain, BrowserWindow, shell } from "electron";
+import require$$1$4, { Tray, Menu, app, nativeImage, dialog, ipcMain, BrowserWindow, shell } from "electron";
 import { join as join$1, dirname as dirname$1 } from "node:path";
 import { fileURLToPath as fileURLToPath$1 } from "node:url";
 import { homedir } from "node:os";
 import { existsSync as existsSync$1, lstatSync, readFileSync as readFileSync$2, mkdirSync as mkdirSync$1, chmodSync, writeFileSync as writeFileSync$2, renameSync, unlinkSync } from "node:fs";
 import require$$0$4 from "events";
-import require$$1$1 from "https";
-import require$$2$2 from "http";
+import require$$1 from "https";
+import require$$2$1 from "http";
 import require$$3 from "net";
 import require$$4 from "tls";
 import require$$0$3, { createHash as createHash$2 } from "crypto";
 import require$$0$2 from "stream";
-import require$$2$1, { fileURLToPath } from "url";
+import require$$2, { fileURLToPath } from "url";
 import require$$0 from "zlib";
 import require$$0$1 from "buffer";
-import require$$1$2, { existsSync, writeFileSync as writeFileSync$1, mkdirSync, readFileSync as readFileSync$1, readdirSync, statSync, rmSync } from "fs";
-import require$$1$3, { join, dirname, resolve } from "path";
+import require$$1$1, { existsSync, writeFileSync as writeFileSync$1, mkdirSync, readFileSync as readFileSync$1, readdirSync, statSync, rmSync } from "fs";
+import require$$1$2, { join, dirname, resolve } from "path";
 import { createRequire } from "node:module";
-import require$$1$6, { execFile, spawn } from "child_process";
+import require$$1$5, { execFile, spawn } from "child_process";
 import require$$4$1, { promisify } from "util";
-import require$$2$3, { networkInterfaces, hostname } from "os";
+import require$$2$2, { networkInterfaces, hostname } from "os";
 import { randomUUID } from "node:crypto";
 import require$$0$5 from "constants";
 import require$$5 from "assert";
-import require$$1$4 from "tty";
+import require$$1$3 from "tty";
 var _a$1;
 function $constructor(name, initializer2, params) {
   function init(inst, def) {
@@ -258,7 +258,7 @@ const NUMBER_FORMAT_RANGES = {
   float32: [-34028234663852886e22, 34028234663852886e22],
   float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
 };
-function pick(schema2, mask2) {
+function pick(schema2, mask) {
   const currDef = schema2._zod.def;
   const checks = currDef.checks;
   const hasChecks = checks && checks.length > 0;
@@ -268,11 +268,11 @@ function pick(schema2, mask2) {
   const def = mergeDefs(schema2._zod.def, {
     get shape() {
       const newShape = {};
-      for (const key in mask2) {
+      for (const key in mask) {
         if (!(key in currDef.shape)) {
           throw new Error(`Unrecognized key: "${key}"`);
         }
-        if (!mask2[key])
+        if (!mask[key])
           continue;
         newShape[key] = currDef.shape[key];
       }
@@ -283,7 +283,7 @@ function pick(schema2, mask2) {
   });
   return clone$2(schema2, def);
 }
-function omit(schema2, mask2) {
+function omit(schema2, mask) {
   const currDef = schema2._zod.def;
   const checks = currDef.checks;
   const hasChecks = checks && checks.length > 0;
@@ -293,11 +293,11 @@ function omit(schema2, mask2) {
   const def = mergeDefs(schema2._zod.def, {
     get shape() {
       const newShape = { ...schema2._zod.def.shape };
-      for (const key in mask2) {
+      for (const key in mask) {
         if (!(key in currDef.shape)) {
           throw new Error(`Unrecognized key: "${key}"`);
         }
-        if (!mask2[key])
+        if (!mask[key])
           continue;
         delete newShape[key];
       }
@@ -361,7 +361,7 @@ function merge$1(a, b) {
   });
   return clone$2(a, def);
 }
-function partial(Class, schema2, mask2) {
+function partial(Class, schema2, mask) {
   const currDef = schema2._zod.def;
   const checks = currDef.checks;
   const hasChecks = checks && checks.length > 0;
@@ -372,12 +372,12 @@ function partial(Class, schema2, mask2) {
     get shape() {
       const oldShape = schema2._zod.def.shape;
       const shape = { ...oldShape };
-      if (mask2) {
-        for (const key in mask2) {
+      if (mask) {
+        for (const key in mask) {
           if (!(key in oldShape)) {
             throw new Error(`Unrecognized key: "${key}"`);
           }
-          if (!mask2[key])
+          if (!mask[key])
             continue;
           shape[key] = Class ? new Class({
             type: "optional",
@@ -399,17 +399,17 @@ function partial(Class, schema2, mask2) {
   });
   return clone$2(schema2, def);
 }
-function required(Class, schema2, mask2) {
+function required(Class, schema2, mask) {
   const def = mergeDefs(schema2._zod.def, {
     get shape() {
       const oldShape = schema2._zod.def.shape;
       const shape = { ...oldShape };
-      if (mask2) {
-        for (const key in mask2) {
+      if (mask) {
+        for (const key in mask) {
           if (!(key in shape)) {
             throw new Error(`Unrecognized key: "${key}"`);
           }
-          if (!mask2[key])
+          if (!mask[key])
             continue;
           shape[key] = new Class({
             type: "nonoptional",
@@ -4220,11 +4220,11 @@ const ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
     merge(other) {
       return merge$1(this, other);
     },
-    pick(mask2) {
-      return pick(this, mask2);
+    pick(mask) {
+      return pick(this, mask);
     },
-    omit(mask2) {
-      return omit(this, mask2);
+    omit(mask) {
+      return omit(this, mask);
     },
     partial(...args) {
       return partial(ZodOptional, this, args[0]);
@@ -5078,31 +5078,6 @@ var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof win
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
-function getAugmentedNamespace(n) {
-  if (n.__esModule) return n;
-  var f = n.default;
-  if (typeof f == "function") {
-    var a = function a2() {
-      if (this instanceof a2) {
-        return Reflect.construct(f, arguments, this.constructor);
-      }
-      return f.apply(this, arguments);
-    };
-    a.prototype = f.prototype;
-  } else a = {};
-  Object.defineProperty(a, "__esModule", { value: true });
-  Object.keys(n).forEach(function(k) {
-    var d = Object.getOwnPropertyDescriptor(n, k);
-    Object.defineProperty(a, k, d.get ? d : {
-      enumerable: true,
-      get: function() {
-        return n[k];
-      }
-    });
-  });
-  return a;
-}
-var bufferUtil$1 = { exports: {} };
 const BINARY_TYPES$2 = ["nodebuffer", "arraybuffer", "fragments"];
 const hasBlob$1 = typeof Blob !== "undefined";
 if (hasBlob$1) BINARY_TYPES$2.push("blob");
@@ -5119,14 +5094,6 @@ var constants$3 = {
   NOOP: () => {
   }
 };
-const __viteOptionalPeerDep_bufferutil_ws = {};
-const __viteOptionalPeerDep_bufferutil_ws$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  default: __viteOptionalPeerDep_bufferutil_ws
-}, Symbol.toStringTag, { value: "Module" }));
-const require$$1 = /* @__PURE__ */ getAugmentedNamespace(__viteOptionalPeerDep_bufferutil_ws$1);
-var unmask$1;
-var mask;
 const { EMPTY_BUFFER: EMPTY_BUFFER$3 } = constants$3;
 const FastBuffer$2 = Buffer[Symbol.species];
 function concat$1(list, totalLength) {
@@ -5144,14 +5111,14 @@ function concat$1(list, totalLength) {
   }
   return target;
 }
-function _mask(source, mask2, output, offset, length) {
+function _mask(source, mask, output, offset, length) {
   for (let i = 0; i < length; i++) {
-    output[offset + i] = source[i] ^ mask2[i & 3];
+    output[offset + i] = source[i] ^ mask[i & 3];
   }
 }
-function _unmask(buffer, mask2) {
+function _unmask(buffer, mask) {
   for (let i = 0; i < buffer.length; i++) {
-    buffer[i] ^= mask2[i & 3];
+    buffer[i] ^= mask[i & 3];
   }
 }
 function toArrayBuffer$1(buf) {
@@ -5174,28 +5141,13 @@ function toBuffer$2(data) {
   }
   return buf;
 }
-bufferUtil$1.exports = {
+var bufferUtil$1 = {
   concat: concat$1,
   mask: _mask,
   toArrayBuffer: toArrayBuffer$1,
   toBuffer: toBuffer$2,
   unmask: _unmask
 };
-if (!process.env.WS_NO_BUFFER_UTIL) {
-  try {
-    const bufferUtil2 = require$$1;
-    mask = bufferUtil$1.exports.mask = function(source, mask2, output, offset, length) {
-      if (length < 48) _mask(source, mask2, output, offset, length);
-      else bufferUtil2.mask(source, mask2, output, offset, length);
-    };
-    unmask$1 = bufferUtil$1.exports.unmask = function(buffer, mask2) {
-      if (buffer.length < 32) _unmask(buffer, mask2);
-      else bufferUtil2.unmask(buffer, mask2);
-    };
-  } catch (e) {
-  }
-}
-var bufferUtilExports = bufferUtil$1.exports;
 const kDone = Symbol("kDone");
 const kRun = Symbol("kRun");
 let Limiter$1 = class Limiter {
@@ -5240,7 +5192,7 @@ let Limiter$1 = class Limiter {
 };
 var limiter = Limiter$1;
 const zlib = require$$0;
-const bufferUtil = bufferUtilExports;
+const bufferUtil = bufferUtil$1;
 const Limiter2 = limiter;
 const { kStatusCode: kStatusCode$2 } = constants$3;
 const FastBuffer$1 = Buffer[Symbol.species];
@@ -5616,13 +5568,6 @@ function inflateOnError(err) {
   this[kCallback](err);
 }
 var validation = { exports: {} };
-const __viteOptionalPeerDep_utf8Validate_ws = {};
-const __viteOptionalPeerDep_utf8Validate_ws$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  default: __viteOptionalPeerDep_utf8Validate_ws
-}, Symbol.toStringTag, { value: "Module" }));
-const require$$2 = /* @__PURE__ */ getAugmentedNamespace(__viteOptionalPeerDep_utf8Validate_ws$1);
-var isValidUTF8_1;
 const { isUtf8 } = require$$0$1;
 const { hasBlob } = constants$3;
 const tokenChars$2 = [
@@ -5805,17 +5750,9 @@ validation.exports = {
   tokenChars: tokenChars$2
 };
 if (isUtf8) {
-  isValidUTF8_1 = validation.exports.isValidUTF8 = function(buf) {
+  validation.exports.isValidUTF8 = function(buf) {
     return buf.length < 24 ? _isValidUTF8(buf) : isUtf8(buf);
   };
-} else if (!process.env.WS_NO_UTF_8_VALIDATE) {
-  try {
-    const isValidUTF82 = require$$2;
-    isValidUTF8_1 = validation.exports.isValidUTF8 = function(buf) {
-      return buf.length < 32 ? _isValidUTF8(buf) : isValidUTF82(buf);
-    };
-  } catch (e) {
-  }
 }
 var validationExports = validation.exports;
 const { Writable } = require$$0$2;
@@ -5826,7 +5763,7 @@ const {
   kStatusCode: kStatusCode$1,
   kWebSocket: kWebSocket$3
 } = constants$3;
-const { concat, toArrayBuffer, unmask } = bufferUtilExports;
+const { concat, toArrayBuffer, unmask } = bufferUtil$1;
 const { isValidStatusCode: isValidStatusCode$1, isValidUTF8 } = validationExports;
 const FastBuffer = Buffer[Symbol.species];
 const GET_INFO = 0;
@@ -6408,7 +6345,7 @@ const { randomFillSync } = require$$0$3;
 const PerMessageDeflate$1 = permessageDeflate;
 const { EMPTY_BUFFER: EMPTY_BUFFER$1, kWebSocket: kWebSocket$2, NOOP: NOOP$1 } = constants$3;
 const { isBlob: isBlob$1, isValidStatusCode } = validationExports;
-const { mask: applyMask, toBuffer: toBuffer$1 } = bufferUtilExports;
+const { mask: applyMask, toBuffer: toBuffer$1 } = bufferUtil$1;
 const kByteLength = Symbol("kByteLength");
 const maskBuffer = Buffer.alloc(4);
 const RANDOM_POOL_SIZE = 8 * 1024;
@@ -6463,14 +6400,14 @@ let Sender$1 = class Sender {
    * @public
    */
   static frame(data, options) {
-    let mask2;
+    let mask;
     let merge2 = false;
     let offset = 2;
     let skipMasking = false;
     if (options.mask) {
-      mask2 = options.maskBuffer || maskBuffer;
+      mask = options.maskBuffer || maskBuffer;
       if (options.generateMask) {
-        options.generateMask(mask2);
+        options.generateMask(mask);
       } else {
         if (randomPoolPointer === RANDOM_POOL_SIZE) {
           if (randomPool === void 0) {
@@ -6479,12 +6416,12 @@ let Sender$1 = class Sender {
           randomFillSync(randomPool, 0, RANDOM_POOL_SIZE);
           randomPoolPointer = 0;
         }
-        mask2[0] = randomPool[randomPoolPointer++];
-        mask2[1] = randomPool[randomPoolPointer++];
-        mask2[2] = randomPool[randomPoolPointer++];
-        mask2[3] = randomPool[randomPoolPointer++];
+        mask[0] = randomPool[randomPoolPointer++];
+        mask[1] = randomPool[randomPoolPointer++];
+        mask[2] = randomPool[randomPoolPointer++];
+        mask[3] = randomPool[randomPoolPointer++];
       }
-      skipMasking = (mask2[0] | mask2[1] | mask2[2] | mask2[3]) === 0;
+      skipMasking = (mask[0] | mask[1] | mask[2] | mask[3]) === 0;
       offset = 6;
     }
     let dataLength;
@@ -6519,16 +6456,16 @@ let Sender$1 = class Sender {
     }
     if (!options.mask) return [target, data];
     target[1] |= 128;
-    target[offset - 4] = mask2[0];
-    target[offset - 3] = mask2[1];
-    target[offset - 2] = mask2[2];
-    target[offset - 1] = mask2[3];
+    target[offset - 4] = mask[0];
+    target[offset - 3] = mask[1];
+    target[offset - 2] = mask[2];
+    target[offset - 1] = mask[3];
     if (skipMasking) return [target, data];
     if (merge2) {
-      applyMask(data, mask2, target, offset, dataLength);
+      applyMask(data, mask, target, offset, dataLength);
       return [target];
     }
-    applyMask(data, mask2, data, 0, dataLength);
+    applyMask(data, mask, data, 0, dataLength);
     return [target, data];
   }
   /**
@@ -6540,7 +6477,7 @@ let Sender$1 = class Sender {
    * @param {Function} [cb] Callback
    * @public
    */
-  close(code, data, mask2, cb) {
+  close(code, data, mask, cb) {
     let buf;
     if (code === void 0) {
       buf = EMPTY_BUFFER$1;
@@ -6566,7 +6503,7 @@ let Sender$1 = class Sender {
       [kByteLength]: buf.length,
       fin: true,
       generateMask: this._generateMask,
-      mask: mask2,
+      mask,
       maskBuffer: this._maskBuffer,
       opcode: 8,
       readOnly: false,
@@ -6586,7 +6523,7 @@ let Sender$1 = class Sender {
    * @param {Function} [cb] Callback
    * @public
    */
-  ping(data, mask2, cb) {
+  ping(data, mask, cb) {
     let byteLength;
     let readOnly;
     if (typeof data === "string") {
@@ -6607,7 +6544,7 @@ let Sender$1 = class Sender {
       [kByteLength]: byteLength,
       fin: true,
       generateMask: this._generateMask,
-      mask: mask2,
+      mask,
       maskBuffer: this._maskBuffer,
       opcode: 9,
       readOnly,
@@ -6633,7 +6570,7 @@ let Sender$1 = class Sender {
    * @param {Function} [cb] Callback
    * @public
    */
-  pong(data, mask2, cb) {
+  pong(data, mask, cb) {
     let byteLength;
     let readOnly;
     if (typeof data === "string") {
@@ -6654,7 +6591,7 @@ let Sender$1 = class Sender {
       [kByteLength]: byteLength,
       fin: true,
       generateMask: this._generateMask,
-      mask: mask2,
+      mask,
       maskBuffer: this._maskBuffer,
       opcode: 10,
       readOnly,
@@ -7249,13 +7186,13 @@ function format$1(extensions) {
 }
 var extension = { format: format$1, parse: parse$8 };
 const EventEmitter = require$$0$4;
-const https = require$$1$1;
-const http = require$$2$2;
+const https = require$$1;
+const http = require$$2$1;
 const net = require$$3;
 const tls = require$$4;
 const { randomBytes, createHash: createHash$1 } = require$$0$3;
 const { Duplex: Duplex$2, Readable } = require$$0$2;
-const { URL: URL$1 } = require$$2$1;
+const { URL: URL$1 } = require$$2;
 const PerMessageDeflate2 = permessageDeflate;
 const Receiver2 = receiver;
 const Sender2 = sender;
@@ -7275,7 +7212,7 @@ const {
   EventTarget: { addEventListener, removeEventListener }
 } = eventTarget;
 const { format, parse: parse$7 } = extension;
-const { toBuffer } = bufferUtilExports;
+const { toBuffer } = bufferUtil$1;
 const kAborted = Symbol("kAborted");
 const protocolVersions = [8, 13];
 const readyStates = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
@@ -7534,24 +7471,24 @@ class WebSocket extends EventEmitter {
    * @param {Function} [cb] Callback which is executed when the ping is sent
    * @public
    */
-  ping(data, mask2, cb) {
+  ping(data, mask, cb) {
     if (this.readyState === WebSocket.CONNECTING) {
       throw new Error("WebSocket is not open: readyState 0 (CONNECTING)");
     }
     if (typeof data === "function") {
       cb = data;
-      data = mask2 = void 0;
-    } else if (typeof mask2 === "function") {
-      cb = mask2;
-      mask2 = void 0;
+      data = mask = void 0;
+    } else if (typeof mask === "function") {
+      cb = mask;
+      mask = void 0;
     }
     if (typeof data === "number") data = data.toString();
     if (this.readyState !== WebSocket.OPEN) {
       sendAfterClose(this, data, cb);
       return;
     }
-    if (mask2 === void 0) mask2 = !this._isServer;
-    this._sender.ping(data || EMPTY_BUFFER, mask2, cb);
+    if (mask === void 0) mask = !this._isServer;
+    this._sender.ping(data || EMPTY_BUFFER, mask, cb);
   }
   /**
    * Send a pong.
@@ -7561,24 +7498,24 @@ class WebSocket extends EventEmitter {
    * @param {Function} [cb] Callback which is executed when the pong is sent
    * @public
    */
-  pong(data, mask2, cb) {
+  pong(data, mask, cb) {
     if (this.readyState === WebSocket.CONNECTING) {
       throw new Error("WebSocket is not open: readyState 0 (CONNECTING)");
     }
     if (typeof data === "function") {
       cb = data;
-      data = mask2 = void 0;
-    } else if (typeof mask2 === "function") {
-      cb = mask2;
-      mask2 = void 0;
+      data = mask = void 0;
+    } else if (typeof mask === "function") {
+      cb = mask;
+      mask = void 0;
     }
     if (typeof data === "number") data = data.toString();
     if (this.readyState !== WebSocket.OPEN) {
       sendAfterClose(this, data, cb);
       return;
     }
-    if (mask2 === void 0) mask2 = !this._isServer;
-    this._sender.pong(data || EMPTY_BUFFER, mask2, cb);
+    if (mask === void 0) mask = !this._isServer;
+    this._sender.pong(data || EMPTY_BUFFER, mask, cb);
   }
   /**
    * Resume the socket.
@@ -11199,7 +11136,7 @@ function clone$1(obj) {
   });
   return copy2;
 }
-var fs$h = require$$1$2;
+var fs$h = require$$1$1;
 var polyfills = polyfills$1;
 var legacy = legacyStreams;
 var clone = clone_1;
@@ -11662,7 +11599,7 @@ function retry$2() {
 })(fs$i);
 var makeDir$1 = {};
 var utils$1 = {};
-const path$l = require$$1$3;
+const path$l = require$$1$2;
 utils$1.checkPath = function checkPath(pth) {
   if (process.platform === "win32") {
     const pathHasInvalidWinCharacters = /[<>:"|?*]/.test(pth.replace(path$l.parse(pth).root, ""));
@@ -11736,7 +11673,7 @@ var utimes = {
   utimesMillisSync: utimesMillisSync$1
 };
 const fs$d = fs$i;
-const path$k = require$$1$3;
+const path$k = require$$1$2;
 const util$1 = require$$4$1;
 function getStats$2(src2, dest, opts) {
   const statFunc = opts.dereference ? (file2) => fs$d.stat(file2, { bigint: true }) : (file2) => fs$d.lstat(file2, { bigint: true });
@@ -11860,7 +11797,7 @@ var stat$4 = {
   areIdentical: areIdentical$2
 };
 const fs$c = gracefulFs;
-const path$j = require$$1$3;
+const path$j = require$$1$2;
 const mkdirs$1 = mkdirs$2.mkdirs;
 const pathExists$5 = pathExists_1.pathExists;
 const utimesMillis = utimes.utimesMillis;
@@ -12050,7 +11987,7 @@ function copyLink$1(resolvedSrc, dest, cb) {
 }
 var copy_1 = copy$2;
 const fs$b = gracefulFs;
-const path$i = require$$1$3;
+const path$i = require$$1$2;
 const mkdirsSync$1 = mkdirs$2.mkdirsSync;
 const utimesMillisSync = utimes.utimesMillisSync;
 const stat$2 = stat$4;
@@ -12182,7 +12119,7 @@ var copy$1 = {
   copySync: copySync_1
 };
 const fs$a = gracefulFs;
-const path$h = require$$1$3;
+const path$h = require$$1$2;
 const assert = require$$5;
 const isWindows = process.platform === "win32";
 function defaults(options) {
@@ -12426,7 +12363,7 @@ var remove_1 = {
 };
 const u$6 = universalify$1.fromPromise;
 const fs$8 = fs$i;
-const path$g = require$$1$3;
+const path$g = require$$1$2;
 const mkdir$3 = mkdirs$2;
 const remove$1 = remove_1;
 const emptyDir = u$6(async function emptyDir2(dir) {
@@ -12457,7 +12394,7 @@ var empty = {
   emptydir: emptyDir
 };
 const u$5 = universalify$1.fromCallback;
-const path$f = require$$1$3;
+const path$f = require$$1$2;
 const fs$7 = gracefulFs;
 const mkdir$2 = mkdirs$2;
 function createFile$1(file2, callback) {
@@ -12512,7 +12449,7 @@ var file = {
   createFileSync: createFileSync$1
 };
 const u$4 = universalify$1.fromCallback;
-const path$e = require$$1$3;
+const path$e = require$$1$2;
 const fs$6 = gracefulFs;
 const mkdir$1 = mkdirs$2;
 const pathExists$4 = pathExists_1.pathExists;
@@ -12566,7 +12503,7 @@ var link = {
   createLink: u$4(createLink$1),
   createLinkSync: createLinkSync$1
 };
-const path$d = require$$1$3;
+const path$d = require$$1$2;
 const fs$5 = gracefulFs;
 const pathExists$3 = pathExists_1.pathExists;
 function symlinkPaths$1(srcpath, dstpath, callback) {
@@ -12664,7 +12601,7 @@ var symlinkType_1 = {
   symlinkTypeSync: symlinkTypeSync$1
 };
 const u$3 = universalify$1.fromCallback;
-const path$c = require$$1$3;
+const path$c = require$$1$2;
 const fs$3 = fs$i;
 const _mkdirs = mkdirs$2;
 const mkdirs = _mkdirs.mkdirs;
@@ -12771,7 +12708,7 @@ let _fs;
 try {
   _fs = gracefulFs;
 } catch (_) {
-  _fs = require$$1$2;
+  _fs = require$$1$1;
 }
 const universalify = universalify$1;
 const { stringify: stringify$3, stripBom } = utils;
@@ -12843,7 +12780,7 @@ var jsonfile = {
 };
 const u$2 = universalify$1.fromCallback;
 const fs$2 = gracefulFs;
-const path$b = require$$1$3;
+const path$b = require$$1$2;
 const mkdir = mkdirs$2;
 const pathExists$1 = pathExists_1.pathExists;
 function outputFile$1(file2, data, encoding, callback) {
@@ -12899,7 +12836,7 @@ jsonFile.readJSON = jsonFile.readJson;
 jsonFile.readJSONSync = jsonFile.readJsonSync;
 var json$1 = jsonFile;
 const fs$1 = gracefulFs;
-const path$a = require$$1$3;
+const path$a = require$$1$2;
 const copy = copy$1.copy;
 const remove = remove_1.remove;
 const mkdirp = mkdirs$2.mkdirp;
@@ -12963,7 +12900,7 @@ function moveAcrossDevice$1(src2, dest, overwrite, cb) {
 }
 var move_1 = move$1;
 const fs = gracefulFs;
-const path$9 = require$$1$3;
+const path$9 = require$$1$2;
 const copySync = copy$1.copySync;
 const removeSync = remove_1.removeSync;
 const mkdirpSync = mkdirs$2.mkdirpSync;
@@ -13626,8 +13563,8 @@ var hasRequiredSupportsColor;
 function requireSupportsColor() {
   if (hasRequiredSupportsColor) return supportsColor_1;
   hasRequiredSupportsColor = 1;
-  const os2 = require$$2$3;
-  const tty = require$$1$4;
+  const os2 = require$$2$2;
+  const tty = require$$1$3;
   const hasFlag2 = requireHasFlag();
   const { env } = process;
   let forceColor;
@@ -13728,7 +13665,7 @@ function requireNode() {
   if (hasRequiredNode) return node.exports;
   hasRequiredNode = 1;
   (function(module, exports) {
-    const tty = require$$1$4;
+    const tty = require$$1$3;
     const util2 = require$$4$1;
     exports.init = init;
     exports.log = log;
@@ -13969,9 +13906,9 @@ httpExecutor.configureRequestOptions = configureRequestOptions;
 httpExecutor.safeStringifyJson = safeStringifyJson;
 const crypto_1$4 = require$$0$3;
 const debug_1$1 = srcExports;
-const fs_1$5 = require$$1$2;
+const fs_1$5 = require$$1$1;
 const stream_1$2 = require$$0$2;
-const url_1$7 = require$$2$1;
+const url_1$7 = require$$2;
 const CancellationToken_1$1 = CancellationToken$1;
 const error_1$2 = error;
 const ProgressCallbackTransform_1 = ProgressCallbackTransform$1;
@@ -21450,10 +21387,10 @@ Object.defineProperty(DownloadedUpdateHelper$1, "__esModule", { value: true });
 DownloadedUpdateHelper$1.DownloadedUpdateHelper = void 0;
 DownloadedUpdateHelper$1.createTempUpdateFile = createTempUpdateFile;
 const crypto_1$2 = require$$0$3;
-const fs_1$4 = require$$1$2;
+const fs_1$4 = require$$1$1;
 const isEqual = lodash_isequalExports;
 const fs_extra_1$6 = lib;
-const path$8 = require$$1$3;
+const path$8 = require$$1$2;
 class DownloadedUpdateHelper {
   constructor(cacheDir) {
     this.cacheDir = cacheDir;
@@ -21606,8 +21543,8 @@ var ElectronAppAdapter$1 = {};
 var AppAdapter = {};
 Object.defineProperty(AppAdapter, "__esModule", { value: true });
 AppAdapter.getAppCacheDir = getAppCacheDir;
-const path$7 = require$$1$3;
-const os_1$1 = require$$2$3;
+const path$7 = require$$1$2;
+const os_1$1 = require$$2$2;
 function getAppCacheDir() {
   const homedir2 = (0, os_1$1.homedir)();
   let result;
@@ -21622,10 +21559,10 @@ function getAppCacheDir() {
 }
 Object.defineProperty(ElectronAppAdapter$1, "__esModule", { value: true });
 ElectronAppAdapter$1.ElectronAppAdapter = void 0;
-const path$6 = require$$1$3;
+const path$6 = require$$1$2;
 const AppAdapter_1 = AppAdapter;
 class ElectronAppAdapter {
-  constructor(app2 = require$$1$5.app) {
+  constructor(app2 = require$$1$4.app) {
     this.app = app2;
   }
   whenReady() {
@@ -21668,7 +21605,7 @@ var electronHttpExecutor = {};
   const builder_util_runtime_12 = out;
   exports.NET_SESSION_NAME = "electron-updater";
   function getNetSession() {
-    return require$$1$5.session.fromPartition(exports.NET_SESSION_NAME, {
+    return require$$1$4.session.fromPartition(exports.NET_SESSION_NAME, {
       cache: false
     });
   }
@@ -21709,7 +21646,7 @@ var electronHttpExecutor = {};
       if (this.cachedSession == null) {
         this.cachedSession = getNetSession();
       }
-      const request = require$$1$5.net.request({
+      const request = require$$1$4.net.request({
         ...options,
         session: this.cachedSession
       });
@@ -21738,7 +21675,7 @@ Object.defineProperty(util, "__esModule", { value: true });
 util.newBaseUrl = newBaseUrl;
 util.newUrlFromBase = newUrlFromBase;
 util.getChannelFilename = getChannelFilename;
-const url_1$6 = require$$2$1;
+const url_1$6 = require$$2;
 function newBaseUrl(url) {
   const result = new url_1$6.URL(url);
   if (!result.pathname.endsWith("/")) {
@@ -21801,7 +21738,7 @@ Provider$1.getFileList = getFileList;
 Provider$1.resolveFiles = resolveFiles;
 const builder_util_runtime_1$f = out;
 const js_yaml_1$2 = jsYaml;
-const url_1$5 = require$$2$1;
+const url_1$5 = require$$2;
 const util_1$6 = util;
 const escapeRegExp$1 = lodash_escaperegexp;
 class Provider {
@@ -22020,7 +21957,7 @@ GitHubProvider$1.GitHubProvider = GitHubProvider$1.BaseGitHubProvider = void 0;
 GitHubProvider$1.computeReleaseNotes = computeReleaseNotes;
 const builder_util_runtime_1$c = out;
 const semver = semver$1;
-const url_1$4 = require$$2$1;
+const url_1$4 = require$$2;
 const util_1$3 = util;
 const Provider_1$9 = Provider$1;
 const hrefRegExp = /\/tag\/([^/]+)$/;
@@ -22195,7 +22132,7 @@ var GitLabProvider$1 = {};
 Object.defineProperty(GitLabProvider$1, "__esModule", { value: true });
 GitLabProvider$1.GitLabProvider = void 0;
 const builder_util_runtime_1$b = out;
-const url_1$3 = require$$2$1;
+const url_1$3 = require$$2;
 const escapeRegExp = lodash_escaperegexp;
 const util_1$2 = util;
 const Provider_1$8 = Provider$1;
@@ -22478,8 +22415,8 @@ Object.defineProperty(PrivateGitHubProvider$1, "__esModule", { value: true });
 PrivateGitHubProvider$1.PrivateGitHubProvider = void 0;
 const builder_util_runtime_1$9 = out;
 const js_yaml_1$1 = jsYaml;
-const path$5 = require$$1$3;
-const url_1$2 = require$$2$1;
+const path$5 = require$$1$2;
+const url_1$2 = require$$2;
 const util_1 = util;
 const GitHubProvider_1$1 = GitHubProvider$1;
 const Provider_1$6 = Provider$1;
@@ -22734,7 +22671,7 @@ Object.defineProperty(DataSplitter$1, "__esModule", { value: true });
 DataSplitter$1.DataSplitter = void 0;
 DataSplitter$1.copyData = copyData;
 const builder_util_runtime_1$7 = out;
-const fs_1$3 = require$$1$2;
+const fs_1$3 = require$$1$1;
 const stream_1$1 = require$$0$2;
 const downloadPlanBuilder_1$2 = downloadPlanBuilder;
 const DOUBLE_CRLF = Buffer.from("\r\n\r\n");
@@ -23144,9 +23081,9 @@ Object.defineProperty(DifferentialDownloader$1, "__esModule", { value: true });
 DifferentialDownloader$1.DifferentialDownloader = void 0;
 const builder_util_runtime_1$5 = out;
 const fs_extra_1$5 = lib;
-const fs_1$2 = require$$1$2;
+const fs_1$2 = require$$1$1;
 const DataSplitter_1 = DataSplitter$1;
-const url_1$1 = require$$2$1;
+const url_1$1 = require$$2;
 const downloadPlanBuilder_1 = downloadPlanBuilder;
 const multipleRangeDownloader_1 = multipleRangeDownloader;
 const ProgressDifferentialDownloadCallbackTransform_1 = ProgressDifferentialDownloadCallbackTransform$1;
@@ -23432,12 +23369,12 @@ Object.defineProperty(AppUpdater$1, "__esModule", { value: true });
 AppUpdater$1.NoOpLogger = AppUpdater$1.AppUpdater = void 0;
 const builder_util_runtime_1$4 = out;
 const crypto_1$1 = require$$0$3;
-const os_1 = require$$2$3;
+const os_1 = require$$2$2;
 const events_1 = require$$0$4;
 const fs_extra_1$4 = lib;
 const js_yaml_1 = jsYaml;
 const lazy_val_1 = main;
-const path$4 = require$$1$3;
+const path$4 = require$$1$2;
 const semver_1 = semver$1;
 const DownloadedUpdateHelper_1 = DownloadedUpdateHelper$1;
 const ElectronAppAdapter_1 = ElectronAppAdapter$1;
@@ -23644,7 +23581,7 @@ class AppUpdater extends events_1.EventEmitter {
       }
       void it.downloadPromise.then(() => {
         const notificationContent = AppUpdater.formatDownloadNotification(it.updateInfo.version, this.app.name, downloadNotification);
-        new require$$1$5.Notification(notificationContent).show();
+        new require$$1$4.Notification(notificationContent).show();
       });
       return it;
     });
@@ -24050,7 +23987,7 @@ class NoOpLogger {
 AppUpdater$1.NoOpLogger = NoOpLogger;
 Object.defineProperty(BaseUpdater$1, "__esModule", { value: true });
 BaseUpdater$1.BaseUpdater = void 0;
-const child_process_1$3 = require$$1$6;
+const child_process_1$3 = require$$1$5;
 const AppUpdater_1$1 = AppUpdater$1;
 class BaseUpdater extends AppUpdater_1$1.AppUpdater {
   constructor(options, app2) {
@@ -24063,7 +24000,7 @@ class BaseUpdater extends AppUpdater_1$1.AppUpdater {
     const isInstalled = this.install(isSilent, isSilent ? isForceRunAfter : this.autoRunAppAfterInstall);
     if (isInstalled) {
       setImmediate(() => {
-        require$$1$5.autoUpdater.emit("before-quit-for-update");
+        require$$1$4.autoUpdater.emit("before-quit-for-update");
         this.app.quit();
       });
     } else {
@@ -24214,10 +24151,10 @@ async function readEmbeddedBlockMapData(file2) {
 Object.defineProperty(AppImageUpdater$1, "__esModule", { value: true });
 AppImageUpdater$1.AppImageUpdater = void 0;
 const builder_util_runtime_1$3 = out;
-const child_process_1$2 = require$$1$6;
+const child_process_1$2 = require$$1$5;
 const fs_extra_1$2 = lib;
-const fs_1$1 = require$$1$2;
-const path$3 = require$$1$3;
+const fs_1$1 = require$$1$1;
+const path$3 = require$$1$2;
 const BaseUpdater_1$2 = BaseUpdater$1;
 const FileWithEmbeddedBlockMapDifferentialDownloader_1$1 = FileWithEmbeddedBlockMapDifferentialDownloader$1;
 const Provider_1$5 = Provider$1;
@@ -24612,17 +24549,17 @@ Object.defineProperty(MacUpdater$1, "__esModule", { value: true });
 MacUpdater$1.MacUpdater = void 0;
 const builder_util_runtime_1$2 = out;
 const fs_extra_1$1 = lib;
-const fs_1 = require$$1$2;
-const path$2 = require$$1$3;
-const http_1 = require$$2$2;
+const fs_1 = require$$1$1;
+const path$2 = require$$1$2;
+const http_1 = require$$2$1;
 const AppUpdater_1 = AppUpdater$1;
 const Provider_1$1 = Provider$1;
-const child_process_1$1 = require$$1$6;
+const child_process_1$1 = require$$1$5;
 const crypto_1 = require$$0$3;
 class MacUpdater extends AppUpdater_1.AppUpdater {
   constructor(options, app2) {
     super(options, app2);
-    this.nativeUpdater = require$$1$5.autoUpdater;
+    this.nativeUpdater = require$$1$4.autoUpdater;
     this.squirrelDownloadedUpdate = false;
     this.nativeUpdater.on("error", (it) => {
       this._logger.warn(it);
@@ -24847,9 +24784,9 @@ var windowsExecutableCodeSignatureVerifier = {};
 Object.defineProperty(windowsExecutableCodeSignatureVerifier, "__esModule", { value: true });
 windowsExecutableCodeSignatureVerifier.verifySignature = verifySignature;
 const builder_util_runtime_1$1 = out;
-const child_process_1 = require$$1$6;
-const os = require$$2$3;
-const path$1 = require$$1$3;
+const child_process_1 = require$$1$5;
+const os = require$$2$2;
+const path$1 = require$$1$2;
 function preparePowerShellExec(command, timeout) {
   const executable = `set "PSModulePath=" & chcp 65001 >NUL & powershell.exe`;
   const args = ["-NoProfile", "-NonInteractive", "-InputFormat", "None", "-Command", command];
@@ -24955,14 +24892,14 @@ function isOldWin6() {
 Object.defineProperty(NsisUpdater$1, "__esModule", { value: true });
 NsisUpdater$1.NsisUpdater = void 0;
 const builder_util_runtime_1 = out;
-const path = require$$1$3;
+const path = require$$1$2;
 const BaseUpdater_1 = BaseUpdater$1;
 const FileWithEmbeddedBlockMapDifferentialDownloader_1 = FileWithEmbeddedBlockMapDifferentialDownloader$1;
 const types_1 = types;
 const Provider_1 = Provider$1;
 const fs_extra_1 = lib;
 const windowsExecutableCodeSignatureVerifier_1 = windowsExecutableCodeSignatureVerifier;
-const url_1 = require$$2$1;
+const url_1 = require$$2;
 class NsisUpdater extends BaseUpdater_1.BaseUpdater {
   constructor(options, app2) {
     super(options, app2);
@@ -25077,7 +25014,7 @@ class NsisUpdater extends BaseUpdater_1.BaseUpdater {
       if (errorCode === "UNKNOWN" || errorCode === "EACCES") {
         callUsingElevation();
       } else if (errorCode === "ENOENT") {
-        require$$1$5.shell.openPath(installerPath).catch((err) => this.dispatchError(err));
+        require$$1$4.shell.openPath(installerPath).catch((err) => this.dispatchError(err));
       } else {
         this.dispatchError(e);
       }
@@ -25130,7 +25067,7 @@ NsisUpdater$1.NsisUpdater = NsisUpdater;
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.NsisUpdater = exports.MacUpdater = exports.RpmUpdater = exports.PacmanUpdater = exports.DebUpdater = exports.AppImageUpdater = exports.Provider = exports.NoOpLogger = exports.AppUpdater = exports.BaseUpdater = void 0;
   const fs_extra_12 = lib;
-  const path2 = require$$1$3;
+  const path2 = require$$1$2;
   var BaseUpdater_12 = BaseUpdater$1;
   Object.defineProperty(exports, "BaseUpdater", { enumerable: true, get: function() {
     return BaseUpdater_12.BaseUpdater;
@@ -25282,12 +25219,14 @@ function teardownAutoUpdater() {
 const __dirname$1 = dirname$1(fileURLToPath$1(import.meta.url));
 const WEB_URL = process.env.RALTIC_WEB_URL ?? "https://raltic.com";
 const WEB_ORIGIN = new URL(WEB_URL).origin;
+const DESKTOP_ENTRY_PATH = process.env.RALTIC_DESKTOP_ENTRY_PATH ?? "/desktop/welcome";
+const DESKTOP_ENTRY_URL = new URL(DESKTOP_ENTRY_PATH, WEB_ORIGIN).toString();
 const DESKTOP_LAUNCH_PATH = process.env.RALTIC_DESKTOP_LAUNCH_PATH ?? "/desktop/launch";
-const DESKTOP_LAUNCH_URL = new URL(DESKTOP_LAUNCH_PATH, WEB_ORIGIN).toString();
 const DESKTOP_LAUNCH_PATHNAME = new URL(DESKTOP_LAUNCH_PATH, WEB_ORIGIN).pathname;
 const BRIDGE_API_URL = process.env.RALTIC_API_URL ?? "https://api.raltic.com";
 const BRIDGE_API_ORIGIN = new URL(BRIDGE_API_URL).origin;
 const PRELOAD_PATH = join$1(__dirname$1, "../preload/index.cjs");
+const MAIN_WINDOW_TITLE = "Raltic";
 const ALLOWED_EXTERNAL_PROTOCOLS = /* @__PURE__ */ new Set(["https:", "http:", "mailto:"]);
 function safeOpenExternal(rawUrl) {
   let parsed;
@@ -25319,12 +25258,12 @@ function createMainWindow() {
     return;
   }
   mainWindow = new BrowserWindow({
+    title: MAIN_WINDOW_TITLE,
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
     backgroundColor: "#0a0a0a",
-    titleBarStyle: "hiddenInset",
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -25336,6 +25275,10 @@ function createMainWindow() {
     if (isTrustedUrl(url)) return { action: "allow" };
     safeOpenExternal(url);
     return { action: "deny" };
+  });
+  mainWindow.webContents.on("page-title-updated", (event) => {
+    event.preventDefault();
+    mainWindow?.setTitle(MAIN_WINDOW_TITLE);
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (isTrustedUrl(url)) return;
@@ -25351,7 +25294,7 @@ function createMainWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
-  void mainWindow.loadURL(DESKTOP_LAUNCH_URL);
+  void mainWindow.loadURL(DESKTOP_ENTRY_URL);
 }
 function createSettingsWindow() {
   if (settingsWindow) {

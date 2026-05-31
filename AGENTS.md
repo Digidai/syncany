@@ -111,3 +111,8 @@ cd apps/api && npx wrangler deploy          # deploy api
 cd apps/web && npx opennextjs-cloudflare build
 E2E_BASE_URL=https://raltic.com E2E_API_URL=https://api.raltic.com pnpm e2e
 ```
+
+## Codex skill triggers
+
+- When working in this repo on UI, HeroUI Pro migration, production regression, desktop release, public routes, workspace-agent behavior, deploy status, commit/push status, or live verification, use the `raltic-live-verification` skill before claiming completion.
+- Do not rely on unauthenticated curl or code inspection alone for user-facing Raltic behavior. Use the skill's verification matrix and authenticated browser checks when the task touches production or visible app behavior.

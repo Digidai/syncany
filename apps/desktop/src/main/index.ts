@@ -32,12 +32,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const WEB_URL = process.env.RALTIC_WEB_URL ?? "https://raltic.com";
 const WEB_ORIGIN = new URL(WEB_URL).origin;
+const DESKTOP_ENTRY_PATH = process.env.RALTIC_DESKTOP_ENTRY_PATH ?? "/desktop/welcome";
+const DESKTOP_ENTRY_URL = new URL(DESKTOP_ENTRY_PATH, WEB_ORIGIN).toString();
 const DESKTOP_LAUNCH_PATH = process.env.RALTIC_DESKTOP_LAUNCH_PATH ?? "/desktop/launch";
-const DESKTOP_LAUNCH_URL = new URL(DESKTOP_LAUNCH_PATH, WEB_ORIGIN).toString();
 const DESKTOP_LAUNCH_PATHNAME = new URL(DESKTOP_LAUNCH_PATH, WEB_ORIGIN).pathname;
 const BRIDGE_API_URL = process.env.RALTIC_API_URL ?? "https://api.raltic.com";
 const BRIDGE_API_ORIGIN = new URL(BRIDGE_API_URL).origin;
 const PRELOAD_PATH = join(__dirname, "../preload/index.cjs");
+const MAIN_WINDOW_TITLE = "Raltic";
 
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["https:", "http:", "mailto:"]);
 
@@ -70,12 +72,12 @@ function createMainWindow(): void {
     return;
   }
   mainWindow = new BrowserWindow({
+    title: MAIN_WINDOW_TITLE,
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
     backgroundColor: "#0a0a0a",
-    titleBarStyle: "hiddenInset",
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -88,6 +90,11 @@ function createMainWindow(): void {
     if (isTrustedUrl(url)) return { action: "allow" };
     safeOpenExternal(url);
     return { action: "deny" };
+  });
+
+  mainWindow.webContents.on("page-title-updated", (event) => {
+    event.preventDefault();
+    mainWindow?.setTitle(MAIN_WINDOW_TITLE);
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
@@ -112,7 +119,7 @@ function createMainWindow(): void {
 
   mainWindow.on("closed", () => { mainWindow = null; });
 
-  void mainWindow.loadURL(DESKTOP_LAUNCH_URL);
+  void mainWindow.loadURL(DESKTOP_ENTRY_URL);
 }
 
 function createSettingsWindow(): void {

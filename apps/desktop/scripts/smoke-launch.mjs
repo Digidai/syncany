@@ -101,6 +101,7 @@ try {
       HOME: home,
       RALTIC_WEB_URL: origin,
       RALTIC_API_URL: origin,
+      RALTIC_DESKTOP_ENTRY_PATH: "/desktop/launch",
       RALTIC_DESKTOP_LAUNCH_PATH: "/desktop/launch",
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
     },
