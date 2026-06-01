@@ -9,7 +9,7 @@ import { Input } from "@/components/heroui-pro/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "@/components/heroui-pro/card";
 import { Dialog, DialogPortal, DialogBackdrop, DialogPopup } from "@/components/heroui-pro/dialog";
 import { Radio, RadioGroup } from "@/components/heroui-pro/radio";
-import { Tabs, TabsIndicator, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
+import { Tabs, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
 import { Chip } from "@/components/heroui-pro/chip";
 import { MachineRow } from "@/components/settings-shared";
 import { CheckCircle2, Circle, Copy, KeyRound, Terminal, MessageSquare, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
@@ -667,7 +667,6 @@ export function SetupWizard({
                       >
                         <TabsListContainer className="border-b">
                           <TabsList aria-label="Install method" className="gap-1">
-                            <TabsIndicator />
                             {[
                               { id: "quick" as const, label: "Quick (recommended)" },
                               { id: "persistent" as const, label: "Persistent" },
@@ -679,10 +678,10 @@ export function SetupWizard({
                                   key={t.id}
                                   id={t.id}
                                   className={cn(
-                                    "h-8 rounded-none px-2.5 text-xs",
+                                    "h-8 rounded-none border-b-2 px-2.5 text-xs",
                                     active
-                                      ? "text-cyan-700 dark:text-cyan-400"
-                                      : "text-muted-foreground hover:text-foreground",
+                                      ? "border-cyan-600 text-cyan-700 dark:border-cyan-400 dark:text-cyan-400"
+                                      : "border-transparent text-muted-foreground hover:text-foreground",
                                   )}
                                 >
                                   {t.label}

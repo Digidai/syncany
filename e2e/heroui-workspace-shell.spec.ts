@@ -449,6 +449,93 @@ test("workspace settings danger copy remains readable on gray and soft-danger pa
   await assertVisibleDangerTextReadable(page, "dark mode workspace settings");
 });
 
+test("mobile settings navigation keeps every destination visible without horizontal drift", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setupMockWorkspace(page, context);
+
+  await page.goto("/s/demo/settings/workspace", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+  const settingsNav = page.getByRole("navigation", { name: "Settings sections" });
+
+  for (const label of ["Workspace", "Members & invites", "Channels & agents", "Runtimes", "Connectors", "Account"]) {
+    await expect(settingsNav.getByRole("link", { name: label })).toBeVisible();
+  }
+
+  const metrics = await settingsNav.evaluate((nav) => {
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const linkRects = Array.from(nav.querySelectorAll<HTMLElement>("a")).map((link) => {
+      const box = link.getBoundingClientRect();
+      return {
+        text: link.textContent?.trim() ?? "",
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+      };
+    });
+    return {
+      bodyOverflowX: document.body.scrollWidth > viewport.width + 1,
+      documentOverflowX: document.documentElement.scrollWidth > viewport.width + 1,
+      linkRects,
+      viewport,
+    };
+  });
+
+  expect(metrics.bodyOverflowX).toBe(false);
+  expect(metrics.documentOverflowX).toBe(false);
+  for (const rect of metrics.linkRects) {
+    expect(rect.left, `${rect.text} left edge`).toBeGreaterThanOrEqual(0);
+    expect(rect.right, `${rect.text} right edge`).toBeLessThanOrEqual(metrics.viewport.width);
+  }
+});
+
+test("agent detail page stays in the workspace shell on desktop and mobile", async ({ page, context }) => {
+  await setupMockWorkspace(page, context);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    pageErrors.length = 0;
+
+    await page.goto("/s/demo/agents/agent-cloud", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Cloud Test Agent" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "This page hit an error" })).toHaveCount(0);
+
+    const tabMetrics = await page.getByRole("tablist", { name: "Agent sections" }).evaluate((tablist) => {
+      const viewport = { width: window.innerWidth };
+      return Array.from(tablist.querySelectorAll<HTMLElement>("[role='tab']")).map((tab) => {
+        const box = tab.getBoundingClientRect();
+        return {
+          text: tab.textContent?.trim() ?? "",
+          left: box.left,
+          right: box.right,
+          viewport,
+        };
+      });
+    });
+    for (const tab of tabMetrics) {
+      expect(tab.left, `${tab.text} tab left edge`).toBeGreaterThanOrEqual(0);
+      expect(tab.right, `${tab.text} tab right edge`).toBeLessThanOrEqual(tab.viewport.width);
+    }
+
+    const metrics = await shellMetrics(page);
+    assertNoDocumentOverflow(metrics);
+    assertRectInsideViewport(metrics.main, metrics.viewport, "agent detail main");
+    if (viewport.width >= 768) {
+      assertRectInsideViewport(metrics.sidebar, metrics.viewport, "agent detail desktop sidebar");
+    } else {
+      expect(metrics.sidebar, "agent detail desktop sidebar stays hidden on mobile").toBeNull();
+      assertRectInsideViewport(metrics.openNav, metrics.viewport, "agent detail mobile menu toggle");
+    }
+    expect(pageErrors).toEqual([]);
+  }
+});
+
 test("user account menu opens from the agents page without crashing the workspace", async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await setupMockWorkspace(page, context);

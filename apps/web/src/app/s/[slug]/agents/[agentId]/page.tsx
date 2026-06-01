@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogPopup, AlertDialogHeader, AlertDialogTitle, Ale
 import { Button } from "@/components/heroui-pro/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/heroui-pro/card";
 import { Chip } from "@/components/heroui-pro/chip";
-import { Tabs, TabsIndicator, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
+import { Tabs, TabsList, TabsListContainer, TabsTrigger } from "@/components/heroui-pro/tabs";
 import { useAgentActivity } from "@/hooks/use-agent-activity";
 import { MessageSquare, Pencil, Trash2, Hash, ListChecks, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -301,9 +301,8 @@ export default function AgentProfilePage() {
         onSelectionChange={(key) => setTab(key as TabKey)}
         className="shrink-0 border-b border-border/70 bg-card"
       >
-        <TabsListContainer className="mx-auto w-full max-w-5xl px-6">
-          <TabsList aria-label="Agent sections" className="gap-1">
-            <TabsIndicator />
+        <TabsListContainer className="mx-auto w-full max-w-5xl px-3 sm:px-6">
+          <TabsList aria-label="Agent sections" className="flex w-full min-w-0 gap-0 sm:gap-1">
           {([
             { key: "chat",     label: "Chat",     icon: MessageSquare },
             { key: "tasks",    label: "Tasks",    icon: ListChecks },
@@ -317,10 +316,10 @@ export default function AgentProfilePage() {
                 key={t.key}
                 id={t.key}
                 className={cn(
-                  "h-10 gap-1.5 rounded-none px-3 text-sm",
+                  "h-10 min-w-0 flex-1 justify-center gap-1 rounded-none border-b-2 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
                   active
-                    ? "text-cyan-700 dark:text-cyan-400"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "border-cyan-600 text-cyan-700 dark:border-cyan-400 dark:text-cyan-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />

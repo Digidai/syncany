@@ -43,12 +43,11 @@ test.describe("homepage full section render", () => {
     for (const runtime of ["Anthropic Claude", "OpenAI Codex", "OpenClaw", "Hermes"]) {
       await expect(section.getByText(runtime, { exact: true })).toBeVisible();
     }
-    await expect(section.locator("span").filter({ hasText: /^Experimental$/ })).toHaveCount(2);
-    // .first() to disambiguate strict mode — Experimental string may
-    // appear on multiple descendants of the runtime card after the
-    // 4-runtime + experimental-pill layout.
-    await expect(section.locator("div.text-center").filter({ hasText: /OpenClaw/ }).getByText("Experimental").first()).toBeVisible();
-    await expect(section.locator("div.text-center").filter({ hasText: /Hermes/ }).getByText("Experimental").first()).toBeVisible();
+    const runtimeStrip = section.locator("div.mt-5").first();
+    const experimentalCards = runtimeStrip.locator("div.text-center").filter({ hasText: "Experimental" });
+    await expect(experimentalCards).toHaveCount(2);
+    await expect(runtimeStrip.locator("div.text-center").filter({ hasText: /OpenClaw/ }).getByText("Experimental").first()).toBeVisible();
+    await expect(runtimeStrip.locator("div.text-center").filter({ hasText: /Hermes/ }).getByText("Experimental").first()).toBeVisible();
   });
 
   test("Architecture shows the three-card flow and visibility table", async ({ page }) => {

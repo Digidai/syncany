@@ -160,20 +160,20 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         {/* Mobile tab grid — all settings destinations stay visible on
             narrow screens instead of hiding later tabs behind horizontal
             scroll. */}
-        <div className="border-b border-border/70 bg-background/85 sm:hidden">
-          <ul className="flex gap-1 overflow-x-auto px-2 py-2">
+        <nav aria-label="Settings sections" className="border-b border-border/70 bg-background/85 sm:hidden">
+          <ul className="grid grid-cols-2 gap-1 px-2 py-2 min-[440px]:grid-cols-3">
             {TABS.map((t) => {
               const href = `/s/${slug}/settings/${t.slug}`;
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <li key={t.slug} className="shrink-0">
+                <li key={t.slug} className="min-w-0">
                   <Button
                     render={<Link href={href} />}
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "h-8 gap-1.5 rounded-[8px] border-l-2 px-2.5 text-xs",
+                      "h-8 w-full justify-start gap-1.5 rounded-[8px] border-l-2 px-2.5 text-xs",
                       active
                         ? "border-accent bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)]"
                         : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
@@ -186,7 +186,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
               );
             })}
           </ul>
-        </div>
+        </nav>
 
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}

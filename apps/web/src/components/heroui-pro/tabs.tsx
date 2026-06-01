@@ -29,7 +29,12 @@ export function TabsTrigger({ className, ...props }: React.ComponentProps<typeof
 }
 
 export function TabsIndicator({ className, ...props }: React.ComponentProps<typeof HeroTabs.Indicator>) {
-  return <HeroTabs.Indicator className={className} {...props} />;
+  void className;
+  void props;
+  // HeroUI's animated Indicator currently depends on a SharedElementTransition
+  // provider that our workspace shell does not mount. Use explicit active
+  // trigger styling instead so tabs cannot trip the route error boundary.
+  return null;
 }
 
 export function TabsPanel({ className, ...props }: React.ComponentProps<typeof HeroTabs.Panel>) {
