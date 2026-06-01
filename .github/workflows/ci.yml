@@ -11,9 +11,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci-config:
+    name: CI configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check required package secrets
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
+        run: |
+          if [[ -z "${HEROUI_AUTH_TOKEN}" ]]; then
+            echo "::error::Missing HEROUI_AUTH_TOKEN. Set a valid HeroUI Pro CI token in repository secrets before CI can install @heroui-pro/react."
+            exit 1
+          fi
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
+    needs: ci-config
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +40,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
         env:
           HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
+      - name: Verify HeroUI Pro component install
+        run: |
+          for component in app-layout navbar native-select sheet sidebar; do
+            path="apps/web/node_modules/@heroui-pro/react/dist/components/${component}/index.d.ts"
+            if [[ ! -f "${path}" ]]; then
+              echo "::error::HeroUI Pro install is incomplete: missing ${path}. Check that HEROUI_AUTH_TOKEN is a valid CI-capable HeroUI Pro token."
+              exit 1
+            fi
+          done
       # Typecheck every workspace package via direct tsc, bypassing turbo so
       # packages that use `lint` as their tsc wrapper and apps that use ESLint
       # can be gated independently.
@@ -140,11 +164,12 @@ jobs:
   ci-summary:
     name: CI summary
     runs-on: ubuntu-latest
-    needs: [typecheck, build, unit-tests, e2e]
+    needs: [ci-config, typecheck, build, unit-tests, e2e]
     if: always()
     steps:
       - name: Require all upstream jobs to succeed
         run: |
+          if [[ "${{ needs.ci-config.result }}" != "success" ]]; then echo "ci-config failed" && exit 1; fi
           if [[ "${{ needs.typecheck.result }}" != "success" ]]; then echo "typecheck failed" && exit 1; fi
           if [[ "${{ needs.build.result }}" != "success" ]]; then echo "build failed" && exit 1; fi
           if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then echo "unit-tests failed" && exit 1; fi

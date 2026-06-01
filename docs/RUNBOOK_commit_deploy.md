@@ -170,6 +170,12 @@ If any required secret is missing, the workflow fails in the `Check required
 secrets` step with an explicit error. Do not treat the automatic deploy path as
 healthy until CI and `Deploy web` both pass on `main`.
 
+The `CI` workflow also checks `HEROUI_AUTH_TOKEN` before typecheck and verifies
+the HeroUI Pro component subpath files used by the web app. A missing or
+non-CI-capable HeroUI token should fail there with a direct annotation instead
+of surfacing later as TypeScript `Cannot find module '@heroui-pro/react/*'`
+errors.
+
 Manual fallback remains:
 
 ```bash
