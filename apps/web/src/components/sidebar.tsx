@@ -12,7 +12,7 @@ import { CreateChannelDialog } from "./create-channel-dialog";
 import { NewDmDialog } from "./new-dm-dialog";
 import { Button } from "@/components/heroui-pro/button";
 import { useGateway, useChannelUnread, useWorkspacePresence } from "@/hooks/use-agent-activity";
-import { WorkspaceSwitcher } from "./workspace-switcher";
+import { RalticWordmark } from "./raltic-logo";
 import { UserPill } from "./user-pill";
 
 interface SidebarProps {
@@ -125,12 +125,17 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
     <>
       <HeroSidebar.Header className="!flex-row !items-center !gap-2 !px-3 !pb-2 !pt-3">
         <div className="flex-1 min-w-0">
-          <WorkspaceSwitcher
-            currentServerId={serverId}
-            currentServerName={serverName}
-            currentServerSlug={serverSlug}
-            currentIconUrl={serverIconUrl}
-          />
+          <Link
+            href={`/s/${serverSlug}`}
+            aria-label="Raltic workspace home"
+            className="flex h-10 min-w-0 items-center rounded-[9px] px-1.5 text-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          >
+            <RalticWordmark
+              size={30}
+              idSuffix={isMobile ? "workspace-sidebar-mobile" : "workspace-sidebar"}
+              className="min-w-0 text-sm"
+            />
+          </Link>
         </div>
         <Button
           type="button"
@@ -262,14 +267,18 @@ export function Sidebar({ serverSlug, serverId, serverName, serverIconUrl }: Sid
 
       {/* Footer: identity-only.
           - bottom-left: UserPill (avatar + name + visible "Online"
-            status line + chevron). Click → account settings / sign out.
-          - Workspace-scope settings live in the top WorkspaceSwitcher,
-            keeping account actions and workspace actions separate.
+            status line + chevron). Click → account settings, workspace
+            switching/settings, and sign out.
           - Workspace presence is real (useWorkspacePresence hook is
             wired); the inline "Online" label reflects the fact that
             other teammates see you as online when this tab is open. */}
       <HeroSidebar.Footer className="!gap-0 border-t border-sidebar-border bg-sidebar !px-3 !py-2.5">
-        <UserPill serverSlug={serverSlug} />
+        <UserPill
+          serverSlug={serverSlug}
+          serverId={serverId}
+          serverName={serverName}
+          serverIconUrl={serverIconUrl}
+        />
       </HeroSidebar.Footer>
     </>
   );

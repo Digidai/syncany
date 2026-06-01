@@ -1,9 +1,9 @@
 "use client";
 
-// Workspace switcher — sits at the top of the sidebar. Replaces the static
-// "logo + name" block. Click opens a dropdown listing every workspace the
-// signed-in user is a member of, with a "Create workspace" CTA at the
-// bottom.
+// Workspace switcher primitives. The active workspace no longer occupies the
+// sidebar header; that space is reserved for the Raltic brand. The switcher
+// UI is rendered inside the bottom settings/account menu via
+// WorkspaceMenuSection.
 //
 // Design constraints:
 //   • Reads the workspace list lazily, on first hover/click — most renders
@@ -217,6 +217,150 @@ export function WorkspaceSwitcher({
   );
 }
 
+export function WorkspaceMenuSection({
+  open,
+  currentServerId,
+  currentServerName,
+  currentServerSlug,
+  currentIconUrl,
+}: {
+  open: boolean;
+  currentServerId: string;
+  currentServerName: string;
+  currentServerSlug: string;
+  currentIconUrl?: string | null;
+}) {
+  const [servers, setServers] = useState<MeServer[] | null>(null);
+  const [defaultServerId, setDefaultServerId] = useState<string | null>(null);
+  const [pendingDefault, setPendingDefault] = useState<string | null>(null);
+  const pendingDefaultRef = useRef<string | null>(null);
+  const inFlight = useRef(false);
+  const loadVersion = useRef(0);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  async function ensureLoaded() {
+    if (servers || inFlight.current) return;
+    const version = ++loadVersion.current;
+    inFlight.current = true;
+    try {
+      const me = await api.me();
+      if (mounted.current && version === loadVersion.current) {
+        setServers(me.servers);
+        setDefaultServerId(me.defaultServerId);
+      }
+    } catch (e) {
+      notifyThrown("Couldn't load workspaces", e);
+    } finally {
+      if (version === loadVersion.current) inFlight.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      ensureLoaded();
+    } else {
+      loadVersion.current += 1;
+      inFlight.current = false;
+      setServers(null);
+      setDefaultServerId(null);
+    }
+    // `ensureLoaded` deliberately stays local to this component; depend
+    // only on `open` so closing reliably invalidates the cached list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  async function handleSetDefault(serverId: string) {
+    if (pendingDefaultRef.current) return;
+    pendingDefaultRef.current = serverId;
+    setPendingDefault(serverId);
+    try {
+      await api.setDefaultServer(serverId);
+      if (mounted.current) {
+        setDefaultServerId(serverId);
+        notifySuccess("Default workspace updated");
+      }
+    } catch (e) {
+      notifyThrown("Couldn't update default workspace", e);
+    } finally {
+      pendingDefaultRef.current = null;
+      if (mounted.current) setPendingDefault(null);
+    }
+  }
+
+  function switchTo(slug: string) {
+    if (slug === currentServerSlug) return;
+    window.location.assign(`/s/${slug}`);
+  }
+
+  const otherServers = (servers ?? []).filter((s) => s.id !== currentServerId);
+  const ownedRows = otherServers.filter((s) => s.role === "owner" || s.role === "admin");
+  const joinedRows = otherServers.filter((s) => s.role === "member");
+
+  return (
+    <>
+      <DropdownMenuLabel className="pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider">
+        Current workspace
+      </DropdownMenuLabel>
+      <DropdownMenuLabel className="flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground">
+        <WorkspaceIcon iconUrl={currentIconUrl} name={currentServerName} size="sm" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-foreground">{currentServerName}</span>
+          <span className="block truncate text-[10.5px] font-normal text-muted-foreground">/{currentServerSlug}</span>
+        </span>
+      </DropdownMenuLabel>
+      <DropdownMenuItem href={`/s/${currentServerSlug}/settings/workspace`}>
+        <SettingsIcon className="h-4 w-4" /> Workspace settings
+      </DropdownMenuItem>
+      <DropdownMenuItem href={`/s/${currentServerSlug}/settings/members`}>
+        <Users className="h-4 w-4" /> Members & invites
+      </DropdownMenuItem>
+      <DropdownMenuItem href={`/s/${currentServerSlug}/channels`}>
+        <Hash className="h-4 w-4" /> Browse channels
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel className="pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider">
+        Switch workspace
+      </DropdownMenuLabel>
+      {servers === null ? (
+        <DropdownMenuLabel className="py-2 font-normal">Loading workspaces…</DropdownMenuLabel>
+      ) : otherServers.length === 0 ? (
+        <DropdownMenuLabel className="py-2 font-normal">No other workspaces.</DropdownMenuLabel>
+      ) : (
+        <>
+          {ownedRows.map((s) => (
+            <WorkspaceRow
+              key={s.id}
+              s={s}
+              active={false}
+              isDefault={s.id === defaultServerId}
+              pendingDefault={pendingDefault === s.id}
+              onClick={() => switchTo(s.slug)}
+              onSetDefault={() => handleSetDefault(s.id)}
+            />
+          ))}
+          {ownedRows.length > 0 && joinedRows.length > 0 && <DropdownMenuSeparator />}
+          {joinedRows.map((s) => (
+            <WorkspaceRow
+              key={s.id}
+              s={s}
+              active={false}
+              isDefault={s.id === defaultServerId}
+              pendingDefault={pendingDefault === s.id}
+              onClick={() => switchTo(s.slug)}
+              onSetDefault={() => handleSetDefault(s.id)}
+            />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
 // Workspace dropdown row — switch on click, set-as-default via a
 // secondary menu action. Pulling this out keeps the JSX above
 // readable when we have two grouped sections rendering the same shape.
@@ -265,7 +409,7 @@ function WorkspaceRow({
 }
 
 // Shared workspace icon — falls back to the brand monogram when no upload.
-function WorkspaceIcon({
+export function WorkspaceIcon({
   iconUrl, name, size,
 }: { iconUrl?: string | null; name: string; size: "sm" | "md" }) {
   const dim = size === "md" ? "h-9 w-9" : "h-7 w-7";

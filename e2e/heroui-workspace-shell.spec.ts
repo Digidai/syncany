@@ -548,13 +548,14 @@ test("user account menu opens from the agents page without crashing the workspac
 
   await page.getByTestId("user-pill-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
+  await expect(page.getByText("Switch workspace", { exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   expect(pageErrors, "opening the account menu should not raise client runtime errors").toEqual([]);
 });
 
-test("workspace switcher menu opens from the agents page without invalid menu children", async ({ page, context }) => {
+test("workspace controls live in the settings menu instead of the sidebar brand header", async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await setupMockWorkspace(page, context);
   const pageErrors: string[] = [];
@@ -563,16 +564,21 @@ test("workspace switcher menu opens from the agents page without invalid menu ch
   await page.goto("/s/demo/agents", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Raltic workspace home" })).toBeVisible();
+  await expect(page.getByTestId("workspace-switcher-trigger")).toHaveCount(0);
 
-  await page.getByTestId("workspace-switcher-trigger").click();
-  await expect(page.getByText("Your workspaces", { exact: true })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: /Gene's Workspace/ })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Members & invites" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Browse channels" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
+  await page.getByTestId("user-pill-trigger").click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByText("Current workspace", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Gene's Workspace", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Workspace settings" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Members & invites" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Browse channels" })).toBeVisible();
+  await expect(menu.getByText("Switch workspace", { exact: true })).toBeVisible();
+  await expect(menu.getByText("No other workspaces.", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
-  expect(pageErrors, "opening the workspace switcher should not raise client runtime errors").toEqual([]);
+  expect(pageErrors, "opening the settings workspace controls should not raise client runtime errors").toEqual([]);
 });
 
 test("mobile drawer closes after channel and DM navigation without covering the next page", async ({ page, context }) => {

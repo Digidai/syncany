@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ChevronUp, LogOut, User as UserIcon } from "lucide-react";
 import {
@@ -8,23 +9,26 @@ import {
   DropdownMenuGroup,
 } from "@/components/heroui-pro/menu";
 import { notifyThrown } from "@/lib/notify";
+import { WorkspaceMenuSection } from "./workspace-switcher";
 
 /**
  * Sidebar-bottom identity pill — current user avatar + name + menu.
- *
- * Slack/Discord pattern: the user knows-which-account-they're-in cue
- * lives at the bottom-left, separate from workspace controls (which
- * live at the top-left via WorkspaceSwitcher). Keeping the two affordances
- * physically apart means user-scope actions (sign out, profile)
- * don't get confused with workspace-scope actions (switch workspace,
- * rename, invite).
- *
- * The menu is intentionally small: profile, sign out. Status setting,
- * keyboard-shortcut cheatsheet, theme toggle can all land here later
- * without restructuring.
+ * Workspace controls live here so the sidebar header can stay a stable
+ * Raltic brand anchor instead of changing with the active workspace.
  */
-export function UserPill({ serverSlug }: { serverSlug: string }) {
+export function UserPill({
+  serverSlug,
+  serverId,
+  serverName,
+  serverIconUrl,
+}: {
+  serverSlug: string;
+  serverId: string;
+  serverName: string;
+  serverIconUrl?: string | null;
+}) {
   const { data: session, isPending } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleSignOut() {
     try {
@@ -63,7 +67,7 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
   const initial = (user.name ?? user.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger
         data-testid="user-pill-trigger"
         className="group flex w-full items-center gap-2 rounded-[9px] border border-border bg-surface/85 px-2 py-1.5 text-left !shadow-none transition-colors hover:border-accent/25 hover:bg-surface focus:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
@@ -123,6 +127,14 @@ export function UserPill({ serverSlug }: { serverSlug: string }) {
             {user.email ?? user.name}
           </DropdownMenuLabel>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <WorkspaceMenuSection
+          open={menuOpen}
+          currentServerId={serverId}
+          currentServerName={serverName}
+          currentServerSlug={serverSlug}
+          currentIconUrl={serverIconUrl}
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem href={`/s/${serverSlug}/settings/account`}>
           <UserIcon className="h-4 w-4" />
