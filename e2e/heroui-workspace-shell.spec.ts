@@ -434,6 +434,51 @@ test("settings sections expose every destination and keep the active state in on
   }
 });
 
+test("workspace URL field keeps the prefix readable and aligned with the form", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setupMockWorkspace(page, context);
+
+  await page.goto("/s/demo/settings/workspace", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("workspace-shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("URL")).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const slugInput = document.querySelector<HTMLInputElement>("#workspace-slug");
+    const urlField = slugInput?.parentElement as HTMLElement | null;
+    const prefix = urlField?.querySelector<HTMLElement>("span") ?? null;
+    const form = slugInput?.closest("form") as HTMLElement | null;
+    const rect = (el: HTMLElement | null) => {
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    };
+    const style = (el: HTMLElement | null) => el ? getComputedStyle(el) : null;
+
+    return {
+      form: rect(form),
+      urlField: rect(urlField),
+      prefix: rect(prefix),
+      input: rect(slugInput),
+      prefixColor: style(prefix)?.color ?? null,
+      prefixBackground: style(prefix)?.backgroundColor ?? null,
+      mutedToken: getComputedStyle(document.documentElement).getPropertyValue("--muted").trim(),
+    };
+  });
+
+  const prefixForeground = parseRgb(metrics.prefixColor);
+  const prefixBackground = parseRgb(metrics.prefixBackground);
+  const mutedToken = parseRgb(metrics.mutedToken);
+
+  expect(metrics.form).not.toBeNull();
+  expect(metrics.urlField).not.toBeNull();
+  expect(metrics.prefix).not.toBeNull();
+  expect(metrics.input).not.toBeNull();
+  expect(metrics.urlField!.width, "URL input should align to the full form width").toBeGreaterThan(metrics.form!.width * 0.9);
+  expect(metrics.prefix!.height, "prefix and input heights should align").toBeCloseTo(metrics.input!.height, 1);
+  expect(prefixBackground, "prefix should not reuse the dark muted text token as its background").not.toEqual(mutedToken);
+  expect(prefixForeground && prefixBackground ? contrast(prefixForeground, prefixBackground) : 0, "prefix contrast").toBeGreaterThanOrEqual(4.5);
+});
+
 test("workspace settings danger copy remains readable on gray and soft-danger panels", async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await setupMockWorkspace(page, context);

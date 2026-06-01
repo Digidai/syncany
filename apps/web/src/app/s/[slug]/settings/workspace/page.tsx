@@ -247,8 +247,18 @@ export default function WorkspaceSettingsPage() {
                     user only edits the slug. Auto-lowercases on input so
                     the user can't accidentally type "Acme" and hit the
                     validator on submit. */}
-                <div className={`flex items-stretch overflow-hidden rounded-md border ${liveSlugError || slugError ? "border-destructive/60" : "border-border"} focus-within:ring-2 focus-within:ring-ring`}>
-                  <span className="flex items-center bg-muted px-2.5 font-mono text-xs text-muted-foreground select-none">
+                <div
+                  className={[
+                    "flex min-h-9 w-full items-stretch overflow-hidden rounded-md border",
+                    "bg-[var(--field-background)] shadow-[var(--field-shadow)] transition-[border-color,box-shadow]",
+                    liveSlugError || slugError
+                      ? "border-destructive/60"
+                      : "border-[var(--field-border)] hover:border-[var(--field-border-hover)]",
+                    "focus-within:border-[var(--field-border-focus)] focus-within:ring-2",
+                    "focus-within:ring-[color-mix(in_srgb,var(--accent)_14%,transparent)]",
+                  ].join(" ")}
+                >
+                  <span className="flex min-h-9 shrink-0 items-center border-r border-[var(--field-border)] bg-[var(--surface-secondary)] px-3 font-mono text-sm font-medium text-muted-foreground select-none">
                     /s/
                   </span>
                   <Input
@@ -267,7 +277,7 @@ export default function WorkspaceSettingsPage() {
                     aria-invalid={!!(liveSlugError || slugError)}
                     aria-describedby="slug-hint"
                     unstyled
-                    className="flex-1 bg-transparent px-2 py-1 font-mono text-sm outline-none disabled:text-muted-foreground"
+                    className="min-h-9 min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none disabled:text-muted-foreground disabled:opacity-100 disabled:[-webkit-text-fill-color:var(--muted-foreground)]"
                   />
                 </div>
                 <p id="slug-hint" className={`mt-1 text-[11px] ${liveSlugError || slugError ? "text-danger-text" : "text-muted-foreground"}`}>
