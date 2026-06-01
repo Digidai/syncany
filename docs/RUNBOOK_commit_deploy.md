@@ -146,6 +146,36 @@ git rebase origin/main
 Resolve conflicts, rerun the relevant verification gate, then push again.
 Never force-push to `main`.
 
+## 4.1 Automatic production deploy
+
+Pushes to `main` run the `CI` workflow. When `CI` completes successfully for a
+`main` push, `Deploy web` deploys `apps/web` to the `raltic-web` Cloudflare
+Worker and runs production smoke checks. The deploy job checks out the exact
+commit SHA that passed CI, not whatever happens to be latest by the time the
+deploy starts.
+
+Required GitHub Actions repository configuration:
+
+```text
+Secrets:
+  HEROUI_AUTH_TOKEN       HeroUI Pro CI token that can install @heroui-pro/react
+  CLOUDFLARE_API_TOKEN    Cloudflare token with Workers deploy permissions
+
+Variables:
+  E2E_BASE_URL            https://raltic.com
+  E2E_API_URL             https://api.raltic.com
+```
+
+If any required secret is missing, the workflow fails in the `Check required
+secrets` step with an explicit error. Do not treat the automatic deploy path as
+healthy until CI and `Deploy web` both pass on `main`.
+
+Manual fallback remains:
+
+```bash
+gh workflow run "Deploy web" --repo Digidai/raltic --ref main
+```
+
 ## 5. Apply D1 migrations, only when needed
 
 Only run this when `packages/db/migrations/*.sql` changed.
